@@ -68,7 +68,7 @@ import { closeTerminal, listTerminals, onTerminalEvent, openTerminal, resizeTerm
 import { artifactContent, artifactFile, deleteArtifact, listArtifacts } from '../../core/src/artifacts.js';
 import { deleteProjectContext, listProjectContexts, PROJECT_CONTEXT_TEMPLATE, saveProjectContext, taskProject } from '../../core/src/project-context.js';
 import { getSettings as readSettings } from '../../core/src/settings.js';
-import { copilotAccount, copilotModels, setCopilotToken, stopCopilot } from '../../core/src/copilot.js';
+import { cancelCopilotLogin, copilotAccount, copilotModels, copilotSignOut, setCopilotToken, startCopilotLogin, stopCopilot } from '../../core/src/copilot.js';
 import { githubToken } from '../../core/src/github.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
@@ -236,11 +236,9 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   // GitHub Copilot, the second engine (core/src/copilot.ts).
   handle(CHANNELS.copilotAccount, () => copilotAccount());
   handle(CHANNELS.copilotSetToken, (token: string | null) => setCopilotToken(token));
-  handle(CHANNELS.copilotUseGithub, () => {
-    const t = githubToken();
-    if (!t) throw new Error('Sign in to GitHub first');
-    return setCopilotToken(t);
-  });
+  handle(CHANNELS.copilotLogin, () => startCopilotLogin((ev) => send(CHANNELS.copilotLoginEvent, ev)));
+  handle(CHANNELS.copilotCancelLogin, () => cancelCopilotLogin());
+  handle(CHANNELS.copilotSignOut, () => copilotSignOut());
   handle(CHANNELS.copilotModels, () => copilotModels());
   handle(CHANNELS.pickFolder, async (title?: string) => {
     const w = win();

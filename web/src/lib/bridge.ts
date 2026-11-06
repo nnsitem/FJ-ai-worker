@@ -172,6 +172,7 @@ export type Artifact = {
 };
 export type ProjectContext = { project: string; text: string; updatedAt: string | null };
 export type CopilotAccount = { loggedIn: boolean; login: string | null; how: string | null; message: string | null; tokenSet: boolean };
+export type CopilotLoginEvent = { kind: 'done'; account: CopilotAccount } | { kind: 'error'; message: string };
 export type AppInfo = { version: string; platform: string; claudeConfigDir: string; vpnBrowser: boolean };
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -224,7 +225,10 @@ type Bridge = {
   runsSetOptions(id: string, opts: { agent?: string | null; model?: string | null; engine?: 'claude' | 'copilot' }): P<Run>;
   copilotAccount(): P<CopilotAccount>;
   copilotSetToken(token: string | null): P<CopilotAccount>;
-  copilotUseGithub(): P<CopilotAccount>;
+  copilotLogin(): P<string>;
+  copilotCancelLogin(): P<void>;
+  copilotSignOut(): P<CopilotAccount>;
+  onCopilotLogin(cb: (ev: CopilotLoginEvent) => void): () => void;
   copilotModels(): P<{ id: string; name: string }[]>;
   libraryList(): P<Library>;
   libraryImport(from: 'aiOffice' | 'pick'): P<{ agents: number; skills: number } | null>;

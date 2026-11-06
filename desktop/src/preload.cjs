@@ -64,7 +64,14 @@ contextBridge.exposeInMainWorld('aiWorker', {
   pickFolder: (title) => ipcRenderer.invoke(C.pickFolder, title),
   copilotAccount: () => ipcRenderer.invoke(C.copilotAccount),
   copilotSetToken: (token) => ipcRenderer.invoke(C.copilotSetToken, token),
-  copilotUseGithub: () => ipcRenderer.invoke(C.copilotUseGithub),
+  copilotLogin: () => ipcRenderer.invoke(C.copilotLogin),
+  copilotCancelLogin: () => ipcRenderer.invoke(C.copilotCancelLogin),
+  copilotSignOut: () => ipcRenderer.invoke(C.copilotSignOut),
+  onCopilotLogin: (cb) => {
+    const l = (_e, ev) => cb(ev);
+    ipcRenderer.on(C.copilotLoginEvent, l);
+    return () => ipcRenderer.removeListener(C.copilotLoginEvent, l);
+  },
   copilotModels: () => ipcRenderer.invoke(C.copilotModels),
   runsSetPlace: (id, place) => ipcRenderer.invoke(C.runsSetPlace, id, place),
   runsApprovePush: (id) => ipcRenderer.invoke(C.runsApprovePush, id),

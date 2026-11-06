@@ -13,7 +13,7 @@ import { socksBridge } from './socks-bridge.js';
  * Its own sign-in, apart from any Copilot on this machine: a home of its own
  * under the app's data (COPILOT_HOME), and either a token pasted in (a
  * fine-grained token with the Copilot Requests permission, sealed in the
- * keychain) or a `copilot login` run in that home from the app's terminal.
+ * keychain) or Copilot's own browser sign-in, kept in that home.
  * Its traffic can go through the VPN like GitHub's (Settings › VPN hosts,
  * through the local HTTP→SOCKS bridge), for an organisation that only lets
  * its own network in.
@@ -26,14 +26,18 @@ export const copilotHome = (): string => {
 };
 
 let client: CopilotClient | null = null;
+let clientTunnel = false;
 let starting: Promise<CopilotClient> | null = null;
 
-/** The one runtime, started on first use; restarted when the sign-in changes. */
-export function copilotClient(): Promise<CopilotClient> {
-  if (client) return Promise.resolve(client);
+const viaTunnel = () => getSettings().proxy.hosts.some((h) => /githubcopilot\.com$|github\.com$/.test(h));
+
+/** The one runtime, started on first use; restarted when the sign-in or its routing changes. */
+export async function copilotClient(): Promise<CopilotClient> {
+  if (client && clientTunnel !== viaTunnel() && !starting) await stopCopilot();
+  if (client) return client;
   starting ??= (async () => {
     const token = getSecret('copilot.token');
-    const tunnel = getSettings().proxy.hosts.some((h) => /githubcopilot\.com$|github\.com$/.test(h));
+    const tunnel = viaTunnel();
     const bridge = tunnel ? await socksBridge() : null;
     const ca = getSettings().caFile;
     const c = new CopilotClient({
@@ -49,6 +53,7 @@ export function copilotClient(): Promise<CopilotClient> {
     });
     await c.start();
     client = c;
+    clientTunnel = tunnel;
     return c;
   })().finally(() => (starting = null));
   return starting;
@@ -65,11 +70,104 @@ export type CopilotAccount = { loggedIn: boolean; login: string | null; how: str
 export async function copilotAccount(): Promise<CopilotAccount> {
   const tokenSet = !!getSecret('copilot.token');
   try {
-    const s = await (await copilotClient()).getAuthStatus();
-    return { loggedIn: s.isAuthenticated, login: s.login ?? null, how: s.authType ?? null, message: s.statusMessage ?? null, tokenSet };
+    const c = await copilotClient();
+    const s = await c.getAuthStatus();
+    const account = { loggedIn: s.isAuthenticated, login: s.login ?? null, how: s.authType ?? null, message: s.statusMessage ?? null, tokenSet };
+    if (!account.loggedIn) return account;
+    // Signed in is not the same as allowed Copilot (a classic token signs in
+    // but is refused): the model list is the first thing a task asks for.
+    try {
+      await c.listModels();
+      return account;
+    } catch (e) {
+      return { ...account, loggedIn: false, message: `Signed in, but Copilot refused it: ${refusal(e)}` };
+    }
   } catch (e) {
     return { loggedIn: false, login: null, how: null, message: e instanceof Error ? e.message : String(e), tokenSet };
   }
+}
+
+/** The reason in a refused request (its HTTP body), not the whole dump. */
+function refusal(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  const body = msg.match(/"body":"((?:[^"\\]|\\.)*)"/);
+  const why = (body?.[1] ?? msg).replace(/\\n/g, ' ').trim();
+  return /Personal Access Tokens are not supported/.test(why) ? 'a classic token (ghp_…) can’t use Copilot — sign in to Copilot, or use a fine-grained token.' : why.slice(0, 200);
+}
+
+/** A session for account calls only (the accounts API hangs off a session). */
+async function accountSession(): Promise<CopilotSession> {
+  return (await copilotClient()).createSession({ workingDirectory: copilotHome(), onPermissionRequest: () => ({ kind: 'reject' }) });
+}
+
+export type CopilotLoginEvent = { kind: 'done'; account: CopilotAccount } | { kind: 'error'; message: string };
+
+let login: { flowId: string; session: CopilotSession } | null = null;
+
+/**
+ * Copilot's own browser sign-in (GitHub's OAuth for Copilot, a loopback
+ * redirect the runtime listens for): resolves with the link to open; the
+ * rest is waited for here and told through `onEvent`.
+ */
+export async function startCopilotLogin(onEvent: (ev: CopilotLoginEvent) => void): Promise<string> {
+  await cancelCopilotLogin();
+  // A pasted token wins over a signed-in account: dropped, the runtime started without it.
+  if (getSecret('copilot.token')) {
+    setSecret('copilot.token', null);
+    await stopCopilot();
+  }
+  const session = await accountSession();
+  const begun = await session.rpc.accounts.login.begin({ kind: 'githubDotCom' });
+  if (begun.step.kind !== 'open-url') {
+    await session.disconnect().catch(() => {});
+    throw new Error(begun.step.kind === 'error' ? begun.step.message : `Unexpected sign-in step: ${begun.step.kind}`);
+  }
+  const flow = { flowId: begun.flowId, session };
+  login = flow;
+  void (async () => {
+    try {
+      for (;;) {
+        const step = await session.rpc.accounts.login.advance({ flowId: flow.flowId });
+        if (login !== flow) return;
+        if (step.kind === 'error') throw new Error(step.message);
+        if (step.kind === 'completed') {
+          if (step.result.status !== 'completed') throw new Error(`Sign-in not finished (${step.result.status})`);
+          break;
+        }
+      }
+      login = null;
+      await session.disconnect().catch(() => {});
+      await stopCopilot();
+      onEvent({ kind: 'done', account: await copilotAccount() });
+    } catch (e) {
+      if (login !== flow) return;
+      login = null;
+      await session.disconnect().catch(() => {});
+      onEvent({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+    }
+  })();
+  return (begun.step as { url: string }).url;
+}
+
+export async function cancelCopilotLogin(): Promise<void> {
+  const flow = login;
+  login = null;
+  if (!flow) return;
+  await flow.session.rpc.accounts.login.cancel({ flowId: flow.flowId }).catch(() => {});
+  await flow.session.disconnect().catch(() => {});
+}
+
+/** Out of Copilot: the pasted token dropped, or the signed-in account logged out. */
+export async function copilotSignOut(): Promise<CopilotAccount> {
+  if (getSecret('copilot.token')) return setCopilotToken(null);
+  const session = await accountSession();
+  try {
+    await session.rpc.accounts.set({ command: { kind: 'logout' } });
+  } finally {
+    await session.disconnect().catch(() => {});
+  }
+  await stopCopilot();
+  return copilotAccount();
 }
 
 /** A token for Copilot (or none, to sign out of it): kept, and the runtime restarted with it. */
