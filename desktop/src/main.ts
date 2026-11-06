@@ -10,6 +10,7 @@ import { setClaudeExecutable, cancelClaudeLogin } from '../../core/src/claude-ac
 import { loadLoginPath } from '../../core/src/login-env.js';
 import { setSessionFetch } from '../../core/src/network.js';
 import { applyProxy, registerIpc } from './ipc.js';
+import { closeAllTerminals } from './terminal.js';
 
 // Tokens sealed with the system keychain. Only touched when one is actually
 // sealed or read (an ad-hoc signed app gets a keychain prompt on every update).
@@ -169,4 +170,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => cancelClaudeLogin());
+app.on('before-quit', () => {
+  cancelClaudeLogin();
+  closeAllTerminals();
+});

@@ -13,10 +13,13 @@ extraResources:
   - from: ../web/out
     to: renderer
 
-# The agent SDK spawns its `claude` binary from disk — not from inside asar.
+# The agent SDK spawns its `claude` binary from disk, and node-pty runs its
+# helper — neither from inside asar.
 asar: true
 asarUnpack:
   - "**/node_modules/@anthropic-ai/claude-agent-sdk*/**"
+  # The in-app terminal's native addon and its spawn-helper.
+  - "**/node_modules/node-pty/**"
 
 artifactName: "FJ-AI-Worker-${version}-${arch}.${ext}"
 

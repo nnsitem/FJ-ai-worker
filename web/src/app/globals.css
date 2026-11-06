@@ -355,3 +355,23 @@ code, .aw-mono { font-family: var(--font-mono); font-size: 0.86em; }
 
 .aw-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 100%; padding: 2rem; color: var(--soft); text-align: center; font-size: 0.85rem; }
 .aw-empty svg { color: var(--accent-ink); opacity: 0.85; }
+
+/* ---------- terminal ---------- */
+.aw-term-tabs { display: flex; gap: 4px; padding: 8px 10px 0; border-bottom: 1px solid var(--rule); overflow-x: auto; }
+.aw-term-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 8px 7px 12px; border: 1px solid transparent; border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--muted); font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.aw-term-tab:hover { color: var(--foreground); }
+.aw-term-tab[aria-selected='true'] { background: var(--background); border-color: var(--rule); color: var(--foreground); margin-bottom: -1px; }
+.aw-term-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--soft); }
+.aw-term-dot[data-running] { background: var(--green); }
+.aw-term-x { border: none; background: none; color: var(--soft); font-size: 0.7rem; padding: 2px 4px; border-radius: 4px; cursor: pointer; }
+.aw-term-x:hover { background: rgb(var(--ink) / 0.08); color: var(--foreground); }
+.aw-term-area { flex: 1; min-height: 0; position: relative; background: var(--background); }
+.aw-term { position: absolute; inset: 0; padding: 10px 6px 6px 12px; }
+.aw-term[hidden] { display: none; }
+.aw-term .xterm { height: 100%; }
+.aw-term .xterm-viewport { background: transparent !important; }

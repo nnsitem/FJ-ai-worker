@@ -2,8 +2,9 @@ import { build } from 'esbuild';
 import { cp } from 'node:fs/promises';
 
 // The agent SDK runs a platform-specific `claude` binary from next to itself,
-// which doesn't survive being inlined — it stays in node_modules.
-const EXTERNAL = ['electron', '@anthropic-ai/claude-agent-sdk'];
+// and node-pty is a native addon — neither survives being inlined; both stay
+// in node_modules.
+const EXTERNAL = ['electron', '@anthropic-ai/claude-agent-sdk', 'node-pty'];
 
 await build({
   entryPoints: ['src/main.ts'],

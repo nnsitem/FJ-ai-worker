@@ -92,6 +92,9 @@ export type Run = {
   running: boolean;
 };
 export type ReviewDecision = { kind: 'approve' } | { kind: 'skip' } | { kind: 'changes'; feedback: string };
+export type TerminalKind = 'shell' | 'vpn';
+export type TerminalInfo = { id: string; kind: TerminalKind; title: string; running: boolean; exitCode: number | null; startedAt: string };
+export type TerminalEvent = { kind: 'data'; id: string; data: string } | { kind: 'exit'; id: string; exitCode: number } | { kind: 'list' };
 export type AppInfo = { version: string; platform: string; claudeConfigDir: string; vpnBrowser: boolean };
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -132,6 +135,13 @@ type Bridge = {
   runsRerun(id: string): P<Run>;
   runsDelete(id: string): P<void>;
   onRun(cb: (run: Run) => void): () => void;
+  termList(): P<TerminalInfo[]>;
+  termOpen(kind: TerminalKind, cols?: number, rows?: number): P<TerminalInfo>;
+  termBuffer(id: string): P<string>;
+  termWrite(id: string, data: string): void;
+  termResize(id: string, cols: number, rows: number): void;
+  termClose(id: string): P<void>;
+  onTerminal(cb: (ev: TerminalEvent) => void): () => void;
   openExternal(url: string): P<void>;
   openInVpnBrowser(url: string): P<void>;
 };

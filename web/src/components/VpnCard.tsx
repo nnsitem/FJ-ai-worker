@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { VpnIcon } from './icons';
 import { call, type VpnStatus } from '@/lib/bridge';
@@ -9,6 +10,7 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
   const [status, setStatus] = useState<VpnStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -30,11 +32,22 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
     return () => clearInterval(t);
   }, [check]);
 
+  // The script in the app's own terminal (Terminal page), where its sign-in
+  // and errors show; the tunnel takes a few seconds to come up.
+  const connect = async () => {
+    setError(null);
+    try {
+      await call('termOpen', 'vpn');
+      router.push('/terminal');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const openScript = async () => {
     setError(null);
     try {
       await call('openVpnScript');
-      // The script takes a few seconds to bring the tunnel up.
       setTimeout(() => void check(), 6000);
     } catch (e) {
       setError((e as Error).message);
@@ -56,9 +69,14 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
       {error && <p className="aw-error">{error}</p>}
       <div className="aw-row">
         {!status?.github && (
-          <button type="button" className="aw-btn" data-primary onClick={openScript}>
-            Open the VPN script
-          </button>
+          <>
+            <button type="button" className="aw-btn" data-primary onClick={connect}>
+              Connect VPN
+            </button>
+            <button type="button" className="aw-btn" onClick={openScript}>
+              Open in the Terminal app
+            </button>
+          </>
         )}
         <button type="button" className="aw-btn" onClick={() => void check()} disabled={checking}>
           {checking ? 'Checking…' : 'Check again'}

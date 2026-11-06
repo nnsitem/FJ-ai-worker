@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { call } from '@/lib/bridge';
-import { ConnectionsIcon, RunsIcon, SettingsIcon, TicketsIcon } from './icons';
+import { ConnectionsIcon, RunsIcon, SettingsIcon, TerminalIcon, TicketsIcon } from './icons';
 
 type Item = { href: string; label: string; icon: ComponentType<{ size?: number }> };
 
@@ -16,7 +16,13 @@ const GROUPS: { label: string; items: Item[] }[] = [
       { href: '/tickets', label: 'Tickets', icon: TicketsIcon },
     ],
   },
-  { label: 'Setup', items: [{ href: '/', label: 'Connections', icon: ConnectionsIcon }] },
+  {
+    label: 'Setup',
+    items: [
+      { href: '/', label: 'Connections', icon: ConnectionsIcon },
+      { href: '/terminal', label: 'Terminal', icon: TerminalIcon },
+    ],
+  },
 ];
 const BOTTOM: Item = { href: '/settings', label: 'Settings', icon: SettingsIcon };
 const ALL = [...GROUPS.flatMap((g) => g.items), BOTTOM];

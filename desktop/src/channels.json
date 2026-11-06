@@ -32,6 +32,13 @@
   "runsRerun": "runs:rerun",
   "runsDelete": "runs:delete",
   "runsEvent": "runs:event",
+  "termList": "term:list",
+  "termOpen": "term:open",
+  "termBuffer": "term:buffer",
+  "termWrite": "term:write",
+  "termResize": "term:resize",
+  "termClose": "term:close",
+  "termEvent": "term:event",
   "openExternal": "app:open-external",
   "openInVpnBrowser": "app:open-in-vpn-browser",
   "appInfo": "app:info"

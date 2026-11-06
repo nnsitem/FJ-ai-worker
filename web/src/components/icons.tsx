@@ -13,6 +13,7 @@ import {
   ChatRoundDotsIcon as SolarChat,
   TicketIcon as SolarTicket,
   AddCircleIcon as SolarAddCircle,
+  CodeIcon as SolarCode,
 } from '@solar-icons/react/bold-duotone';
 
 type IconProps = { size?: number };
@@ -34,3 +35,4 @@ export const GithubIcon = solar(SolarCodeSquare);
 export const ClaudeIcon = solar(SolarChat);
 export const JiraIcon = solar(SolarTicket);
 export const AddIcon = solar(SolarAddCircle);
+export const TerminalIcon = solar(SolarCode);

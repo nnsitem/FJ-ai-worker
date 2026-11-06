@@ -26,6 +26,7 @@ import {
 } from '../../core/src/claude-account.js';
 import { connectJira, disconnectJira, getTicket, jiraState, listProjects, searchTickets, type TicketFilter } from '../../core/src/jira.js';
 import { createRun, deleteRun, isRunning, listRuns, onRunChange, rerunAnalysis, reviewPlan, setPlanInTicket, stopRun, type NewRun, type Run } from '../../core/src/runs.js';
+import { closeTerminal, listTerminals, onTerminalEvent, openTerminal, resizeTerminal, terminalBuffer, writeTerminal, type TerminalKind } from './terminal.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
 export { CHANNELS };
@@ -121,6 +122,18 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.runsStop, (id: string) => withLive(stopRun(id)));
   handle(CHANNELS.runsRerun, (id: string) => withLive(rerunAnalysis(id)));
   handle(CHANNELS.runsDelete, (id: string) => deleteRun(id));
+
+  // Terminals (terminal.ts).
+  onTerminalEvent((ev) => send(CHANNELS.termEvent, ev));
+  handle(CHANNELS.termList, () => listTerminals());
+  handle(CHANNELS.termOpen, (kind: TerminalKind, cols?: number, rows?: number) => {
+    if (kind !== 'shell' && kind !== 'vpn') throw new Error('Unknown terminal');
+    return openTerminal(kind, cols, rows);
+  });
+  handle(CHANNELS.termBuffer, (id: string) => terminalBuffer(id));
+  handle(CHANNELS.termClose, (id: string) => closeTerminal(id));
+  ipcMain.on(CHANNELS.termWrite, (_e, id: string, data: string) => writeTerminal(id, data));
+  ipcMain.on(CHANNELS.termResize, (_e, id: string, cols: number, rows: number) => resizeTerminal(id, cols, rows));
 
   handle(CHANNELS.jiraState, () => jiraState());
   handle(CHANNELS.jiraConnect, (input: { site: string; email: string; token: string }) => connectJira(input));

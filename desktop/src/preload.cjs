@@ -46,6 +46,18 @@ contextBridge.exposeInMainWorld('aiWorker', {
     ipcRenderer.on(C.runsEvent, l);
     return () => ipcRenderer.removeListener(C.runsEvent, l);
   },
+  termList: () => ipcRenderer.invoke(C.termList),
+  termOpen: (kind, cols, rows) => ipcRenderer.invoke(C.termOpen, kind, cols, rows),
+  termBuffer: (id) => ipcRenderer.invoke(C.termBuffer, id),
+  // Keystrokes and size: fire-and-forget, many a second.
+  termWrite: (id, data) => ipcRenderer.send(C.termWrite, id, data),
+  termResize: (id, cols, rows) => ipcRenderer.send(C.termResize, id, cols, rows),
+  termClose: (id) => ipcRenderer.invoke(C.termClose, id),
+  onTerminal: (cb) => {
+    const l = (_e, ev) => cb(ev);
+    ipcRenderer.on(C.termEvent, l);
+    return () => ipcRenderer.removeListener(C.termEvent, l);
+  },
   openExternal: (url) => ipcRenderer.invoke(C.openExternal, url),
   openInVpnBrowser: (url) => ipcRenderer.invoke(C.openInVpnBrowser, url),
 });
