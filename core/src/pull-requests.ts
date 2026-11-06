@@ -98,3 +98,18 @@ export async function readPullRequest(token: string, slug: string, number: numbe
   ].sort((a, b) => a.at.localeCompare(b.at));
   return { pr: toPr(raw, [...latest.values()]), feedback };
 }
+
+/** Deletes a branch on GitHub; one already gone counts as deleted. */
+export async function deleteRemoteBranch(token: string, slug: string, branch: string): Promise<'deleted' | 'gone'> {
+  const res = await httpFetch(`${API}/repos/${slug}/git/refs/heads/${branch.split('/').map(encodeURIComponent).join('/')}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' },
+    signal: AbortSignal.timeout(30000),
+  });
+  if (res.status === 204) return 'deleted';
+  if (res.status === 404 || res.status === 422) return 'gone';
+  const sso = res.headers.get('x-github-sso');
+  if (sso) throw new Error(`GitHub wants SAML SSO authorisation for this token: ${sso.replace(/^required; url=/, '')}`);
+  const body = (await res.json().catch(() => null)) as { message?: string } | null;
+  throw new Error(body?.message || `GitHub answered ${res.status}`);
+}

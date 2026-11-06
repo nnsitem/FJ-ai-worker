@@ -871,3 +871,59 @@ textarea.ao-mono-input {
 .ao-pr-feedback-head code { font-size: 0.7rem; color: var(--accent-ink); }
 .ao-pr-feedback-body { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--foreground); }
 .ao-small-note { font-size: 0.7rem; }
+
+/* Step settings: a row per step */
+.ao-pipe-menu.ao-wf-settings { width: 440px; gap: 0.5rem; padding: 0.85rem; max-height: min(78vh, 720px); overflow-y: auto; }
+.ao-wf-head { display: flex; flex-direction: column; gap: 2px; padding: 0 0.2rem 0.4rem; border-bottom: 1px solid var(--rule); }
+.ao-wf-head strong { font-size: 0.86rem; }
+.ao-wf-head span { font-size: 0.72rem; color: var(--soft); }
+.ao-wf-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ao-wf-step { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 10px 0.2rem; border-bottom: 1px solid var(--rule); }
+.ao-wf-step:last-child { border-bottom: none; }
+.ao-wf-step-n {
+  display: grid; place-items: center; height: 24px; border-radius: 7px; margin-top: 1px;
+  background: var(--accent-tint); color: var(--accent-ink); font-size: 0.66rem; font-weight: 800; font-family: var(--font-mono);
+}
+.ao-wf-step[data-off] .ao-wf-step-n { background: rgb(var(--ink) / 0.06); color: var(--soft); }
+.ao-wf-step-body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ao-wf-step-head { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.ao-wf-step-name { font-size: 0.82rem; font-weight: 700; color: var(--foreground); }
+.ao-wf-step[data-off] .ao-wf-step-name { color: var(--soft); }
+.ao-wf-who { padding: 1px 7px; border-radius: 999px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.02em; background: rgb(var(--ink) / 0.06); color: var(--soft); }
+.ao-wf-who[data-who='Claude'] { background: color-mix(in srgb, #d97757 16%, transparent); color: #e8957a; }
+.ao-wf-who[data-who='You'] { background: var(--accent-tint); color: var(--accent-ink); }
+.ao-wf-step-note { margin: 0; font-size: 0.72rem; color: var(--soft); line-height: 1.45; }
+.ao-wf-pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ao-wf-rounds { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.74rem; color: var(--muted); }
+.ao-wf-rounds .ao-task-input { width: 64px; text-align: center; }
+.ao-wf-switch-line { display: inline-flex; align-items: center; gap: 8px; font-size: 0.74rem; color: var(--muted); cursor: pointer; }
+.ao-switch { position: relative; flex-shrink: 0; width: 30px; height: 18px; padding: 0; border: none; border-radius: 999px; background: rgb(var(--ink) / 0.18); cursor: pointer; transition: background 0.15s ease; }
+.ao-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 0.3); transition: transform 0.15s ease; }
+.ao-switch[data-on] { background: var(--brand-gradient, var(--accent)); }
+.ao-switch[data-on]::after { transform: translateX(12px); }
+
+/* Readiness: one pill, the whole picture in its menu */
+.ao-ready { position: relative; }
+.ao-ready-pill { cursor: pointer; font: inherit; font-size: 0.72rem; }
+.ao-ready-pill[data-tone='bad'] { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.ao-ready-pill[data-tone='warn'] { color: var(--amber-ink, var(--amber)); }
+.ao-pipe-menu.ao-ready-menu { width: 340px; -webkit-app-region: no-drag; }
+.ao-ready-title { margin: 0; font-size: 0.8rem; font-weight: 700; }
+.ao-ready-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ao-ready-list li { display: flex; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--rule); }
+.ao-ready-list li:last-child { border-bottom: none; }
+.ao-ready-icon { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; border-radius: 7px; background: rgb(var(--ink) / 0.05); color: var(--muted); }
+.ao-ready-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ao-ready-name { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; }
+.ao-ready-state { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 500; color: var(--muted); }
+.ao-ready-state[data-tone='ok'] { color: var(--green); }
+.ao-ready-state[data-tone='bad'] { color: var(--red); }
+.ao-ready-detail { font-size: 0.72rem; color: var(--soft); overflow-wrap: anywhere; }
+.ao-ready-actions { display: flex; align-items: center; gap: 6px; }
+.ao-ready-when { margin: 0; font-size: 0.66rem; color: var(--soft); }
+/* Step settings' rows wrap their text (the strip's .ao-wf-steps li doesn't), and pickers fill their cells. */
+.ao-wf-settings .ao-wf-steps li { white-space: normal; text-align: left; }
+.ao-wf-settings .ao-wf-pickers .ao-picker,
+.ao-wf-settings .ao-wf-pickers .ao-picker-trigger { width: 100%; }
+/* The top bar's menus (connections) over the page below it. */
+.ao-topbar { position: relative; z-index: 40; }

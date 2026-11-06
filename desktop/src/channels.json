@@ -59,6 +59,7 @@
   "runsCheckPr": "runs:check-pr",
   "runsFixReview": "runs:fix-review",
   "runsFinishReview": "runs:finish-review",
+  "runsDeleteBranch": "runs:delete-branch",
   "runsSetTicket": "runs:set-ticket",
   "projectContextList": "project-context:list",
   "projectContextSave": "project-context:save",

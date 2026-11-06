@@ -304,67 +304,113 @@ function StepSettings({ settings, onSave }: { settings: Settings; onSave: (p: Se
       </button>
       {open && (
         <div className="ao-pipe-menu ao-wf-settings" role="dialog" aria-label="Step settings">
-          <div className="ao-pipe-setting">
-            <span>1–2 Analyse &amp; plan</span>
-            <div className="ao-wf-pickers">
-              <AgentModelPickers placement="down-start" inheritLabel={inherit} agent={wf.analyse.agent} model={wf.analyse.model} onChange={(o) => void onSave({ workflow: { analyse: o } })} />
-            </div>
-          </div>
-          <label className="ao-pipe-check">
-            <input type="checkbox" checked={wf.review.enabled} onChange={(e) => void onSave({ workflow: { review: { enabled: e.target.checked } } })} />
-            <span>
-              3 · A person reviews the plan
-              <small>Off: straight on to the fix (new tasks).</small>
-            </span>
-          </label>
-          <div className="ao-pipe-setting">
-            <span>4 Fix</span>
-            <div className="ao-wf-pickers">
-              <AgentModelPickers placement="down-start" inheritLabel={inherit} agent={wf.fix.agent} model={wf.fix.model} onChange={(o) => void onSave({ workflow: { fix: o } })} />
-            </div>
-          </div>
-          <label className="ao-pipe-check">
-            <input type="checkbox" checked={wf.test.enabled} onChange={(e) => void onSave({ workflow: { test: { enabled: e.target.checked } } })} />
-            <span>
-              5 · Run tests after the fix
-              <small>The agent tests only when a task has no test command.</small>
-            </span>
-          </label>
-          <div className="ao-pipe-setting">
-            <span>5 Automated tests</span>
-            <div className="ao-wf-pickers">
-              <AgentModelPickers placement="down-start" inheritLabel={inherit} agent={wf.test.agent} model={wf.test.model} disabled={!wf.test.enabled} onChange={(o) => void onSave({ workflow: { test: o } })} />
-            </div>
-            <label className="ao-wf-rounds">
-              Rounds
-              <input
-                className="ao-task-input"
-                type="number"
-                min={1}
-                max={10}
-                value={wf.test.rounds}
-                disabled={!wf.test.enabled}
-                onChange={(e) => void onSave({ workflow: { test: { rounds: Number(e.target.value) || 1 } } })}
-              />
-            </label>
-          </div>
-          <label className="ao-pipe-check">
-            <input type="checkbox" checked={wf.pr.confirm} onChange={(e) => void onSave({ workflow: { pr: { confirm: e.target.checked } } })} />
-            <span>
-              6 · A person gives the go to push
-              <small>Off: the branch is pushed and the PR opened as soon as the tests pass.</small>
-            </span>
-          </label>
-          <label className="ao-pipe-check">
-            <input type="checkbox" checked={wf.pr.draft} onChange={(e) => void onSave({ workflow: { pr: { draft: e.target.checked } } })} />
-            <span>
-              6 · Open pull requests as drafts
-              <small>FJ AI Worker never merges — reviewers do, on GitHub.</small>
-            </span>
-          </label>
-          <p className="ao-pipe-menu-note">Agents come from the Agents &amp; skills page.</p>
+          <header className="ao-wf-head">
+            <strong>How the workflow runs</strong>
+            <span>For tasks from now on. A step with no agent or model of its own uses the task&apos;s.</span>
+          </header>
+          <ol className="ao-wf-steps">
+            <StepRow n="1–2" name="Analyse & plan" who="Claude">
+              <div className="ao-wf-pickers">
+                <AgentModelPickers placement="down-start" inheritLabel={inherit} agent={wf.analyse.agent} model={wf.analyse.model} onChange={(o) => void onSave({ workflow: { analyse: o } })} />
+              </div>
+            </StepRow>
+            <StepRow
+              n="3"
+              name="Review the plan"
+              who="You"
+              toggle={{ on: wf.review.enabled, label: 'Required', set: (on) => void onSave({ workflow: { review: { enabled: on } } }) }}
+              note={wf.review.enabled ? 'You approve the plan, ask for changes, or skip.' : 'Off: the plan goes straight on to the fix.'}
+            />
+            <StepRow n="4" name="Fix" who="Claude">
+              <div className="ao-wf-pickers">
+                <AgentModelPickers placement="down-start" inheritLabel={inherit} agent={wf.fix.agent} model={wf.fix.model} onChange={(o) => void onSave({ workflow: { fix: o } })} />
+              </div>
+            </StepRow>
+            <StepRow
+              n="5"
+              name="Automated tests"
+              who="Claude"
+              toggle={{ on: wf.test.enabled, label: 'On', set: (on) => void onSave({ workflow: { test: { enabled: on } } }) }}
+              note={wf.test.enabled ? 'A task’s test command runs if it has one; otherwise this agent runs the tests.' : 'Off: straight on to the pull request.'}
+            >
+              {wf.test.enabled && (
+                <>
+                  <div className="ao-wf-pickers">
+                    <AgentModelPickers placement="down-start" inheritLabel={inherit} agent={wf.test.agent} model={wf.test.model} onChange={(o) => void onSave({ workflow: { test: o } })} />
+                  </div>
+                  <label className="ao-wf-rounds">
+                    <span>Fix-and-test rounds before it stops for you</span>
+                    <input
+                      className="ao-task-input"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={wf.test.rounds}
+                      onChange={(e) => void onSave({ workflow: { test: { rounds: Number(e.target.value) || 1 } } })}
+                    />
+                  </label>
+                </>
+              )}
+            </StepRow>
+            <StepRow
+              n="6"
+              name="Pull request"
+              who="App"
+              toggle={{ on: wf.pr.confirm, label: 'Ask first', set: (on) => void onSave({ workflow: { pr: { confirm: on } } }) }}
+              note={wf.pr.confirm ? 'Waits for your go before pushing to the company’s GitHub.' : 'Pushes and opens the PR as soon as the tests pass.'}
+            >
+              <label className="ao-wf-switch-line">
+                <Switch on={wf.pr.draft} onChange={(on) => void onSave({ workflow: { pr: { draft: on } } })} label="Open as a draft" />
+                <span>Open as a draft</span>
+              </label>
+            </StepRow>
+            <StepRow n="7" name="Human review" who="You" note="Reviewers on GitHub; their comments can go back to Claude. FJ AI Worker never merges." />
+          </ol>
+          <p className="ao-pipe-menu-note">Agents come from Agents &amp; skills.</p>
         </div>
       )}
     </div>
   );
+}
+
+/** One step in Step settings: its number, name and who does it; a switch if it can be off; its settings under it. */
+function StepRow({
+  n,
+  name,
+  who,
+  toggle,
+  note,
+  children,
+}: {
+  n: string;
+  name: string;
+  who: 'Claude' | 'You' | 'App';
+  toggle?: { on: boolean; label: string; set: (on: boolean) => void };
+  note?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <li className="ao-wf-step" data-off={toggle && !toggle.on ? true : undefined}>
+      <span className="ao-wf-step-n">{n}</span>
+      <div className="ao-wf-step-body">
+        <div className="ao-wf-step-head">
+          <span className="ao-wf-step-name">{name}</span>
+          <span className="ao-wf-who" data-who={who}>{who}</span>
+          <span style={{ flex: 1 }} />
+          {toggle && (
+            <label className="ao-wf-switch-line">
+              <span>{toggle.label}</span>
+              <Switch on={toggle.on} onChange={toggle.set} label={`${name}: ${toggle.label}`} />
+            </label>
+          )}
+        </div>
+        {note && <p className="ao-wf-step-note">{note}</p>}
+        {children}
+      </div>
+    </li>
+  );
+}
+
+function Switch({ on, onChange, label }: { on: boolean; onChange: (on: boolean) => void; label: string }) {
+  return <button type="button" role="switch" aria-checked={on} aria-label={label} className="ao-switch" data-on={on || undefined} onClick={() => onChange(!on)} />;
 }

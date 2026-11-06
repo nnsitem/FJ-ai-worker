@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld('aiWorker', {
   runsCheckPr: (id) => ipcRenderer.invoke(C.runsCheckPr, id),
   runsFixReview: (id) => ipcRenderer.invoke(C.runsFixReview, id),
   runsFinishReview: (id) => ipcRenderer.invoke(C.runsFinishReview, id),
+  runsDeleteBranch: (id) => ipcRenderer.invoke(C.runsDeleteBranch, id),
   runsSetTicket: (id, patch) => ipcRenderer.invoke(C.runsSetTicket, id, patch),
   projectContextList: () => ipcRenderer.invoke(C.projectContextList),
   projectContextSave: (project, text) => ipcRenderer.invoke(C.projectContextSave, project, text),

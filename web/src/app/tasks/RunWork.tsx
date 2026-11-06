@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BranchIcon, ChevronRight, EditIcon, FolderIcon } from '@/components/icons';
+import { BranchIcon, ChevronRight, EditIcon, FolderIcon, TrashIcon } from '@/components/icons';
 import { call, type Run } from '@/lib/bridge';
 import { Markdown } from '@/lib/markdown';
 
@@ -156,6 +156,18 @@ function PullRequestSection({ run, act }: { run: Run; act: Act }) {
                 <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => void act(() => call('runsFinishReview', run.id))}>Review done</button>
               </div>
             )}
+            {pr.state !== 'open' && !run.branchDeleted && !busy && (
+              <div className="ao-pipe-panel-actions">
+                <button
+                  type="button"
+                  className="ao-btn-secondary ao-btn-compact"
+                  onClick={() => window.confirm(`Delete ${run.branch} on GitHub and on this computer?`) && void act(() => call('runsDeleteBranch', run.id))}
+                >
+                  <TrashIcon size={13} /> Delete branch
+                </button>
+              </div>
+            )}
+            {run.branchDeleted && <p className="ao-task-panel-muted">{run.branch} deleted, on GitHub and here.</p>}
             <p className="ao-task-panel-muted ao-small-note">
               Looked at every few minutes while it waits for review (last {new Date(pr.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}). FJ AI Worker never merges — a person does, on GitHub.
             </p>

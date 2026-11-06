@@ -45,6 +45,7 @@ import {
   checkPullRequest,
   fixReview,
   finishReview,
+  deleteTaskBranch,
   watchPullRequests,
   setTaskOptions,
   setTaskPlace,
@@ -203,6 +204,7 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.runsCheckPr, async (id: string) => withLive(await checkPullRequest(id)));
   handle(CHANNELS.runsFixReview, (id: string) => withLive(fixReview(id)));
   handle(CHANNELS.runsFinishReview, (id: string) => withLive(finishReview(id)));
+  handle(CHANNELS.runsDeleteBranch, async (id: string) => withLive(await deleteTaskBranch(id)));
   watchPullRequests();
   handle(CHANNELS.runsSetTicket, (id: string, patch: Parameters<typeof setTicket>[1]) => withLive(setTicket(id, patch)));
 

@@ -12,7 +12,7 @@ import { agentDefinition } from './library.js';
 import { projectNote, taskProject } from './project-context.js';
 import { createWorktree, git, gitLocal, localOrigin, removeWorktree, syncRepo, worktreeDir } from './repos.js';
 import { githubState, githubToken } from './github.js';
-import { openPullRequest, readPullRequest, type Feedback, type PullRequest } from './pull-requests.js';
+import { deleteRemoteBranch, openPullRequest, readPullRequest, type Feedback, type PullRequest } from './pull-requests.js';
 import { getSettings, saveSettings, type StepAgent } from './settings.js';
 
 /**
@@ -103,6 +103,8 @@ export type Run = {
   feedback: Feedback[];
   /** Step 6 by hand: the ticket moved to Review. */
   movedToReview: boolean;
+  /** After the PR was closed or merged: the task's branch deleted (on GitHub and here). */
+  branchDeleted: boolean;
   error: string | null;
   events: RunEvent[];
 };
@@ -137,6 +139,7 @@ function upgrade(r: Run): Run {
     pr: r.pr ?? null,
     feedback: r.feedback ?? [],
     movedToReview: r.movedToReview ?? false,
+    branchDeleted: r.branchDeleted ?? false,
   };
 }
 
@@ -267,6 +270,7 @@ export function createRun(input: NewRun): Run {
     pr: null,
     feedback: [],
     movedToReview: false,
+    branchDeleted: false,
     error: null,
     events: [],
   };
@@ -1164,6 +1168,37 @@ export function fixReview(id: string): Run {
   for (const f of open) f.addressed = true;
   r.round = 0;
   void fix(r, undefined, false, open);
+  return r;
+}
+
+/**
+ * After the review: the task's branch deleted on GitHub (with the app's
+ * sign-in) and here — its worktree and the local branch. Only once its PR is
+ * closed or merged: an open PR keeps its branch.
+ */
+export async function deleteTaskBranch(id: string): Promise<Run> {
+  const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for Claude to finish');
+  if (!r.branch) throw new Error('This task has no branch');
+  if (r.pr?.state === 'open') throw new Error(`PR #${r.pr.number} is still open — close or merge it on GitHub first`);
+  if (r.pr) {
+    const { slug: repoSlug, token } = await githubFor(r);
+    const how = await deleteRemoteBranch(token, repoSlug, r.branch);
+    log(r, 'system', how === 'deleted' ? `Deleted ${r.branch} on GitHub (${repoSlug}).` : `${r.branch} was already gone from GitHub.`, false);
+  }
+  // Here: the worktree first (it has the branch checked out), then the branch.
+  const repoDir = r.source === 'folder' ? r.folder : null;
+  if (r.linked && repoDir) {
+    await gitLocal(['worktree', 'remove', '--force', worktreeDir(r.id)], repoDir).catch(() => fs.rmSync(worktreeDir(r.id), { recursive: true, force: true }));
+    await gitLocal(['worktree', 'prune'], repoDir).catch(() => {});
+    await gitLocal(['branch', '-D', r.branch], repoDir).catch(() => {});
+  } else if (r.source === 'repo') {
+    await removeWorktree(r.id, r.repo).catch(() => {});
+    await git(['branch', '-D', r.branch], dataPath('repos', r.repo.replace('/', '__'))).catch(() => {});
+  }
+  r.branchDeleted = true;
+  log(r, 'system', `Removed ${r.branch} and its checkout from this computer.`, false);
+  save(r);
   return r;
 }
 

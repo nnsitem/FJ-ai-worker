@@ -120,6 +120,7 @@ export type Run = {
   pr: PullRequest | null;
   feedback: PrFeedback[];
   movedToReview: boolean;
+  branchDeleted: boolean;
   error: string | null;
   events: RunEvent[];
   running: boolean;
@@ -224,6 +225,7 @@ type Bridge = {
   runsCheckPr(id: string): P<Run>;
   runsFixReview(id: string): P<Run>;
   runsFinishReview(id: string): P<Run>;
+  runsDeleteBranch(id: string): P<Run>;
   runsSetTicket(id: string, patch: Partial<ManualTicket>): P<Run>;
   projectContextList(): P<{ notes: ProjectContext[]; suggestions: string[]; template: string }>;
   projectContextSave(project: string, text: string): P<ProjectContext>;
