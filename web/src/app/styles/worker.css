@@ -927,3 +927,22 @@ textarea.ao-mono-input {
 .ao-wf-settings .ao-wf-pickers .ao-picker-trigger { width: 100%; }
 /* The top bar's menus (connections) over the page below it. */
 .ao-topbar { position: relative; z-index: 40; }
+/* Step settings: the numbers as a timeline — a dot per step, centred on its
+   name, a line down to the next one. */
+.ao-wf-settings .ao-wf-step { position: relative; grid-template-columns: 34px 1fr; gap: 12px; padding: 12px 0.2rem; border-bottom: none; }
+.ao-wf-settings .ao-wf-step + .ao-wf-step { border-top: 1px solid var(--rule); }
+.ao-wf-settings .ao-wf-step::before {
+  content: ''; position: absolute; left: calc(0.2rem + 16px); top: 38px; bottom: -12px; width: 2px; border-radius: 1px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.ao-wf-settings .ao-wf-step:last-child::before { display: none; }
+.ao-wf-settings .ao-wf-step-n {
+  position: relative; z-index: 1; justify-self: center; align-self: start;
+  min-width: 28px; height: 28px; margin-top: -2px; padding: 0 6px; border-radius: 999px;
+  white-space: nowrap; font-size: 0.68rem; letter-spacing: -0.02em;
+  background: var(--brand-gradient); color: #fff;
+  box-shadow: 0 0 0 3px var(--paper-2);
+}
+.ao-wf-settings .ao-wf-step[data-off] .ao-wf-step-n { background: rgb(var(--ink) / 0.12); color: var(--soft); }
+.ao-wf-settings .ao-wf-step-head { min-height: 24px; }
+.ao-wf-settings .ao-wf-step-body { gap: 8px; }
