@@ -12,7 +12,7 @@ export type Settings = {
   claude: { expectedEmail: string };
   jira: { site: string; email: string };
   projects: ProjectLink[];
-  repos: Record<string, { testCommand: string }>;
+  repos: Record<string, { testCommand: string; checkCommand?: string }>;
   workflow: WorkflowSettings;
   defaultAgent: string | null;
 };
@@ -21,7 +21,8 @@ export type WorkflowSettings = {
   analyse: StepAgent;
   review: { enabled: boolean };
   fix: StepAgent;
-  test: StepAgent & { enabled: boolean; rounds: number };
+  test: StepAgent & { enabled: boolean; rounds: number; baseline: boolean };
+  selfReview: StepAgent & { enabled: boolean; rounds: number };
   pr: { confirm: boolean; draft: boolean };
 };
 export type LibraryAgent = { name: string; description: string; model: string | null; tools: string[] | null };
@@ -86,7 +87,7 @@ export type TicketDetail = TicketSummary & {
   commentTotal: number;
   attachments: { id: string; filename: string; size: number; mimeType: string }[];
 };
-export type StepId = 'analyze' | 'plan' | 'review' | 'fix' | 'test' | 'pr' | 'humanReview';
+export type StepId = 'analyze' | 'plan' | 'review' | 'fix' | 'test' | 'selfReview' | 'pr' | 'humanReview';
 export type StepState = 'pending' | 'running' | 'waiting' | 'done' | 'skipped' | 'failed';
 export type ManualTicket = { key: string; title: string; description: string; url: string | null };
 export type RunEvent = { at: string; kind: 'text' | 'tool' | 'system' | 'error' | 'you'; text: string };
@@ -111,6 +112,9 @@ export type Run = {
   branch: string | null;
   movedInProgress: boolean;
   testCommand: string;
+  checkCommand: string;
+  baseline: Baseline | null;
+  selfReviews: SelfReview[];
   maxRounds: number;
   round: number;
   fixSummary: string | null;
@@ -127,7 +131,10 @@ export type Run = {
 };
 export type PullRequest = { number: number; url: string; draft: boolean; state: 'open' | 'closed' | 'merged'; reviews: { author: string; state: string; at: string }[]; checkedAt: string };
 export type PrFeedback = { id: string; kind: 'review' | 'line' | 'comment'; author: string; body: string; path: string | null; line: number | null; at: string; addressed: boolean };
-export type TestResult = { round: number; at: string; passed: boolean; by: 'command' | 'claude'; output: string };
+export type TestResult = { round: number; at: string; passed: boolean; by: 'command' | 'claude'; output: string; kind?: 'new' | 'preExisting' | 'env' | null; why?: string | null };
+export type CommandRun = { ok: boolean; output: string };
+export type Baseline = { at: string; base: string; check: CommandRun | null; test: CommandRun | null };
+export type SelfReview = { round: number; at: string; verdict: 'approve' | 'changes'; report: string; outOfPlan: string[]; secrets: string[] };
 export type ChangedFile = { path: string; status: string; added: number | null; removed: number | null };
 export type NewTask = {
   ticket: ManualTicket;
@@ -226,6 +233,10 @@ type Bridge = {
   runsFixReview(id: string): P<Run>;
   runsFinishReview(id: string): P<Run>;
   runsDeleteBranch(id: string): P<Run>;
+  runsCheckCommand(id: string, command: string): P<Run>;
+  runsFixSelfReview(id: string): P<Run>;
+  runsRetrySelfReview(id: string): P<Run>;
+  runsAcceptSelfReview(id: string): P<Run>;
   runsSetTicket(id: string, patch: Partial<ManualTicket>): P<Run>;
   projectContextList(): P<{ notes: ProjectContext[]; suggestions: string[]; template: string }>;
   projectContextSave(project: string, text: string): P<ProjectContext>;

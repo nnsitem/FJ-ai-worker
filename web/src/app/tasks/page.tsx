@@ -363,7 +363,7 @@ function TaskCard({
         {run.workflowStarted && (
           <span className="ao-chip" title="Where its workflow is">
             <PipelineIcon size={11} />
-            {cur ? `${cur.index + 1}. ${STEP_LABELS[cur.index].short}` : 'Finished'}
+            {cur ? `${STEP_LABELS[cur.index].n}. ${STEP_LABELS[cur.index].short}` : 'Finished'}
           </span>
         )}
         {tools > 0 && (

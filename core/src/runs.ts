@@ -41,10 +41,10 @@ import { getSettings, saveSettings, type StepAgent } from './settings.js';
  * the person. Steps 6–7 come in M5.
  */
 
-export type StepId = 'analyze' | 'plan' | 'review' | 'fix' | 'test' | 'pr' | 'humanReview';
+export type StepId = 'analyze' | 'plan' | 'review' | 'fix' | 'test' | 'selfReview' | 'pr' | 'humanReview';
 export type StepState = 'pending' | 'running' | 'waiting' | 'done' | 'skipped' | 'failed';
 
-export const STEPS: StepId[] = ['analyze', 'plan', 'review', 'fix', 'test', 'pr', 'humanReview'];
+export const STEPS: StepId[] = ['analyze', 'plan', 'review', 'fix', 'test', 'selfReview', 'pr', 'humanReview'];
 
 export type ManualTicket = { key: string; title: string; description: string; url: string | null };
 
@@ -84,6 +84,12 @@ export type Run = {
   movedInProgress: boolean;
   /** How step 5 tests: a shell command, or '' for Claude to run them. */
   testCommand: string;
+  /** Build / lint / typecheck, run before the tests ('' for none). */
+  checkCommand: string;
+  /** The checks and tests on the untouched base, before the fix — what already failed there. */
+  baseline: Baseline | null;
+  /** Step 5½: another Claude's review of the diff, round by round. */
+  selfReviews: SelfReview[];
   /** Fix rounds allowed before step 5 waits for the person, and those done. */
   maxRounds: number;
   round: number;
@@ -116,6 +122,28 @@ export type TestResult = {
   by: 'command' | 'claude';
   /** The command's output (its end), or Claude's report. */
   output: string;
+  /**
+   * A failure, sorted: the change broke it (back to the fix); it failed the
+   * same on the base (counts as a pass); or the environment (missing
+   * service, credentials, network) — the person's to sort out.
+   */
+  kind?: 'new' | 'preExisting' | 'env' | null;
+  why?: string | null;
+};
+
+export type CommandRun = { ok: boolean; output: string };
+export type Baseline = { at: string; base: string; check: CommandRun | null; test: CommandRun | null };
+
+export type SelfReview = {
+  round: number;
+  at: string;
+  verdict: 'approve' | 'changes';
+  /** The reviewer's findings (Markdown). */
+  report: string;
+  /** Files changed that the plan doesn't name. */
+  outOfPlan: string[];
+  /** Lines added that look like secrets (file: what). */
+  secrets: string[];
 };
 
 /** Fields added after a run was saved get their defaults. */
@@ -130,6 +158,10 @@ function upgrade(r: Run): Run {
     branch: r.branch ?? null,
     movedInProgress: r.movedInProgress ?? false,
     testCommand: r.testCommand ?? '',
+    checkCommand: r.checkCommand ?? '',
+    baseline: r.baseline ?? null,
+    selfReviews: r.selfReviews ?? [],
+    steps: { ...r.steps, selfReview: r.steps.selfReview ?? (r.steps.pr !== 'pending' ? 'skipped' : 'pending') },
     maxRounds: r.maxRounds ?? 3,
     round: r.round ?? 0,
     fixSummary: r.fixSummary ?? null,
@@ -221,6 +253,7 @@ export type NewRun = {
   draft?: boolean;
   /** The branch to start from (else the repo's default). */
   base?: string;
+  checkCommand?: string;
 };
 
 const slugId = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'task';
@@ -261,6 +294,9 @@ export function createRun(input: NewRun): Run {
     branch: null,
     movedInProgress: false,
     testCommand,
+    checkCommand: (input.checkCommand ?? (repo ? getSettings().repos[repo]?.checkCommand : '') ?? '').trim(),
+    baseline: null,
+    selfReviews: [],
     maxRounds: Math.min(10, Math.max(1, Math.round(input.maxRounds ?? wf.test.rounds))),
     round: 0,
     fixSummary: null,
@@ -551,9 +587,24 @@ export function setMovedInProgress(id: string, done: boolean): Run {
 export function setTestCommand(id: string, command: string): Run {
   const r = getRun(id);
   r.testCommand = command.trim();
-  saveSettings({ repos: { [r.repo]: { testCommand: r.testCommand } } });
+  rememberCommands(r);
   save(r);
   return r;
+}
+
+/** Build / lint / typecheck before the tests, from now on (and for the repo's next task). */
+export function setCheckCommand(id: string, command: string): Run {
+  const r = getRun(id);
+  r.checkCommand = command.trim();
+  rememberCommands(r);
+  save(r);
+  return r;
+}
+
+/** A repo's (or folder's) test and check commands, for its next task. */
+function rememberCommands(r: Run): void {
+  const key = r.source === 'repo' ? r.repo : r.folder;
+  if (key) saveSettings({ repos: { [key]: { testCommand: r.testCommand, checkCommand: r.checkCommand } } });
 }
 
 /** Past the rounds (or after a failure): another fix round, with what last failed. */
@@ -705,7 +756,15 @@ type Turn = {
   prompt: string;
   resume: string | null;
   /** Which step (or the conversation), for the Workflow page's agent and model. */
-  step: 'analyse' | 'fix' | 'test' | 'chat';
+  step: 'analyse' | 'fix' | 'test' | 'selfReview' | 'chat';
+  /**
+   * A side conversation (a fresh reviewer, a quick classification): not the
+   * task's own — its session isn't kept, its words aren't in the task's
+   * conversation, it collects no artifacts.
+   */
+  ephemeral?: boolean;
+  /** This model, whatever the step's or the task's. */
+  model?: string;
   /** What it's doing, for the system prompt. */
   role: string;
   tools: string[];
@@ -717,8 +776,9 @@ type Turn = {
 /** One prompt to Claude in the run's worktree, logged as it goes; resolves with its final reply. */
 async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<string> {
   const cfg: StepAgent | null = t.step === 'chat' ? null : getSettings().workflow[t.step];
-  const agentName = cfg?.agent || r.agent;
-  const model = cfg?.model || r.model;
+  // A fresh reviewer doesn't wear the task's agent — only one picked for the review.
+  const agentName = cfg?.agent || (t.ephemeral ? null : r.agent);
+  const model = t.model || cfg?.model || r.model;
   const note = projectNote(await taskProject(r).catch(() => null));
   const rules = `You are FJ AI Worker, ${t.role}.${note ? `\n\nProject context (kept by the team in FJ AI Worker — follow it):\n\n${note.text}` : ''}`;
   const def = agentName ? agentDefinition(agentName) : null;
@@ -752,10 +812,10 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
   try {
     for await (const m of stream as AsyncIterable<SDKMessage>) {
       if (m.type === 'assistant') {
-        if (m.session_id) r.sessionId = m.session_id;
+        if (m.session_id && !t.ephemeral) r.sessionId = m.session_id;
         for (const b of m.message.content) {
           if (b.type === 'text' && b.text.trim()) {
-            log(r, 'text', b.text, false);
+            if (!t.ephemeral) log(r, 'text', b.text, false);
             t.onText?.(b.text);
           } else if (b.type === 'tool_use') {
             const input = (b.input ?? {}) as Record<string, unknown>;
@@ -771,7 +831,7 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
       }
     }
   } finally {
-    try {
+    if (!t.ephemeral) try {
       const wd = workDir(r);
       // A git checkout: only what git sees changed or new counts.
       const status = (await isGitRepo(wd)) ? await git(['status', '--porcelain=v1', '-uall'], wd).catch(() => null) : null;
@@ -855,7 +915,7 @@ const RETRY_PROMPT = (r: Run, failed: TestResult) =>
     'Reply with a short summary of what you changed.',
   ].join('\n');
 
-async function fix(r: Run, failed?: TestResult, byHand = false, review?: Feedback[]): Promise<void> {
+async function fix(r: Run, failed?: TestResult, byHand = false, review?: Feedback[], selfFix?: SelfReview): Promise<void> {
   let abort: AbortController;
   try {
     abort = claim(r);
@@ -878,11 +938,27 @@ async function fix(r: Run, failed?: TestResult, byHand = false, review?: Feedbac
       r.branch = name;
       log(r, 'system', `On branch ${name}.${r.ticket.key ? ` Move ${r.ticket.key} to In progress in Jira.` : ''}`, false);
     }
+    // Before the first change: the checks and tests on the base as it is, so a
+    // failure later can be told apart from one that was already there.
+    if (!r.baseline && (r.testCommand || r.checkCommand) && getSettings().workflow.test.enabled && getSettings().workflow.test.baseline) {
+      log(r, 'system', `Running the ${r.checkCommand ? 'checks and ' : ''}tests on ${r.baseBranch ?? 'the base'} as it is, before any change (a baseline)…`, false);
+      save(r);
+      r.baseline = {
+        at: new Date().toISOString(),
+        base: r.baseBranch ?? '',
+        check: r.checkCommand ? await runCommand(r.checkCommand, wt, abort.signal) : null,
+        test: r.testCommand ? await runCommand(r.testCommand, wt, abort.signal) : null,
+      };
+      if (abort.signal.aborted) throw new Error('Stopped');
+      const said = [r.baseline.check && `checks ${r.baseline.check.ok ? 'pass' : 'fail'}`, r.baseline.test && `tests ${r.baseline.test.ok ? 'pass' : 'fail'}`].filter(Boolean).join(', ');
+      log(r, 'system', `Baseline on ${r.baseBranch}: ${said}.`, false);
+    }
+    if (selfFix) log(r, 'system', `Dealing with the review's findings (round ${selfFix.round}).`, false);
     if (review) log(r, 'system', `Dealing with ${review.length} review comment${review.length === 1 ? '' : 's'} on PR #${r.pr?.number}.`, false);
     else if (failed) log(r, 'system', `Round ${r.round + 1}: fixing what the tests found.`, false);
     else if (byHand) log(r, 'system', `Round ${r.round + 1}: another go at the fix.`, false);
     r.fixSummary = await claudeTurn(r, abort, {
-      prompt: review ? REVIEW_PROMPT(r, review) : failed ? RETRY_PROMPT(r, failed) : FIX_PROMPT(r),
+      prompt: selfFix ? SELF_FIX_PROMPT(selfFix) : review ? REVIEW_PROMPT(r, review) : failed ? RETRY_PROMPT(r, failed) : FIX_PROMPT(r),
       resume: r.sessionId,
       step: 'fix',
       role: `fixing ${r.ticket.key || 'the task'} in this folder. Change files only inside it; never commit, push or switch branches`,
@@ -930,12 +1006,13 @@ function runCommand(command: string, cwd: string, signal: AbortSignal): Promise<
   });
 }
 
-const TEST_PROMPT = [
-  'Step 5 — test: run the repository’s tests that cover your change (and the related suites), the way this project runs them.',
-  'Do not change any files now. If the tests can’t run here (missing services, credentials), say exactly what is missing.',
-  '',
-  'Your reply must start with a line that is exactly "Verdict: PASS" or "Verdict: FAIL", then what you ran and what happened (the failures in full).',
-].join('\n');
+const TEST_PROMPT = (r: Run) =>
+  [
+    'Step 5 — test: run the repository’s build/typecheck and the tests that cover your change (and the related suites), the way this project runs them.',
+    `Do not change any files now. A failure that also happens on ${r.baseBranch ?? 'the base'} without your change (read the code and the failure to judge — don’t stash or switch branches) is not yours: say so and it counts as a pass.`,
+    '',
+    'Your reply must start with a line that is exactly "Verdict: PASS", "Verdict: FAIL" (your change breaks something) or "Verdict: ENV" (it can’t run here — a missing service, credentials, the network, a tool), then what you ran and what happened (the failures in full).',
+  ].join('\n');
 
 async function runTests(r: Run): Promise<void> {
   let abort: AbortController;
@@ -949,15 +1026,35 @@ async function runTests(r: Run): Promise<void> {
   const round = r.round + 1;
   try {
     let result: TestResult;
-    if (r.testCommand) {
-      log(r, 'system', `Running ${r.testCommand}`, false);
-      save(r);
-      const out = await runCommand(r.testCommand, workDir(r), abort.signal);
+    if (r.testCommand || r.checkCommand) {
+      // The checks (build / lint / typecheck) first; the tests only if they pass.
+      const parts: string[] = [];
+      let ok = true;
+      if (r.checkCommand) {
+        log(r, 'system', `Running ${r.checkCommand}`, false);
+        save(r);
+        const c = await runCommand(r.checkCommand, workDir(r), abort.signal);
+        ok = c.ok;
+        parts.push(`$ ${r.checkCommand}\n${c.output}`);
+      }
+      if (ok && r.testCommand && !abort.signal.aborted) {
+        log(r, 'system', `Running ${r.testCommand}`, false);
+        save(r);
+        const t = await runCommand(r.testCommand, workDir(r), abort.signal);
+        ok = t.ok;
+        parts.push(`$ ${r.testCommand}\n${t.output}`);
+      }
       if (abort.signal.aborted) throw new Error('Stopped');
-      result = { round, at: new Date().toISOString(), passed: out.ok, by: 'command', output: out.output };
+      result = { round, at: new Date().toISOString(), passed: ok, by: 'command', output: parts.join('\n\n').slice(-KEEP_OUTPUT) };
+      if (!ok) {
+        const sorted = await classifyFailure(r, abort, result.output);
+        result.kind = sorted.kind;
+        result.why = sorted.why;
+        if (sorted.kind === 'preExisting') result.passed = true;
+      }
     } else {
       const reply = await claudeTurn(r, abort, {
-        prompt: TEST_PROMPT,
+        prompt: TEST_PROMPT(r),
         resume: r.sessionId,
         step: 'test',
         role: `testing the fix for ${r.ticket.key || 'the task'}. Run tests and read; do not change files, commit or push`,
@@ -965,14 +1062,25 @@ async function runTests(r: Run): Promise<void> {
         canUseTool: fixPermissions(r),
         maxTurns: 60,
       });
-      const verdict = /verdict:\s*(pass|fail)/i.exec(reply)?.[1]?.toLowerCase();
-      result = { round, at: new Date().toISOString(), passed: verdict === 'pass', by: 'claude', output: reply.trim() };
+      const verdict = /verdict:\s*(pass|fail|env)/i.exec(reply)?.[1]?.toLowerCase();
+      result = {
+        round,
+        at: new Date().toISOString(),
+        passed: verdict === 'pass',
+        by: 'claude',
+        output: reply.trim(),
+        kind: verdict === 'env' ? 'env' : verdict === 'fail' ? 'new' : null,
+      };
     }
     r.round = round;
     r.tests.push(result);
     if (result.passed) {
       r.steps.test = 'done';
-      log(r, 'system', `Tests passed (round ${round}).`, false);
+      log(r, 'system', result.kind === 'preExisting' ? `Tests: the same failures as on ${r.baseBranch} before the change — counted as passing (round ${round}).` : `Tests passed (round ${round}).`, false);
+    } else if (result.kind === 'env') {
+      // Not the code's fault: another round of fixing wouldn't help.
+      r.steps.test = 'waiting';
+      log(r, 'error', `The tests couldn’t run properly here — ${result.why ?? 'the environment, not the change'}. Sort that out, then Test again — or go on anyway.`, false);
     } else if (round < r.maxRounds) {
       r.steps.test = 'failed';
       log(r, 'error', `Tests failed (round ${round} of ${r.maxRounds}) — back to the fix.`, false);
@@ -994,15 +1102,239 @@ async function runTests(r: Run): Promise<void> {
   if (r.steps.test === 'done') afterTests(r);
 }
 
+/**
+ * Why the checks or tests failed: the change (back to the fix), the same as
+ * on the base before it (not the change's doing), or the environment (a
+ * service, a credential, the network) — a quick look by Claude at this run
+ * next to the baseline.
+ */
+async function classifyFailure(r: Run, abort: AbortController, output: string): Promise<{ kind: 'new' | 'preExisting' | 'env'; why: string | null }> {
+  const b = r.baseline;
+  const baseText = b ? [b.check && `$ ${r.checkCommand} (exit ${b.check.ok ? 0 : 'non-zero'})\n${b.check.output}`, b.test && `$ ${r.testCommand} (exit ${b.test.ok ? 0 : 'non-zero'})\n${b.test.output}`].filter(Boolean).join('\n\n') : '';
+  const prompt = [
+    'Sort this failed check/test run into one of three kinds:',
+    '- NEW: it fails because of the change being made (a failure that isn’t in the baseline, or one the change could cause).',
+    '- PRE_EXISTING: the same failures happen on the base before any change (the baseline below), and nothing new failed.',
+    '- ENV: it couldn’t run properly here — a missing service or database, credentials, the network, a missing tool or SDK, a timeout.',
+    '',
+    b ? `Baseline — the same commands on ${b.base} before the change:\n\`\`\`\n${baseText.slice(-9000)}\n\`\`\`` : 'There is no baseline run.',
+    '',
+    `This run, after the change:\n\`\`\`\n${output.slice(-9000)}\n\`\`\``,
+    '',
+    'Reply with exactly two lines: "Kind: NEW", "Kind: PRE_EXISTING" or "Kind: ENV"; then "Why: " and one short sentence.',
+  ].join('\n');
+  try {
+    const reply = await claudeTurn(r, abort, {
+      prompt,
+      resume: null,
+      step: 'test',
+      ephemeral: true,
+      model: 'haiku',
+      role: 'sorting why a test run failed. Only read what you are given; answer in two lines',
+      tools: [],
+      maxTurns: 2,
+    });
+    const kind = /kind:\s*(new|pre_existing|env)/i.exec(reply)?.[1]?.toLowerCase();
+    const why = /why:\s*(.+)/i.exec(reply)?.[1]?.trim() ?? null;
+    const k = kind === 'pre_existing' ? 'preExisting' : kind === 'env' ? 'env' : 'new';
+    log(r, 'system', `Failure sorted: ${k === 'new' ? 'caused by the change' : k === 'preExisting' ? 'already failing on the base' : 'the environment'}${why ? ` — ${why}` : ''}.`, false);
+    return { kind: k, why };
+  } catch {
+    // Can't tell: treat it as the change's, as before.
+    return { kind: 'new', why: null };
+  }
+}
+
+// ---- Step 5½: another Claude reviews the diff ------------------------------------
+
+/** Tests passed (or set aside): the review of the diff, if it's on; then step 6. */
+function afterTests(r: Run): void {
+  if (r.branch && getSettings().workflow.selfReview.enabled && r.steps.selfReview !== 'done') void selfReview(r);
+  else {
+    if (r.steps.selfReview === 'pending') r.steps.selfReview = 'skipped';
+    toPullRequest(r);
+  }
+}
+
+/** Paths a plan names (`src/a/b.ts`, `B.java`, `README.md`…). */
+export function planPaths(plan: string | null): string[] {
+  if (!plan) return [];
+  return [...new Set([...plan.matchAll(/[\w./@-]*[\w-]\.[A-Za-z][\w]{0,6}\b/g)].map((m) => m[0].replace(/^\.\//, '')).filter((p) => /[/.]/.test(p) && !/^\d/.test(p)))];
+}
+
+/** The plan names this file: by its path, the end of its path, or its name. */
+export function inPlan(file: string, named: string[]): boolean {
+  const f = file.toLowerCase();
+  const base = f.split('/').pop()!;
+  return named.some((n) => {
+    const p = n.toLowerCase();
+    return f === p || f.endsWith(`/${p}`) || p.endsWith(`/${f}`) || (!p.includes('/') && p === base);
+  });
+}
+
+const SECRET_PATTERNS: [RegExp, string][] = [
+  [/gh[pousr]_[A-Za-z0-9]{30,}/, 'a GitHub token'],
+  [/github_pat_[A-Za-z0-9_]{40,}/, 'a GitHub token'],
+  [/AKIA[0-9A-Z]{16}/, 'an AWS access key'],
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'a private key'],
+  [/xox[abpr]-[A-Za-z0-9-]{10,}/, 'a Slack token'],
+  [/sk-(ant-)?[A-Za-z0-9_-]{32,}/, 'an API key'],
+  [/https?:\/\/[^\s/:@]+:[^\s/@]{6,}@/, 'a password in a URL'],
+  [/(password|passwd|secret|api[_-]?key|token)\s*[:=]\s*["'][^"'\s]{8,}["']/i, 'a hard-coded secret'],
+];
+
+/** Secrets in the lines the change adds (file: what). */
+export function findSecrets(diff: string): string[] {
+  const hits: string[] = [];
+  let file = '';
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('+++ ')) file = line.slice(4).replace(/^b\//, '');
+    else if (line.startsWith('+') && !line.startsWith('+++')) {
+      // One finding a line: the most specific pattern it matches.
+      const hit = SECRET_PATTERNS.find(([re]) => re.test(line));
+      if (hit) hits.push(`${file}: ${hit[1]}`);
+    }
+  }
+  return [...new Set(hits)];
+}
+
+async function selfReview(r: Run): Promise<void> {
+  let abort: AbortController;
+  try {
+    abort = claim(r);
+  } catch {
+    return;
+  }
+  r.steps.selfReview = 'running';
+  save(r);
+  const round = r.selfReviews.length + 1;
+  const max = getSettings().workflow.selfReview.rounds;
+  try {
+    const wd = workDir(r);
+    const g = gitFor(r);
+    // What changed, committed or not, new files included.
+    await g(['add', '-N', '.'], wd).catch(() => {});
+    const base = (await g(['merge-base', 'HEAD', baseRef(r)], wd)).trim();
+    const names = (await g(['diff', '--name-only', base], wd)).split('\n').filter(Boolean);
+    const diff = await g(['diff', base], wd);
+    const named = planPaths(r.plan);
+    const outOfPlan = named.length ? names.filter((f) => !inPlan(f, named)) : [];
+    const secrets = findSecrets(diff);
+    log(r, 'system', `Reviewing the diff (${names.length} file${names.length === 1 ? '' : 's'}) — round ${round}.`, false);
+    save(r);
+    const reply = await claudeTurn(r, abort, {
+      prompt: SELF_REVIEW_PROMPT(r, base, names, outOfPlan, secrets),
+      resume: null,
+      step: 'selfReview',
+      ephemeral: true,
+      role: 'reviewing a change before it goes to people for review. Read only; never change files, commit or push',
+      tools: ['Read', 'Grep', 'Glob', 'Bash'],
+      canUseTool: fixPermissions(r),
+      maxTurns: 60,
+    });
+    const said = /verdict:\s*(approve|changes)/i.exec(reply)?.[1]?.toLowerCase();
+    // A secret in the change is never let through, whatever the reviewer said.
+    const verdict: SelfReview['verdict'] = secrets.length || said !== 'approve' ? 'changes' : 'approve';
+    const entry: SelfReview = { round, at: new Date().toISOString(), verdict, report: reply.trim(), outOfPlan, secrets };
+    r.selfReviews.push(entry);
+    if (verdict === 'approve') {
+      r.steps.selfReview = 'done';
+      log(r, 'system', `Review: approved${outOfPlan.length ? ` (it changed ${outOfPlan.length} file${outOfPlan.length === 1 ? '' : 's'} the plan didn’t name — see the review)` : ''}.`, false);
+    } else if (round < max) {
+      r.steps.selfReview = 'failed';
+      log(r, 'error', `Review: changes asked for (round ${round} of ${max}) — back to the fix.`, false);
+    } else {
+      r.steps.selfReview = 'waiting';
+      log(r, 'error', `Review still asks for changes after ${round} rounds — your call: another round, or go on anyway.`, false);
+    }
+  } catch (e) {
+    r.error = abort.signal.aborted ? 'Stopped' : e instanceof Error ? e.message : String(e);
+    r.steps.selfReview = 'failed';
+    log(r, 'error', r.error, false);
+  } finally {
+    live.delete(r.id);
+    save(r);
+  }
+  const last = r.selfReviews.at(-1);
+  if (r.steps.selfReview === 'done') toPullRequest(r);
+  else if (r.steps.selfReview === 'failed' && !r.error && last?.verdict === 'changes') {
+    r.round = 0;
+    void fix(r, undefined, false, undefined, last);
+  }
+}
+
+/** The review's findings, past its rounds: another round of fixing them. */
+export function fixSelfReview(id: string): Run {
+  const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for Claude to finish');
+  const last = r.selfReviews.at(-1);
+  if (!last || last.verdict !== 'changes') throw new Error('The review has nothing to fix');
+  r.round = 0;
+  void fix(r, undefined, false, undefined, last);
+  return r;
+}
+
+/** The review again, as the code is now. */
+export function retrySelfReview(id: string): Run {
+  const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for Claude to finish');
+  void selfReview(r);
+  return r;
+}
+
+/** The review's findings set aside by the person: on to the pull request. */
+export function acceptSelfReview(id: string): Run {
+  const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for it to finish');
+  r.steps.selfReview = 'skipped';
+  log(r, 'system', 'Review findings set aside — going on to the pull request.', false);
+  save(r);
+  toPullRequest(r);
+  return r;
+}
+
+const SELF_REVIEW_PROMPT = (r: Run, base: string, names: string[], outOfPlan: string[], secrets: string[]) =>
+  [
+    `Review the change for ${r.ticket.key ? `ticket ${r.ticket.key}` : 'this task'} before it goes to people as a pull request. You did not write it — read it with fresh eyes.`,
+    '',
+    `# ${r.ticket.key ? `${r.ticket.key}: ` : ''}${r.ticket.title || '(no title)'}`,
+    r.ticket.description || '',
+    '',
+    r.plan ? `## The approved plan\n${r.plan.trim()}` : '',
+    '',
+    `## The change`,
+    `See it with \`git diff ${base}\` (and \`git diff ${base} -- <file>\`). Files changed: ${names.join(', ') || '(none)'}.`,
+    outOfPlan.length ? `Files changed that the plan doesn't name — check each belongs in this change: ${outOfPlan.join(', ')}.` : '',
+    secrets.length ? `A scan found what look like secrets in added lines — these must not be committed: ${secrets.join('; ')}.` : '',
+    '',
+    'Check: does it do what the ticket and the plan ask, and nothing else; is it correct (edge cases, errors, nulls); does it break anything that calls it; are tests added or updated where they should be; any debug leftovers, commented-out code, secrets, or unrelated changes.',
+    'Do not change any files, commit or push.',
+    '',
+    'Reply in Markdown. The first line must be exactly "Verdict: APPROVE" or "Verdict: CHANGES". Then the findings, each as "- [high|medium|low] file:line — what and why". Ask for changes only for high or medium findings; low ones are notes.',
+  ]
+    .filter((l, i, a) => l !== '' || a[i - 1] !== '')
+    .join('\n');
+
+const SELF_FIX_PROMPT = (rv: SelfReview) =>
+  [
+    `A reviewer looked at your change before the pull request (round ${rv.round}) and asked for changes:`,
+    '',
+    rv.report,
+    rv.secrets.length ? `\nSecrets found in added lines — take them out (use configuration or the environment instead): ${rv.secrets.join('; ')}.` : '',
+    '',
+    'Deal with the high and medium findings in the code (where one is wrong, say why). Do not commit, push or switch branches.',
+    'Reply with a short summary of what you changed.',
+  ].join('\n');
+
 // ---- Steps 6–7: the pull request, and its review ----------------------------------
 
 /**
- * Tests passed (or set aside): step 6. It waits for the person's go
+ * Reviewed (or set aside): step 6. It waits for the person's go
  * (Workflow settings: "a person pushes") — the branch goes to the company's
  * GitHub — else it pushes and opens the PR at once. A follow-up (review
  * comments dealt with) pushes to the same PR.
  */
-function afterTests(r: Run): void {
+function toPullRequest(r: Run): void {
   if (!r.branch) {
     r.steps.pr = 'skipped';
     r.steps.humanReview = 'skipped';
@@ -1167,6 +1499,8 @@ export function fixReview(id: string): Run {
   if (!open.length) throw new Error('No review comments to deal with');
   for (const f of open) f.addressed = true;
   r.round = 0;
+  // The change moves on: reviewed again before it's pushed.
+  r.steps.selfReview = 'pending';
   void fix(r, undefined, false, open);
   return r;
 }

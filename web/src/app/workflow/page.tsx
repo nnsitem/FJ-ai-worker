@@ -16,7 +16,7 @@ type ColumnId = StepId | 'chat' | 'finished';
 
 const COLUMNS: { id: ColumnId; label: string; hint: string }[] = [
   { id: 'chat', label: 'Not started', hint: 'Tasks still in conversation — Run workflow carries one through the steps' },
-  ...STEP_LABELS.map((s, i) => ({ id: s.id as ColumnId, label: `${i + 1}. ${s.short}`, hint: s.manual ? `${s.label} — then ${s.manual}` : s.label })),
+  ...STEP_LABELS.map((s) => ({ id: s.id as ColumnId, label: `${s.n}. ${s.short}`, hint: s.manual ? `${s.label} — then ${s.manual}` : s.label })),
   { id: 'finished', label: 'Finished', hint: 'Through every step' },
 ];
 
@@ -178,6 +178,15 @@ export default function WorkflowPage() {
   );
 }
 
+/** What a card waiting on the person asks of them, by step. */
+const WAITING_TEXT: Partial<Record<StepId, { text: string; label: string }>> = {
+  review: { text: 'The plan is ready — review it', label: 'Review' },
+  test: { text: 'The tests need you — another round, or go on', label: 'Open' },
+  selfReview: { text: 'The AI review still asks for changes', label: 'Open' },
+  pr: { text: 'Ready to push and open the PR — your go', label: 'Open' },
+  humanReview: { text: 'Waiting for reviewers on GitHub', label: 'Open' },
+};
+
 /** A task on the board, as AI Office's Agents Board card. */
 function CardView({ run, column, active, onOpen, onOpenTask, onStart }: { run: Run; column: ColumnId; active: boolean; onOpen: () => void; onOpenTask: () => void; onStart: () => void }) {
   const chip = stateChip(run);
@@ -187,11 +196,13 @@ function CardView({ run, column, active, onOpen, onOpenTask, onStart }: { run: R
   const next =
     run.running || !run.workflowStarted
       ? null
-      : cur?.id === 'review' && cur.state === 'waiting'
-        ? { text: 'The plan is ready — review it', label: 'Review' }
-        : cur?.state === 'waiting' || cur?.state === 'failed' || run.error
-          ? { text: 'Claude stopped — see what it needs', label: 'Open' }
-          : null;
+      : run.error
+        ? { text: 'Stopped — see what went wrong', label: 'Open' }
+        : cur?.state === 'waiting'
+          ? (WAITING_TEXT[cur.id] ?? { text: 'Waiting for you', label: 'Open' })
+          : cur?.state === 'failed'
+            ? { text: 'Stopped — see what it needs', label: 'Open' }
+            : null;
   return (
     <div
       className="ao-card ao-pipe-card"
@@ -338,6 +349,10 @@ function StepSettings({ settings, onSave }: { settings: Settings; onSave: (p: Se
                   <div className="ao-wf-pickers">
                     <AgentModelPickers placement="down-start" inheritLabel={inherit} agent={wf.test.agent} model={wf.test.model} onChange={(o) => void onSave({ workflow: { test: o } })} />
                   </div>
+                  <label className="ao-wf-switch-line">
+                    <Switch on={wf.test.baseline} onChange={(on) => void onSave({ workflow: { test: { baseline: on } } })} label="Baseline on the base first" />
+                    <span>Run them on the base first, so failures already there aren&apos;t blamed on the change</span>
+                  </label>
                   <label className="ao-wf-rounds">
                     <span>Fix-and-test rounds before it stops for you</span>
                     <input
@@ -347,6 +362,42 @@ function StepSettings({ settings, onSave }: { settings: Settings; onSave: (p: Se
                       max={10}
                       value={wf.test.rounds}
                       onChange={(e) => void onSave({ workflow: { test: { rounds: Number(e.target.value) || 1 } } })}
+                    />
+                  </label>
+                </>
+              )}
+            </StepRow>
+            <StepRow
+              n="5½"
+              name="AI review of the diff"
+              who="Claude"
+              toggle={{ on: wf.selfReview.enabled, label: 'On', set: (on) => void onSave({ workflow: { selfReview: { enabled: on } } }) }}
+              note={
+                wf.selfReview.enabled
+                  ? 'A fresh Claude reads the change against the ticket and plan; files the plan didn’t name and secrets are flagged. Its findings go back to the fix.'
+                  : 'Off: straight on to the pull request.'
+              }
+            >
+              {wf.selfReview.enabled && (
+                <>
+                  <div className="ao-wf-pickers">
+                    <AgentModelPickers
+                      placement="down-start"
+                      inheritLabel={{ agent: 'Built-in reviewer', model: 'Task’s model' }}
+                      agent={wf.selfReview.agent}
+                      model={wf.selfReview.model}
+                      onChange={(o) => void onSave({ workflow: { selfReview: o } })}
+                    />
+                  </div>
+                  <label className="ao-wf-rounds">
+                    <span>Review-and-fix rounds before it stops for you</span>
+                    <input
+                      className="ao-task-input"
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={wf.selfReview.rounds}
+                      onChange={(e) => void onSave({ workflow: { selfReview: { rounds: Number(e.target.value) || 1 } } })}
                     />
                   </label>
                 </>

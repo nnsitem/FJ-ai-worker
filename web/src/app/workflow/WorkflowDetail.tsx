@@ -96,9 +96,9 @@ export function WorkflowDetail({ run, onClose }: { run: Run; onClose: () => void
           <section>
             <p className="ao-task-panel-label">The seven steps</p>
             <ol className="ao-wf-step-list">
-              {STEP_LABELS.map((s, i) => (
+              {STEP_LABELS.map((s) => (
                 <li key={s.id}>
-                  <span className="ao-wf-step-n">{i + 1}</span>
+                  <span className="ao-wf-step-n">{s.n}</span>
                   <span>
                     {s.label}
                     {s.manual && <small> — {s.manual}</small>}
@@ -116,7 +116,7 @@ export function WorkflowDetail({ run, onClose }: { run: Run; onClose: () => void
       </div>
 
       <footer className="ao-task-panel-foot">
-        <span className="ao-task-panel-muted">{run.workflowStarted ? (cur ? `Step ${cur.index + 1} of 7` : 'Finished') : ''}</span>
+        <span className="ao-task-panel-muted">{run.workflowStarted ? (cur ? `Step ${STEP_LABELS[cur.index].n} of 7` : 'Finished') : ''}</span>
         <div className="ao-task-panel-actions">
           {run.running && (
             <button type="button" className="ao-btn-secondary" onClick={() => void act(() => call('runsStop', run.id))}>

@@ -1,13 +1,15 @@
 import type { Run, StepId, StepState } from '@/lib/bridge';
 
-export const STEP_LABELS: { id: StepId; label: string; short: string; manual?: string }[] = [
-  { id: 'analyze', label: 'Analyse the ticket', short: 'Analyse' },
-  { id: 'plan', label: 'Plan the fix', short: 'Plan', manual: 'write it to the ticket' },
-  { id: 'review', label: 'Review the plan', short: 'Review' },
-  { id: 'fix', label: 'Fix', short: 'Fix', manual: 'move the ticket to In progress' },
-  { id: 'test', label: 'Automated tests', short: 'Test' },
-  { id: 'pr', label: 'Pull request', short: 'PR', manual: 'move the ticket to Review' },
-  { id: 'humanReview', label: 'Human review', short: 'Human review' },
+/** The steps in order, each with the number it goes by (5½ sits between the tests and the PR). */
+export const STEP_LABELS: { id: StepId; n: string; label: string; short: string; manual?: string }[] = [
+  { id: 'analyze', n: '1', label: 'Analyse the ticket', short: 'Analyse' },
+  { id: 'plan', n: '2', label: 'Plan the fix', short: 'Plan', manual: 'write it to the ticket' },
+  { id: 'review', n: '3', label: 'Review the plan', short: 'Review' },
+  { id: 'fix', n: '4', label: 'Fix', short: 'Fix', manual: 'move the ticket to In progress' },
+  { id: 'test', n: '5', label: 'Automated tests', short: 'Test' },
+  { id: 'selfReview', n: '5½', label: 'AI review of the diff', short: 'AI review' },
+  { id: 'pr', n: '6', label: 'Pull request', short: 'PR', manual: 'move the ticket to Review' },
+  { id: 'humanReview', n: '7', label: 'Human review', short: 'Human review' },
 ];
 
 /** The step the run is on: the first not done or skipped. */

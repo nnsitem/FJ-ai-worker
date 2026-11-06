@@ -53,8 +53,10 @@ export type WorkflowSettings = {
   review: { enabled: boolean };
   /** Step 4. */
   fix: StepAgent;
-  /** Step 5 (off: no tests, straight to step 6); rounds before it waits for you. */
-  test: StepAgent & { enabled: boolean; rounds: number };
+  /** Step 5 (off: no tests, straight to step 6); rounds before it waits for you; a baseline run on the untouched base first. */
+  test: StepAgent & { enabled: boolean; rounds: number; baseline: boolean };
+  /** Step 5½: another Claude reviews the diff before the PR; rounds of its findings before it waits for you. */
+  selfReview: StepAgent & { enabled: boolean; rounds: number };
   /** Step 6: wait for a person's go before pushing; open the PR as a draft. */
   pr: { confirm: boolean; draft: boolean };
 };
@@ -62,6 +64,8 @@ export type WorkflowSettings = {
 export type RepoSettings = {
   /** A shell command run in the checkout; empty: Claude finds and runs the tests itself. */
   testCommand: string;
+  /** Build / lint / typecheck, run before the tests (optional). */
+  checkCommand?: string;
 };
 
 export type ProjectLink = {
@@ -91,7 +95,8 @@ export const DEFAULT_SETTINGS: Settings = {
     analyse: { agent: null, model: null },
     review: { enabled: true },
     fix: { agent: null, model: null },
-    test: { agent: null, model: null, enabled: true, rounds: 3 },
+    test: { agent: null, model: null, enabled: true, rounds: 3, baseline: true },
+    selfReview: { agent: null, model: null, enabled: true, rounds: 2 },
     pr: { confirm: true, draft: true },
   },
   defaultAgent: null,
@@ -123,6 +128,7 @@ function mergeWorkflow(base: WorkflowSettings, patch?: WorkflowPatch): WorkflowS
     review: { ...base.review, ...patch?.review },
     fix: { ...base.fix, ...patch?.fix },
     test: { ...base.test, ...patch?.test },
+    selfReview: { ...base.selfReview, ...patch?.selfReview },
     pr: { ...base.pr, ...patch?.pr },
   };
 }
@@ -155,6 +161,7 @@ export function saveSettings(patch: SettingsPatch): Settings {
     defaultAgent: patch.defaultAgent !== undefined ? patch.defaultAgent || null : cur.defaultAgent,
   };
   next.workflow.test.rounds = Math.min(10, Math.max(1, Math.round(Number(next.workflow.test.rounds) || 3)));
+  next.workflow.selfReview.rounds = Math.min(5, Math.max(1, Math.round(Number(next.workflow.selfReview.rounds) || 2)));
   next.jira.site = normaliseSite(next.jira.site);
   next.jira.email = next.jira.email.trim();
   next.projects = next.projects

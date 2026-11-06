@@ -101,7 +101,7 @@ export function TaskView({
         {run.workflowStarted ? (
           <button type="button" className="ao-btn-secondary ao-btn-compact ao-wf-chip" onClick={toWorkflow} title="Open on the Workflow page">
             <PipelineIcon size={13} />
-            {cur ? `${cur.index + 1}. ${STEP_LABELS[cur.index].short}` : 'Finished'}
+            {cur ? `${STEP_LABELS[cur.index].n}. ${STEP_LABELS[cur.index].short}` : 'Finished'}
           </button>
         ) : (
           <button
