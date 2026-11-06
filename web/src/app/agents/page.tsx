@@ -2,12 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AddIcon, AgentsIcon, ConnectionsIcon, SkillsIcon } from '@/components/icons';
+import { AddIcon, AgentsIcon, ConnectionsIcon, ProjectIcon, SkillsIcon } from '@/components/icons';
+import { ProjectContextView } from './ProjectContextView';
 import { call, type Library, type LibraryAgent, type Settings } from '@/lib/bridge';
 import { NEW_TASK_AGENT_KEY } from '@/lib/models';
 import { useLibrary } from '@/lib/use-library';
 
-type View = 'agents' | 'skills' | 'source';
+type View = 'agents' | 'skills' | 'projects' | 'source';
 
 const titleCase = (s: string) => s.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const sizeLabel = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -30,7 +31,13 @@ export default function AgentsPage() {
         { id: 'skills', label: 'Skills', icon: <SkillsIcon size={16} />, count: library?.skills.length },
       ],
     },
-    { group: 'Setup', items: [{ id: 'source', label: 'Import & create', icon: <ConnectionsIcon size={16} /> }] },
+    {
+      group: 'Setup',
+      items: [
+        { id: 'projects', label: 'Project context', icon: <ProjectIcon size={16} /> },
+        { id: 'source', label: 'Import & create', icon: <ConnectionsIcon size={16} /> },
+      ],
+    },
   ];
 
   return (
@@ -54,6 +61,7 @@ export default function AgentsPage() {
         <div className="aw-caps-inner">
           {view === 'agents' && <AgentsView library={library} reload={reload} onImport={() => setView('source')} />}
           {view === 'skills' && <SkillsView library={library} reload={reload} onImport={() => setView('source')} />}
+          {view === 'projects' && <ProjectContextView />}
           {view === 'source' && <SourceView library={library} reload={reload} />}
         </div>
       </section>

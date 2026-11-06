@@ -92,7 +92,7 @@ export type RunEvent = { at: string; kind: 'text' | 'tool' | 'system' | 'error' 
 export type Run = {
   id: string;
   ticket: ManualTicket;
-  source: 'repo' | 'folder';
+  source: 'repo' | 'folder' | 'none';
   repo: string;
   folder: string | null;
   agent: string | null;
@@ -129,6 +129,7 @@ export type NewTask = {
   testCommand?: string;
   maxRounds?: number;
   startWorkflow?: boolean;
+  draft?: boolean;
 };
 export type ReviewDecision = { kind: 'approve' } | { kind: 'skip' } | { kind: 'changes'; feedback: string };
 export type TerminalKind = 'shell' | 'vpn';
@@ -147,6 +148,7 @@ export type Artifact = {
   versions: ArtifactVersion[];
   updatedAt: string;
 };
+export type ProjectContext = { project: string; text: string; updatedAt: string | null };
 export type AppInfo = { version: string; platform: string; claudeConfigDir: string; vpnBrowser: boolean };
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -207,6 +209,11 @@ type Bridge = {
   librarySkillFiles(name: string): P<{ path: string; bytes: number }[]>;
   librarySkillFile(name: string, rel: string): P<{ text: string; truncated: boolean; bytes: number }>;
   pickFolder(title?: string): P<string | null>;
+  runsSetPlace(id: string, place: { repo?: string; folder?: string }): P<Run>;
+  runsSetTicket(id: string, patch: Partial<ManualTicket>): P<Run>;
+  projectContextList(): P<{ notes: ProjectContext[]; suggestions: string[]; template: string }>;
+  projectContextSave(project: string, text: string): P<ProjectContext>;
+  projectContextDelete(project: string): P<void>;
   artifactsList(): P<Artifact[]>;
   artifactsContent(id: string, hash?: string): P<{ text: string | null; dataUrl: string | null }>;
   artifactsOpen(id: string, hash?: string): P<void>;

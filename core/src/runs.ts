@@ -9,6 +9,7 @@ import { baseToolEnv } from './login-env.js';
 import { toolEnv } from './network.js';
 import { collectArtifacts } from './artifacts.js';
 import { agentDefinition } from './library.js';
+import { projectNote, taskProject } from './project-context.js';
 import { createWorktree, git, removeWorktree, syncRepo, worktreeDir } from './repos.js';
 import { getSettings, saveSettings, type StepAgent } from './settings.js';
 
@@ -54,8 +55,8 @@ export type RunEvent = {
 export type Run = {
   id: string;
   ticket: ManualTicket;
-  /** Where it works: a company repo (owner/name) or a folder on this machine. */
-  source: 'repo' | 'folder';
+  /** Where it works: a company repo (owner/name) or a folder on this machine — 'none' until a new task's is picked. */
+  source: 'repo' | 'folder' | 'none';
   repo: string;
   folder: string | null;
   /** The task's library agent and model (null: plain Claude Code, the default model). */
@@ -193,6 +194,8 @@ export type NewRun = {
   maxRounds?: number;
   /** Start the seven steps now (else it's a conversation until "Run workflow"). */
   startWorkflow?: boolean;
+  /** A blank task, as a new session in AI Office: its place, agent and brief come after. */
+  draft?: boolean;
 };
 
 const slugId = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'task';
@@ -201,23 +204,23 @@ export function createRun(input: NewRun): Run {
   loadAll();
   const key = input.ticket.key.trim().toUpperCase();
   const title = input.ticket.title.trim();
-  if (!key && !title) throw new Error('Give the task a name, or its ticket key');
+  if (!key && !title && !input.draft) throw new Error('Give the task a name, or its ticket key');
   const repo = (input.repo ?? '').trim();
   const folder = (input.folder ?? '').trim();
-  if (!repo && !folder) throw new Error('Pick a repo or a folder');
+  if (!repo && !folder && !input.draft) throw new Error('Pick a repo or a folder');
   if (repo && !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('A repo is owner/name');
-  if (!repo && (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory())) throw new Error('That folder isn’t there');
+  if (!repo && folder && (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory())) throw new Error('That folder isn’t there');
   const wf = getSettings().workflow;
   const testCommand = (input.testCommand ?? (repo ? getSettings().repos[repo]?.testCommand : '') ?? '').trim();
   // Remembered for the repo's next task.
   if (repo && input.testCommand !== undefined) saveSettings({ repos: { [repo]: { testCommand } } });
   const now = new Date().toISOString();
   const r: Run = {
-    id: `${slugId(key || title)}-${randomUUID().slice(0, 8)}`,
+    id: `${slugId(key || title || 'task')}-${randomUUID().slice(0, 8)}`,
     ticket: { key, title, description: input.ticket.description.trim(), url: input.ticket.url?.trim() || null },
-    source: repo ? 'repo' : 'folder',
+    source: repo ? 'repo' : folder ? 'folder' : 'none',
     repo,
-    folder: repo ? null : path.resolve(folder),
+    folder: !repo && folder ? path.resolve(folder) : null,
     agent: input.agent || null,
     model: input.model || null,
     workflowStarted: false,
@@ -242,7 +245,39 @@ export function createRun(input: NewRun): Run {
   };
   save(r);
   if (input.startWorkflow) void startWorkflowNow(r);
-  else void prepareOnly(r);
+  else if (r.source !== 'none') prepareOnly(r);
+  return r;
+}
+
+/** Where a task works — set (or changed) until Claude has started in it. */
+export function setTaskPlace(id: string, place: { repo?: string; folder?: string }): Run {
+  const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for Claude to finish');
+  if (r.sessionId || r.branch) throw new Error('Claude has already worked here — start a new task to work somewhere else');
+  const repo = (place.repo ?? '').trim();
+  const folder = (place.folder ?? '').trim();
+  if (repo) {
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('A repo is owner/name');
+    if (r.source === 'repo' && r.repo !== repo) void removeWorktree(r.id, r.repo).catch(() => {});
+    Object.assign(r, { source: 'repo', repo, folder: null, baseBranch: null });
+    r.testCommand ||= getSettings().repos[repo]?.testCommand ?? '';
+  } else if (folder) {
+    if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) throw new Error('That folder isn’t there');
+    if (r.source === 'repo') void removeWorktree(r.id, r.repo).catch(() => {});
+    Object.assign(r, { source: 'folder', repo: '', folder: path.resolve(folder), baseBranch: null });
+  } else throw new Error('Pick a repo or a folder');
+  r.error = null;
+  save(r);
+  prepareOnly(r);
+  return r;
+}
+
+/** The task's ticket: key, title, description, link. */
+export function setTicket(id: string, patch: Partial<ManualTicket>): Run {
+  const r = getRun(id);
+  const t = { ...r.ticket, ...patch };
+  r.ticket = { key: t.key.trim().toUpperCase(), title: t.title.trim(), description: t.description.trim(), url: t.url?.trim() || null };
+  save(r);
   return r;
 }
 
@@ -277,6 +312,7 @@ function prepare(r: Run): Promise<void> {
 }
 
 async function prepareNow(r: Run): Promise<void> {
+  if (r.source === 'none') throw new Error('Pick where this task works first — a repo or a folder (under the message box)');
   if (r.source === 'folder') {
     if (!r.folder || !fs.existsSync(r.folder)) throw new Error(`The folder ${r.folder} isn’t there`);
     if (!r.baseBranch && (await isGitRepo(r.folder))) r.baseBranch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], r.folder)).trim();
@@ -303,6 +339,8 @@ function prepareOnly(r: Run): void {
 export function startWorkflow(id: string): Run {
   const r = getRun(id);
   if (live.has(id)) throw new Error('Wait for Claude to finish');
+  if (r.source === 'none') throw new Error('Pick where this task works first — a repo or a folder');
+  if (!r.ticket.title && !r.ticket.description) throw new Error('Give the task its ticket first (what it is about)');
   if (r.workflowStarted && r.steps.analyze !== 'failed') throw new Error('The workflow is already under way');
   void startWorkflowNow(r);
   return r;
@@ -338,6 +376,11 @@ async function chat(r: Run, text: string): Promise<void> {
     abort = claim(r);
   } catch {
     return;
+  }
+  // A blank task's first message is its brief (and its first line its title).
+  if (!r.sessionId && !r.ticket.description && !r.workflowStarted) {
+    r.ticket.description = text;
+    if (!r.ticket.title) r.ticket.title = text.split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, 80);
   }
   log(r, 'you', text);
   try {
@@ -614,14 +657,15 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
   const cfg: StepAgent | null = t.step === 'chat' ? null : getSettings().workflow[t.step];
   const agentName = cfg?.agent || r.agent;
   const model = cfg?.model || r.model;
-  const rules = `You are FJ AI Worker, ${t.role}.`;
+  const note = projectNote(await taskProject(r).catch(() => null));
+  const rules = `You are FJ AI Worker, ${t.role}.${note ? `\n\nProject context (kept by the team in FJ AI Worker — follow it):\n\n${note.text}` : ''}`;
   const def = agentName ? agentDefinition(agentName) : null;
   if (agentName && !def) log(r, 'system', `The agent ${agentName} isn’t in the library any more — going on without it.`, false);
   const stream = query({
     prompt: t.prompt,
     options: {
       cwd: workDir(r),
-      env: claudeEnv(),
+      env: { ...claudeEnv(), ...note?.env },
       ...(claudeExecutable() ? { pathToClaudeCodeExecutable: claudeExecutable()! } : {}),
       // A library agent runs the conversation with its own prompt (and the
       // step's rules after it); otherwise Claude Code's own, with the rules.

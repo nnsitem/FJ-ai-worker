@@ -23,6 +23,7 @@ import {
   Widget4Icon as SolarBoard,
   ChatRoundLineIcon as SolarChatLine,
   BookBookmarkIcon as SolarSkills,
+  FolderWithFilesIcon as SolarProject,
   SquareBottomDownIcon as SolarPanel,
 } from '@solar-icons/react/bold-duotone';
 
@@ -58,3 +59,4 @@ export const CloseIcon = solar(SolarClose);
 /** The panel toggle in the top bar. */
 export const PanelIcon = solar(SolarPanel);
 export const SkillsIcon = solar(SolarSkills);
+export const ProjectIcon = solar(SolarProject);

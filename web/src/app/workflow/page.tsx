@@ -1,12 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { AgentModelPickers } from '@/components/AgentModelPickers';
 import { bridge, call, type Run, type Settings, type SettingsPatch, type StepId } from '@/lib/bridge';
 import { OPEN_TASK_KEY } from '@/lib/models';
 import { currentStep, STATE_TONE, STEP_LABELS } from '../tasks/steps';
+import { WorkflowDetail } from './WorkflowDetail';
 
 type Column = { id: StepId | 'chat' | 'finished'; label: string };
 
@@ -29,11 +29,11 @@ const STATE_TEXT = { pending: 'Next', running: 'Working…', waiting: 'Your turn
  * each Claude step's agent and model, and which steps are on.
  */
 export default function WorkflowPage() {
-  const router = useRouter();
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [showSettings, setShowSettings] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     call('runsList').then(setRuns).catch((e) => setError((e as Error).message));
@@ -57,19 +57,24 @@ export default function WorkflowPage() {
     }
   };
 
-  const openTask = (id: string) => {
+  // Sent here from a task: that task's card open.
+  useEffect(() => {
     try {
-      sessionStorage.setItem(OPEN_TASK_KEY, id);
+      const want = sessionStorage.getItem(OPEN_TASK_KEY);
+      sessionStorage.removeItem(OPEN_TASK_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from the page that sent us here
+      if (want) setSelected(want);
     } catch {
-      // the Tasks page then opens its first
+      // nothing asked for
     }
-    router.push('/tasks');
-  };
+  }, []);
 
   const wf = settings?.workflow;
+  const open = runs?.find((r) => r.id === selected) ?? null;
   const inherit = { agent: 'Task’s agent', model: 'Task’s model' };
 
   return (
+    <div className={`aw-wf-layout${open ? ' aw-wf-open' : ''}`}>
     <Panel
       title="Workflow"
       sub="Where every task is in the seven steps, and how the steps run"
@@ -148,7 +153,7 @@ export default function WorkflowPage() {
                 {cards.map((r) => {
                   const cur = currentStep(r);
                   return (
-                    <button key={r.id} type="button" className="aw-board-card" onClick={() => openTask(r.id)} data-running={r.running || undefined}>
+                    <button key={r.id} type="button" className="aw-board-card" aria-current={r.id === selected || undefined} onClick={() => setSelected(r.id === selected ? null : r.id)} data-running={r.running || undefined}>
                       <span className="aw-row-key">{r.ticket.key || 'Task'}</span>
                       <span className="aw-board-title">{r.ticket.title || r.ticket.description.slice(0, 80)}</span>
                       <span className="aw-board-meta">
@@ -170,5 +175,11 @@ export default function WorkflowPage() {
         })}
       </div>
     </Panel>
+    {open && (
+      <section className="aw-panel aw-wf-detail">
+        <WorkflowDetail key={open.id} run={open} />
+      </section>
+    )}
+    </div>
   );
 }

@@ -41,6 +41,8 @@ import {
   runFileDiff,
   sendMessage,
   setTaskOptions,
+  setTaskPlace,
+  setTicket,
   startWorkflow,
   workDir,
   setMovedInProgress,
@@ -53,6 +55,8 @@ import {
 import { aiOfficeLibrary, createLibraryItem, importLibrary, libraryItem, readLibrary, removeFromLibrary, saveLibraryItem, skillFile, skillFiles } from '../../core/src/library.js';
 import { closeTerminal, listTerminals, onTerminalEvent, openTerminal, resizeTerminal, terminalBuffer, writeTerminal, type TerminalKind } from './terminal.js';
 import { artifactContent, artifactFile, deleteArtifact, listArtifacts } from '../../core/src/artifacts.js';
+import { deleteProjectContext, listProjectContexts, PROJECT_CONTEXT_TEMPLATE, saveProjectContext, taskProject } from '../../core/src/project-context.js';
+import { getSettings as readSettings } from '../../core/src/settings.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
 export { CHANNELS };
@@ -186,6 +190,24 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.librarySkillFiles, (name: string) => skillFiles(name));
   handle(CHANNELS.librarySkillFile, (name: string, rel: string) => skillFile(name, rel));
   handle(CHANNELS.libraryReveal, (kind: 'agent' | 'skill', name: string) => shell.showItemInFolder(libraryItem(kind, name).path));
+  handle(CHANNELS.runsSetPlace, (id: string, place: { repo?: string; folder?: string }) => withLive(setTaskPlace(id, place)));
+  handle(CHANNELS.runsSetTicket, (id: string, patch: Parameters<typeof setTicket>[1]) => withLive(setTicket(id, patch)));
+
+  // Project context (core/src/project-context.ts): the notes, and the
+  // projects the tasks and Settings › Projects already name, to start one for.
+  handle(CHANNELS.projectContextList, async () => {
+    const notes = listProjectContexts();
+    const have = new Set(notes.map((n) => n.project));
+    const suggestions = new Set<string>();
+    for (const r of listRuns()) {
+      const p = await taskProject(r).catch(() => null);
+      if (p && !have.has(p)) suggestions.add(p);
+    }
+    for (const l of readSettings().projects) if (!have.has(l.repo)) suggestions.add(l.repo);
+    return { notes, suggestions: [...suggestions].sort(), template: PROJECT_CONTEXT_TEMPLATE };
+  });
+  handle(CHANNELS.projectContextSave, (project: string, text: string) => saveProjectContext(project, text));
+  handle(CHANNELS.projectContextDelete, (project: string) => deleteProjectContext(project));
   handle(CHANNELS.pickFolder, async (title?: string) => {
     const w = win();
     const opts = { title: title || 'Pick a folder', properties: ['openDirectory' as const] };

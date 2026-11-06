@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { call, type Run, type RunEvent } from '@/lib/bridge';
 
 type Block =
@@ -23,7 +23,7 @@ function blocks(events: RunEvent[]): Block[] {
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 /** The task's conversation with Claude — the workflow's steps and the person's own messages — and the box to write in. */
-export function Conversation({ run }: { run: Run }) {
+export function Conversation({ run, statusbar }: { run: Run; statusbar?: ReactNode }) {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
@@ -69,7 +69,9 @@ export function Conversation({ run }: { run: Run }) {
       >
         {list.length === 0 && !run.running && (
           <div className="aw-empty">
-            Talk to Claude about this task, or press <b>Run workflow</b> to carry it through the seven steps.
+            {run.source === 'none'
+              ? 'Pick where this task works (under the message box), then tell Claude what it is about — paste the ticket, or describe it.'
+              : 'Tell Claude what this task is about — or press Run workflow to carry its ticket through the seven steps.'}
           </div>
         )}
         {list.map((b, i) =>
@@ -105,22 +107,36 @@ export function Conversation({ run }: { run: Run }) {
         )}
         <div ref={end} />
       </div>
-      <div className="aw-composer">
+      <form
+        className="aw-composer"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void send();
+        }}
+      >
         <textarea
           className="aw-composer-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
-          placeholder={run.running ? 'Claude is working — you can write your next message' : 'Message Claude about this task… (Enter to send, Shift+Enter for a new line)'}
-          rows={2}
+          placeholder={run.running ? 'Claude is working on this task…' : run.sessionId ? 'Send a follow-up…' : 'Message Claude to start…'}
+          rows={1}
         />
-        {run.running ? (
-          <button type="button" className="aw-btn" onClick={() => void call('runsStop', run.id)}>Stop</button>
-        ) : (
-          <button type="button" className="aw-btn" data-primary disabled={!text.trim()} onClick={() => void send()}>Send</button>
-        )}
-      </div>
+        <div className="aw-composer-bar">
+          <span style={{ flex: 1 }} />
+          {run.running ? (
+            <button type="button" className="aw-send aw-send-stop" onClick={() => void call('runsStop', run.id)} aria-label="Stop" title="Stop">
+              <span className="aw-stop-square" aria-hidden="true" />
+            </button>
+          ) : (
+            <button type="submit" className="aw-send" disabled={!text.trim()} aria-label="Send" title="Send (Enter)">
+              ↑
+            </button>
+          )}
+        </div>
+      </form>
       {error && <p className="aw-error aw-composer-error">{error}</p>}
+      {statusbar}
     </div>
   );
 }

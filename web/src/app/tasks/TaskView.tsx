@@ -1,24 +1,30 @@
 'use client';
 
-import { useState } from 'react';
-import { LinkOpener } from '@/components/LinkOpener';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { AgentModelPickers } from '@/components/AgentModelPickers';
-import { call, type Run } from '@/lib/bridge';
+import { LinkOpener } from '@/components/LinkOpener';
+import { CloseIcon, PanelIcon, TrashIcon, WorkflowIcon } from '@/components/icons';
+import { call, type ManualTicket, type RepoSummary, type Run } from '@/lib/bridge';
+import { OPEN_TASK_KEY } from '@/lib/models';
 import { Conversation } from './Conversation';
-import { ChangesCard, RunWork } from './RunWork';
-import { STATE_TONE, STEP_LABELS } from './steps';
+import { ChangesCard } from './RunWork';
+import { currentStep, STEP_LABELS } from './steps';
 
-const STATE_TEXT = { pending: '', running: 'Working', waiting: 'Your turn', done: 'Done', skipped: 'Skipped', failed: 'Failed' } as const;
 const SSO = /https:\/\/github\.com\/\S+\/sso\S*/;
+const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 
 /**
- * One task, as AI Office's sessions: where it works, its agent and model,
- * the conversation with Claude; beside it, the workflow's steps (plan,
- * review, fix, tests) and what changed.
+ * One task, as an AI Office session: its title, the conversation, the box to
+ * write in and — under it — the status bar where its agent, model and folder
+ * are picked; the Changes panel beside it on demand. Its workflow is shown on
+ * the Workflow page; here, only where it stands.
  */
-export function TaskView({ run, onDeleted }: { run: Run; onDeleted: () => void }) {
-  const [side, setSide] = useState<'workflow' | 'changes'>('workflow');
-  const [sideShown, setSideShown] = useState(true);
+export function TaskView({ run, onClose, onDeleted }: { run: Run; onClose: () => void; onDeleted: () => void }) {
+  const router = useRouter();
+  const [changesOpen, setChangesOpen] = useState(false);
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = run.ticket;
 
@@ -31,185 +37,220 @@ export function TaskView({ run, onDeleted }: { run: Run; onDeleted: () => void }
     }
   };
 
-  const where = run.source === 'repo' ? `${run.repo}${run.baseBranch ? `@${run.baseBranch}` : ''}` : (run.folder ?? '');
-  const canStart = !run.running && (!run.workflowStarted || run.steps.analyze === 'failed');
+  const toWorkflow = () => {
+    try {
+      sessionStorage.setItem(OPEN_TASK_KEY, run.id);
+    } catch {
+      // the board opens without a card picked
+    }
+    router.push('/workflow');
+  };
+
+  const cur = currentStep(run);
+  const started = run.sessionId != null;
 
   return (
-    <div className="aw-task">
-      <header className="aw-task-head">
-        <div className="aw-task-title">
-          <h2>
-            {t.key && <span className="aw-mono aw-muted">{t.key} </span>}
-            {t.title || t.key}
-          </h2>
-          <span className="aw-task-where aw-mono" title={where}>
-            {run.source === 'repo' ? '⎇ ' : '📁 '}
-            {where}
-            {run.branch && <> · {run.branch}</>}
-          </span>
+    <>
+      <header className="aw-panel-head aw-detail-head">
+        <div className="aw-detail-heading">
+          {renaming ? (
+            <input
+              className="aw-input aw-compact"
+              defaultValue={t.title}
+              autoFocus
+              onFocus={(e) => e.target.select()}
+              onBlur={(e) => (setRenaming(false), void act(() => call('runsSetTicket', run.id, { title: e.target.value })))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                if (e.key === 'Escape') setRenaming(false);
+              }}
+            />
+          ) : (
+            <h2 className="aw-detail-title" onDoubleClick={() => setRenaming(true)} title="Double-click to rename">
+              {t.key && <span className="aw-mono aw-muted">{t.key} </span>}
+              {t.title || 'New task'}
+            </h2>
+          )}
         </div>
-        <div className="aw-row aw-task-tools">
-          <AgentModelPickers agent={run.agent} model={run.model} disabled={run.running} onChange={(o) => void act(() => call('runsSetOptions', run.id, o))} />
-          <button type="button" className="aw-btn aw-compact" onClick={() => void act(() => call('runsOpenFolder', run.id, 'vscode'))}>VS Code</button>
-          <button type="button" className="aw-btn aw-compact" aria-pressed={sideShown} onClick={() => setSideShown((v) => !v)} title="Show or hide the Workflow and Changes panel">
-            {sideShown ? 'Hide panel' : 'Workflow & changes'}
+        <span style={{ flex: 1 }} />
+        <button type="button" className="aw-btn aw-compact" onClick={() => setTicketOpen((v) => !v)} aria-expanded={ticketOpen}>
+          {t.key || 'Ticket'}
+        </button>
+        {run.workflowStarted ? (
+          <button type="button" className="aw-chip aw-wf-chip" onClick={toWorkflow} title="Open on the Workflow page">
+            <WorkflowIcon size={13} />
+            {cur ? `${cur.index + 1}. ${STEP_LABELS[cur.index].short}` : 'Finished'}
           </button>
-          {t.url && <button type="button" className="aw-btn aw-compact" onClick={() => void call('openExternal', t.url!)}>Jira</button>}
-          <button
-            type="button"
-            className="aw-btn aw-compact"
-            data-danger
-            onClick={() => {
-              const what = run.source === 'repo' ? 'Its checkout goes too.' : 'The folder itself stays.';
-              if (window.confirm(`Delete this task? ${what}`)) void act(async () => (await call('runsDelete', run.id), onDeleted()));
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      </header>
-
-      <div className="aw-strip">
-        <ol className="aw-strip-steps">
-          {STEP_LABELS.map((s, i) => {
-            const state = run.steps[s.id];
-            return (
-              <li key={s.id} className="aw-strip-step" data-state={state} title={`${s.label}${s.manual ? ` — ${s.manual}` : ''}${state !== 'pending' ? ` · ${STATE_TEXT[state]}` : ''}`}>
-                <span className="aw-strip-n">{i + 1}</span>
-                <span className="aw-strip-label">{s.short}</span>
-              </li>
-            );
-          })}
-        </ol>
-        {canStart && (
-          <button type="button" className="aw-btn" data-primary onClick={() => void act(() => call(run.workflowStarted ? 'runsRerun' : 'runsStartWorkflow', run.id))}>
-            ▶ {run.workflowStarted ? 'Run again' : 'Run workflow'}
+        ) : (
+          <button type="button" className="aw-btn aw-compact" disabled={run.running} onClick={() => void act(async () => (await call('runsStartWorkflow', run.id), toWorkflow()))} title="Carry it through the seven steps">
+            <WorkflowIcon size={13} /> Run workflow
           </button>
         )}
-      </div>
+        <button type="button" className="aw-icon-btn" data-active={changesOpen || undefined} onClick={() => setChangesOpen((v) => !v)} aria-label="File changes" title={changesOpen ? 'Close file changes' : 'Open file changes'}>
+          <PanelIcon size={15} />
+        </button>
+        <button
+          type="button"
+          className="aw-icon-btn"
+          aria-label="Delete the task"
+          title="Delete the task"
+          onClick={() => {
+            const what = run.source === 'repo' ? 'Its checkout goes too.' : 'Its folder stays.';
+            if (window.confirm(`Delete this task? ${what}`)) void act(async () => (await call('runsDelete', run.id), onDeleted()));
+          }}
+        >
+          <TrashIcon size={15} />
+        </button>
+        <button type="button" className="aw-icon-btn" onClick={onClose} aria-label="Close" title="Close">
+          <CloseIcon size={15} />
+        </button>
+      </header>
+
+      {ticketOpen && <TicketForm ticket={t} onSave={(p) => void act(async () => (await call('runsSetTicket', run.id, p), setTicketOpen(false)))} onCancel={() => setTicketOpen(false)} />}
 
       {(run.error || error) && (
         <div className="aw-task-errors">
           {run.error && <p className="aw-error">{run.error.replace(/:\s*https:\/\/\S+$/, '')}</p>}
-          {/* GitHub's SSO authorisation link: opened where the company sign-in is. */}
           {run.error && SSO.test(run.error) && <LinkOpener url={SSO.exec(run.error)![0]} />}
           {error && <p className="aw-error">{error}</p>}
         </div>
       )}
 
-      <div className="aw-task-body" data-side={sideShown ? undefined : 'hidden'}>
-        <Conversation run={run} />
-        <aside className="aw-task-side">
-          <div className="aw-tabs aw-side-tabs" role="tablist">
-            <button type="button" role="tab" className="aw-tab" aria-selected={side === 'workflow'} onClick={() => setSide('workflow')}>Workflow</button>
-            <button type="button" role="tab" className="aw-tab" aria-selected={side === 'changes'} onClick={() => setSide('changes')}>Changes</button>
-          </div>
-          <div className="aw-side-body">
-            {side === 'workflow' ? <WorkflowSide run={run} act={act} /> : <ChangesCard run={run} />}
-          </div>
-        </aside>
+      <div className="aw-detail-body" data-changes={changesOpen || undefined}>
+        <div className="aw-chat-pane">
+          <Conversation
+            run={run}
+            statusbar={
+              <div className="aw-statusbar">
+                <span className="aw-claude-mark" title="Claude — the company account" aria-label="Claude">C</span>
+                <span className="aw-dot-sep">·</span>
+                <AgentModelPickers agent={run.agent} model={run.model} disabled={run.running} onChange={(o) => void act(() => call('runsSetOptions', run.id, o))} />
+                <span className="aw-dot-sep">·</span>
+                <PlacePicker run={run} locked={started || run.running} onError={setError} />
+                {run.branch && (
+                  <>
+                    <span className="aw-dot-sep">·</span>
+                    <span className="aw-mono aw-status-branch" title={run.branch}>⎇ {run.branch}</span>
+                  </>
+                )}
+              </div>
+            }
+          />
+        </div>
+        {changesOpen && (
+          <aside className="aw-changes-pane">
+            <div className="aw-row aw-changes-head">
+              <strong>Changes</strong>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="aw-btn aw-compact" onClick={() => void act(() => call('runsOpenFolder', run.id, 'vscode'))}>VS Code</button>
+              <button type="button" className="aw-btn aw-compact" onClick={() => void act(() => call('runsOpenFolder', run.id, 'folder'))}>Folder</button>
+            </div>
+            <div className="aw-side-body">
+              {run.source === 'none' ? <p className="aw-muted aw-small">Pick where the task works first.</p> : <ChangesCard run={run} />}
+            </div>
+          </aside>
+        )}
       </div>
-    </div>
+    </>
   );
 }
 
-/** Steps 1–5 as cards: the plan (copy to Jira), its review, the fix and the tests. */
-function WorkflowSide({ run, act }: { run: Run; act: (fn: () => Promise<unknown>) => Promise<void> }) {
-  const [feedback, setFeedback] = useState('');
-  const [asking, setAsking] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const t = run.ticket;
+/** Where the task works, picked in the status bar as a session's folder is: a company repo, or a folder here. */
+function PlacePicker({ run, locked, onError }: { run: Run; locked: boolean; onError: (e: string | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const [repo, setRepo] = useState(run.repo);
+  const [repos, setRepos] = useState<RepoSummary[]>([]);
+  const box = useRef<HTMLSpanElement>(null);
 
-  if (!run.workflowStarted)
-    return (
-      <div className="aw-side-empty">
-        <ol className="aw-steps">
-          {STEP_LABELS.map((s, i) => (
-            <li key={s.id} className="aw-step">
-              <span className="aw-step-n">{i + 1}</span>
-              <span className="aw-step-label">
-                {s.label}
-                {s.manual && <small> — {s.manual}</small>}
-              </span>
-            </li>
-          ))}
-        </ol>
-        <p className="aw-muted aw-small">Run workflow to carry the task through these steps. Each step&apos;s agent and model are set on the Workflow page.</p>
-      </div>
-    );
+  useEffect(() => {
+    if (!open) return;
+    call('githubAllRepos').then(setRepos).catch(() => {});
+    const onDown = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', onDown, true);
+    return () => window.removeEventListener('mousedown', onDown, true);
+  }, [open]);
 
-  const copyPlan = async () => {
-    if (!run.plan) return;
-    await navigator.clipboard.writeText(`FJ AI Worker plan${t.key ? ` for ${t.key}` : ''}\n\n${run.plan}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  const set = async (place: { repo?: string; folder?: string }) => {
+    onError(null);
+    try {
+      await call('runsSetPlace', run.id, place);
+      setOpen(false);
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  };
+  const pickFolder = async () => {
+    const f = await call('pickFolder', 'The folder this task works in');
+    if (f) await set({ folder: f });
   };
 
+  const label = run.source === 'repo' ? run.repo : run.source === 'folder' ? baseName(run.folder ?? '') : 'Choose where it works';
   return (
-    <div className="aw-side-cards">
-      <ol className="aw-steps">
-        {STEP_LABELS.map((s, i) => {
-          const state = run.steps[s.id];
-          return (
-            <li key={s.id} className="aw-step" data-state={state}>
-              <span className="aw-step-n">{i + 1}</span>
-              <span className="aw-step-label">{s.label}</span>
-              {state !== 'pending' && <span className="aw-pill" data-tone={STATE_TONE[state]}>{STATE_TEXT[state]}</span>}
-            </li>
-          );
-        })}
-      </ol>
-
-      {run.plan && (
-        <section className="aw-card aw-plan">
-          <div className="aw-card-head">
-            <h2>Plan{run.revisions.length > 0 && <span className="aw-muted"> · rev {run.revisions.length + 1}</span>}</h2>
-            <button type="button" className="aw-btn aw-compact" onClick={copyPlan}>{copied ? 'Copied' : 'Copy for Jira'}</button>
+    <span className="aw-place" ref={box}>
+      <button
+        type="button"
+        className="aw-status-folder"
+        data-set={run.source !== 'none' || undefined}
+        disabled={locked}
+        onClick={() => setOpen((v) => !v)}
+        title={locked ? `${run.source === 'repo' ? run.repo : run.folder} — fixed once Claude has worked in it` : 'A company repo, or a folder on this computer'}
+      >
+        {run.source === 'repo' ? '⎇' : '📁'} {label}
+      </button>
+      {open && (
+        <div className="aw-popover" role="dialog" aria-label="Where it works">
+          <strong className="aw-small">Company repo</strong>
+          <div className="aw-row aw-nowrap">
+            <input className="aw-input aw-compact aw-mono" list="aw-place-repos" value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="owner/repo" autoFocus />
+            <button type="button" className="aw-btn aw-compact" data-primary disabled={!repo.trim()} onClick={() => void set({ repo })}>Use</button>
           </div>
-          <div className="aw-prose">{run.plan}</div>
-          <label className="aw-check">
-            <input type="checkbox" checked={run.planInTicket} onChange={(e) => void act(() => call('runsPlanInTicket', run.id, e.target.checked))} />
-            <span>Added to {t.key || 'the ticket'} in Jira <span className="aw-muted">— by hand for now</span></span>
-          </label>
-        </section>
+          <datalist id="aw-place-repos">
+            {repos.map((r) => (
+              <option key={r.fullName} value={r.fullName} />
+            ))}
+          </datalist>
+          <small className="aw-muted">Cloned through the VPN into a checkout of the task&apos;s own.</small>
+          <hr className="aw-divider" />
+          <strong className="aw-small">Folder on this computer</strong>
+          <button type="button" className="aw-btn aw-compact" onClick={() => void pickFolder()}>Choose a folder…</button>
+        </div>
       )}
+    </span>
+  );
+}
 
-      {run.steps.review === 'waiting' && !run.running && (
-        <section className="aw-card aw-review">
-          <div className="aw-card-head"><h2>Step 3 — review the plan</h2></div>
-          {asking ? (
-            <>
-              <textarea className="aw-textarea" value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What should change in the plan?" autoFocus />
-              <div className="aw-row">
-                <button
-                  type="button"
-                  className="aw-btn"
-                  data-primary
-                  disabled={!feedback.trim()}
-                  onClick={() =>
-                    act(async () => {
-                      await call('runsReview', run.id, { kind: 'changes', feedback });
-                      setFeedback('');
-                      setAsking(false);
-                    })
-                  }
-                >
-                  Send to Claude
-                </button>
-                <button type="button" className="aw-btn" onClick={() => setAsking(false)}>Back</button>
-              </div>
-            </>
-          ) : (
-            <div className="aw-row">
-              <button type="button" className="aw-btn" data-primary onClick={() => act(() => call('runsReview', run.id, { kind: 'approve' }))}>Approve</button>
-              <button type="button" className="aw-btn" onClick={() => setAsking(true)}>Ask for changes</button>
-              <button type="button" className="aw-btn" onClick={() => act(() => call('runsReview', run.id, { kind: 'skip' }))}>Skip</button>
-            </div>
-          )}
-        </section>
-      )}
-
-      <RunWork run={run} act={act} />
+/** The task's ticket, copied from Jira: key, title, description, link. */
+function TicketForm({ ticket, onSave, onCancel }: { ticket: ManualTicket; onSave: (t: Partial<ManualTicket>) => void; onCancel: () => void }) {
+  const [key, setKey] = useState(ticket.key);
+  const [title, setTitle] = useState(ticket.title);
+  const [description, setDescription] = useState(ticket.description);
+  const [url, setUrl] = useState(ticket.url ?? '');
+  return (
+    <div className="aw-ticket-form">
+      <div className="aw-grid-key">
+        <label className="aw-field">
+          <span>Ticket key</span>
+          <input className="aw-input aw-compact aw-mono" value={key} onChange={(e) => setKey(e.target.value)} placeholder="BF9-123" />
+        </label>
+        <label className="aw-field">
+          <span>Title</span>
+          <input className="aw-input aw-compact" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </label>
+      </div>
+      <label className="aw-field">
+        <span>Description <small>— what the workflow works from; pasted from Jira</small></span>
+        <textarea className="aw-textarea aw-ticket-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+      </label>
+      <label className="aw-field">
+        <span>Link</span>
+        <input className="aw-input aw-compact aw-mono" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/browse/BF9-123" />
+      </label>
+      <div className="aw-row">
+        <button type="button" className="aw-btn aw-compact" data-primary onClick={() => onSave({ key, title, description, url })}>Save</button>
+        <button type="button" className="aw-btn aw-compact" onClick={onCancel}>Cancel</button>
+      </div>
     </div>
   );
 }
