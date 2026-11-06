@@ -7,6 +7,7 @@ import { openTask } from '@/lib/open';
 import { requestDock } from '@/lib/terminal-dock';
 import { ClaudeIcon, DockIcon, GithubIcon, PlusIcon, SearchIcon, VpnIcon } from './icons';
 import { SearchDialog } from './SearchDialog';
+import { RunningAgents } from './AgentActivity';
 
 type Tone = 'ok' | 'warn' | 'bad' | undefined;
 type Part = { tone: Tone; state: string; detail: string | null };
@@ -215,6 +216,7 @@ export function TopBar() {
 
       <div className="ao-topbar-status">
         {error && <span className="ao-topbar-error" title={error}>Couldn’t create the task</span>}
+        <RunningAgents />
         <ReadinessPill ready={ready} />
         {ready.vpn.tone !== 'ok' && ready.vpn.tone !== undefined && (
           <button type="button" className="ao-btn-primary ao-btn-compact" onClick={() => requestDock({ action: 'open', start: 'vpn' })}>

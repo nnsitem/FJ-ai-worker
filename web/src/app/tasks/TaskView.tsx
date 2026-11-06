@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { AgentLogo } from '@/components/AgentLogo';
 import { AgentModelPickers } from '@/components/AgentModelPickers';
+import { RunAgentButton, TaskAgents } from '@/components/AgentActivity';
 import { LinkOpener } from '@/components/LinkOpener';
 import { BranchIcon, CloseIcon, FileIcon, FolderIcon, JiraIcon, PanelIcon, PipelineIcon, PlayIcon, TrashIcon } from '@/components/icons';
 import { call, type ManualTicket, type RepoSummary, type Run } from '@/lib/bridge';
@@ -114,6 +115,7 @@ export function TaskView({
             <PlayIcon size={13} /> Run workflow
           </button>
         )}
+        <TaskAgents run={run} />
         <button
           type="button"
           className="ao-icon-btn ao-changes-toggle"
@@ -167,6 +169,8 @@ export function TaskView({
                 </span>
               </>
             )}
+            <span className="ao-dot-sep">·</span>
+            <RunAgentButton run={run} disabled={run.running || run.source === 'none'} />
             <div className="ao-spacer" />
             <span className="ao-mono-dim">{run.id.slice(0, 8)}</span>
           </div>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AgentModelPickers } from '@/components/AgentModelPickers';
-import { CloseIcon, PlayIcon, SearchIcon, SlidersIcon } from '@/components/icons';
+import { AgentsIcon, CloseIcon, PlayIcon, SearchIcon, SlidersIcon } from '@/components/icons';
 import { bridge, call, type Run, type Settings, type SettingsPatch, type StepId } from '@/lib/bridge';
 import { OPEN_TASK_KEY } from '@/lib/models';
 import { openTask, takeParked } from '@/lib/open';
@@ -203,6 +203,7 @@ const WAITING_TEXT: Partial<Record<StepId, { text: string; label: string }>> = {
 /** A task on the board, as AI Office's Agents Board card. */
 function CardView({ run, column, active, onOpen, onOpenTask, onStart }: { run: Run; column: ColumnId; active: boolean; onOpen: () => void; onOpenTask: () => void; onStart: () => void }) {
   const chip = stateChip(run);
+  const subs = run.agents.filter((a) => a.status === 'running').length;
   const last = [...run.events].reverse().find((e) => e.kind === 'tool' || e.kind === 'text');
   const cur = currentStep(run);
   // On your turn: what to do next, and the button for it.
@@ -241,6 +242,11 @@ function CardView({ run, column, active, onOpen, onOpenTask, onStart }: { run: R
           </span>
         ) : (
           <span className="ao-pipe-local">Task</span>
+        )}
+        {subs > 0 && (
+          <span className="ao-pipe-state" data-tone="running" title={`${subs} subagent${subs === 1 ? '' : 's'} working`}>
+            <AgentsIcon size={11} /> {subs}
+          </span>
         )}
         {chip && (
           <span className="ao-pipe-state" data-tone={chip.tone}>

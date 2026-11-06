@@ -115,6 +115,8 @@ export type Run = {
   checkCommand: string;
   baseline: Baseline | null;
   selfReviews: SelfReview[];
+  current: { agent: string; model: string | null; step: string; startedAt: string } | null;
+  agents: AgentActivity[];
   maxRounds: number;
   round: number;
   fixSummary: string | null;
@@ -132,6 +134,7 @@ export type Run = {
 export type PullRequest = { number: number; url: string; draft: boolean; state: 'open' | 'closed' | 'merged'; reviews: { author: string; state: string; at: string }[]; checkedAt: string };
 export type PrFeedback = { id: string; kind: 'review' | 'line' | 'comment'; author: string; body: string; path: string | null; line: number | null; at: string; addressed: boolean };
 export type TestResult = { round: number; at: string; passed: boolean; by: 'command' | 'claude'; output: string; kind?: 'new' | 'preExisting' | 'env' | null; why?: string | null };
+export type AgentActivity = { id: string; name: string; description: string; step: string; status: 'running' | 'completed' | 'failed' | 'stopped'; startedAt: string; endedAt: string | null; lastTool: string | null; toolUses: number };
 export type CommandRun = { ok: boolean; output: string };
 export type Baseline = { at: string; base: string; check: CommandRun | null; test: CommandRun | null };
 export type SelfReview = { round: number; at: string; verdict: 'approve' | 'changes'; report: string; outOfPlan: string[]; secrets: string[] };

@@ -90,6 +90,10 @@ export type Run = {
   baseline: Baseline | null;
   /** Step 5½: another Claude's review of the diff, round by round. */
   selfReviews: SelfReview[];
+  /** Who is working on it now: the main agent of the turn under way (null between turns). */
+  current: { agent: string; model: string | null; step: string; startedAt: string } | null;
+  /** The subagents Claude started in this task (latest last). */
+  agents: AgentActivity[];
   /** Fix rounds allowed before step 5 waits for the person, and those done. */
   maxRounds: number;
   round: number;
@@ -132,6 +136,21 @@ export type TestResult = {
 };
 
 export type CommandRun = { ok: boolean; output: string };
+
+/** A subagent Claude started (the Agent tool), as it runs and after. */
+export type AgentActivity = {
+  /** The Agent tool call's id. */
+  id: string;
+  name: string;
+  description: string;
+  /** Which step (or the conversation) started it. */
+  step: string;
+  status: 'running' | 'completed' | 'failed' | 'stopped';
+  startedAt: string;
+  endedAt: string | null;
+  lastTool: string | null;
+  toolUses: number;
+};
 export type Baseline = { at: string; base: string; check: CommandRun | null; test: CommandRun | null };
 
 export type SelfReview = {
@@ -161,6 +180,9 @@ function upgrade(r: Run): Run {
     checkCommand: r.checkCommand ?? '',
     baseline: r.baseline ?? null,
     selfReviews: r.selfReviews ?? [],
+    // Nothing runs across a restart.
+    current: null,
+    agents: (r.agents ?? []).map((a) => (a.status === 'running' ? { ...a, status: 'stopped' as const, endedAt: a.endedAt ?? new Date().toISOString() } : a)),
     steps: { ...r.steps, selfReview: r.steps.selfReview ?? (r.steps.pr !== 'pending' ? 'skipped' : 'pending') },
     maxRounds: r.maxRounds ?? 3,
     round: r.round ?? 0,
@@ -297,6 +319,8 @@ export function createRun(input: NewRun): Run {
     checkCommand: (input.checkCommand ?? (repo ? getSettings().repos[repo]?.checkCommand : '') ?? '').trim(),
     baseline: null,
     selfReviews: [],
+    current: null,
+    agents: [],
     maxRounds: Math.min(10, Math.max(1, Math.round(input.maxRounds ?? wf.test.rounds))),
     round: 0,
     fixSummary: null,
@@ -483,7 +507,7 @@ async function chat(r: Run, text: string): Promise<void> {
       resume: r.sessionId,
       step: 'chat',
       role: 'helping with this task in this folder. Change files only inside it; never commit, push or switch branches',
-      tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite', 'Skill', 'WebFetch', 'WebSearch'],
+      tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite', 'Skill', 'WebFetch', 'WebSearch', 'Agent'],
       canUseTool: fixPermissions(r),
       maxTurns: 200,
     });
@@ -692,6 +716,8 @@ function describeTool(name: string, input: Record<string, unknown>): string {
       return `$ ${s('command').split('\n')[0].slice(0, 200)}`;
     case 'TodoWrite':
       return 'Update its to-do list';
+    case 'Agent':
+      return `Start the ${s('subagent_type') || 'general-purpose'} agent: ${s('description')}`;
     default:
       return name;
   }
@@ -720,7 +746,7 @@ async function analyse(r: Run, feedback?: string): Promise<void> {
       step: 'analyse',
       role: 'analysing a ticket before any code is changed. Only read; never try to edit, write or run commands',
       // Read-only: these exist, nothing else does.
-      tools: ['Read', 'Grep', 'Glob', 'Skill'],
+      tools: ['Read', 'Grep', 'Glob', 'Skill', 'Agent'],
       maxTurns: 80,
       onText: (text) => {
         if (r.steps.analyze === 'running' && /##\s*Plan/.test(text)) r.steps.analyze = 'done';
@@ -783,6 +809,28 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
   const rules = `You are FJ AI Worker, ${t.role}.${note ? `\n\nProject context (kept by the team in FJ AI Worker — follow it):\n\n${note.text}` : ''}`;
   const def = agentName ? agentDefinition(agentName) : null;
   if (agentName && !def) log(r, 'system', `The agent ${agentName} isn’t in the library any more — going on without it.`, false);
+  // A subagent waits for its result in the turn: the turn (and its process)
+  // mustn't end with one still running in the background.
+  const vet = t.canUseTool ?? (async (_tool, input) => ({ behavior: 'allow' as const, updatedInput: input }));
+  const canUseTool: CanUseTool = async (tool, input, opts) => {
+    const res = await vet(tool, input, opts);
+    if (tool === 'Agent' && res && res.behavior === 'allow') return { behavior: 'allow', updatedInput: { ...(res.updatedInput ?? input), run_in_background: false } };
+    return res;
+  };
+  const stepName = t.step === 'chat' ? 'conversation' : t.step;
+  if (!t.ephemeral) {
+    r.current = { agent: def && agentName ? agentName : 'Claude Code', model: model ?? null, step: stepName, startedAt: new Date().toISOString() };
+    save(r);
+  }
+  /** The subagents this turn started, by their Agent call's id. */
+  const subs = new Map<string, AgentActivity>();
+  const endSub = (id: string, status: AgentActivity['status']) => {
+    const a = subs.get(id) ?? r.agents.find((x) => x.id === id);
+    if (a && a.status === 'running') {
+      a.status = status;
+      a.endedAt = new Date().toISOString();
+    }
+  };
   const stream = query({
     prompt: t.prompt,
     options: {
@@ -796,7 +844,7 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
         : { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: rules } }),
       ...(model ? { model } : {}),
       tools: t.tools,
-      canUseTool: t.canUseTool ?? (async (_tool, input) => ({ behavior: 'allow', updatedInput: input })),
+      canUseTool,
       // The app's own Claude folder (claude-account.ts): the imported skills
       // and agents — nothing of the person's own ~/.claude.
       settingSources: ['user'],
@@ -811,8 +859,55 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
   const written: string[] = [];
   try {
     for await (const m of stream as AsyncIterable<SDKMessage>) {
-      if (m.type === 'assistant') {
+      if (m.type === 'assistant' && m.parent_tool_use_id) {
+        // A subagent's own work: its tool calls go to its row (and the log, marked).
+        const a = subs.get(m.parent_tool_use_id);
+        for (const b of m.message.content) {
+          if (b.type !== 'tool_use') continue;
+          const line = describeTool(b.name, (b.input ?? {}) as Record<string, unknown>);
+          if (a) {
+            a.lastTool = line;
+            a.toolUses++;
+          }
+          if (!t.ephemeral) log(r, 'tool', `↳ ${a?.name ?? 'subagent'}: ${line}`, false);
+        }
+        save(r);
+      } else if (m.type === 'user' && !m.parent_tool_use_id && Array.isArray(m.message.content)) {
+        // A subagent's result back in the main conversation: it's done.
+        for (const b of m.message.content as { type: string; tool_use_id?: string; is_error?: boolean }[]) {
+          if (b.type === 'tool_result' && b.tool_use_id && subs.has(b.tool_use_id)) endSub(b.tool_use_id, b.is_error ? 'failed' : 'completed');
+        }
+        save(r);
+      } else if (m.type === 'system' && (m.subtype === 'task_progress' || m.subtype === 'task_notification')) {
+        const id = m.tool_use_id;
+        if (id && subs.has(id)) {
+          if (m.subtype === 'task_notification') endSub(id, m.status === 'completed' ? 'completed' : m.status === 'failed' ? 'failed' : 'stopped');
+          else if (m.last_tool_name) subs.get(id)!.lastTool = subs.get(id)!.lastTool ?? m.last_tool_name;
+          save(r);
+        }
+      } else if (m.type === 'assistant') {
         if (m.session_id && !t.ephemeral) r.sessionId = m.session_id;
+        for (const b of m.message.content) {
+          if (b.type === 'tool_use' && b.name === 'Agent') {
+            const input = (b.input ?? {}) as { subagent_type?: string; description?: string };
+            const a: AgentActivity = {
+              id: b.id,
+              name: input.subagent_type || 'general-purpose',
+              description: input.description ?? '',
+              step: stepName,
+              status: 'running',
+              startedAt: new Date().toISOString(),
+              endedAt: null,
+              lastTool: null,
+              toolUses: 0,
+            };
+            subs.set(b.id, a);
+            if (!t.ephemeral) {
+              r.agents.push(a);
+              if (r.agents.length > 60) r.agents.splice(0, r.agents.length - 60);
+            }
+          }
+        }
         for (const b of m.message.content) {
           if (b.type === 'text' && b.text.trim()) {
             if (!t.ephemeral) log(r, 'text', b.text, false);
@@ -831,6 +926,9 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
       }
     }
   } finally {
+    // Whatever was still running when the turn ended ended with it.
+    for (const id of subs.keys()) endSub(id, abort.signal.aborted ? 'stopped' : 'completed');
+    if (!t.ephemeral) r.current = null;
     if (!t.ephemeral) try {
       const wd = workDir(r);
       // A git checkout: only what git sees changed or new counts.
@@ -962,7 +1060,7 @@ async function fix(r: Run, failed?: TestResult, byHand = false, review?: Feedbac
       resume: r.sessionId,
       step: 'fix',
       role: `fixing ${r.ticket.key || 'the task'} in this folder. Change files only inside it; never commit, push or switch branches`,
-      tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite', 'Skill'],
+      tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite', 'Skill', 'Agent'],
       canUseTool: fixPermissions(r),
       maxTurns: 200,
     });
@@ -1058,7 +1156,7 @@ async function runTests(r: Run): Promise<void> {
         resume: r.sessionId,
         step: 'test',
         role: `testing the fix for ${r.ticket.key || 'the task'}. Run tests and read; do not change files, commit or push`,
-        tools: ['Read', 'Grep', 'Glob', 'Bash', 'Skill'],
+        tools: ['Read', 'Grep', 'Glob', 'Bash', 'Skill', 'Agent'],
         canUseTool: fixPermissions(r),
         maxTurns: 60,
       });
@@ -1228,7 +1326,7 @@ async function selfReview(r: Run): Promise<void> {
       step: 'selfReview',
       ephemeral: true,
       role: 'reviewing a change before it goes to people for review. Read only; never change files, commit or push',
-      tools: ['Read', 'Grep', 'Glob', 'Bash'],
+      tools: ['Read', 'Grep', 'Glob', 'Bash', 'Agent'],
       canUseTool: fixPermissions(r),
       maxTurns: 60,
     });
