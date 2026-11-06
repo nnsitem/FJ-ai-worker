@@ -78,7 +78,7 @@ function toPr(raw: RawPr, reviews: PullRequest['reviews']): PullRequest {
 }
 
 /** The PR as it is now, and everything reviewers have written on it (oldest first). */
-export async function readPullRequest(token: string, slug: string, number: number, me: string | null): Promise<{ pr: PullRequest; feedback: Omit<Feedback, 'addressed'>[] }> {
+export async function readPullRequest(token: string, slug: string, number: number): Promise<{ pr: PullRequest; feedback: Omit<Feedback, 'addressed'>[] }> {
   type User = { login: string; type?: string } | null;
   const [raw, reviews, lines, comments] = await Promise.all([
     gh<RawPr>(token, `/repos/${slug}/pulls/${number}`),
@@ -86,8 +86,9 @@ export async function readPullRequest(token: string, slug: string, number: numbe
     gh<{ id: number; user: User; body: string; path: string; line: number | null; original_line: number | null; created_at: string }[]>(token, `/repos/${slug}/pulls/${number}/comments?per_page=100`),
     gh<{ id: number; user: User; body: string; created_at: string }[]>(token, `/repos/${slug}/issues/${number}/comments?per_page=100`),
   ]);
-  // The app's own account (it opened the PR) and bots aren't reviewers.
-  const other = (u: User) => !!u && u.login !== me && u.type !== 'Bot';
+  // Bots aren't reviewers. The app's own account is — it never comments
+  // itself, and the person reviewing may well be signed in as the same one.
+  const other = (u: User) => !!u && u.type !== 'Bot';
   const latest = new Map<string, { author: string; state: string; at: string }>();
   for (const rv of reviews) if (other(rv.user) && rv.state !== 'PENDING') latest.set(rv.user!.login, { author: rv.user!.login, state: rv.state, at: rv.submitted_at });
   const feedback: Omit<Feedback, 'addressed'>[] = [
@@ -96,9 +97,4 @@ export async function readPullRequest(token: string, slug: string, number: numbe
     ...comments.filter((c) => other(c.user)).map((c) => ({ id: `c${c.id}`, kind: 'comment' as const, author: c.user!.login, body: c.body.trim(), path: null, line: null, at: c.created_at })),
   ].sort((a, b) => a.at.localeCompare(b.at));
   return { pr: toPr(raw, [...latest.values()]), feedback };
-}
-
-/** Who a token is (to leave its own comments out of the feedback). */
-export async function tokenLogin(token: string): Promise<string | null> {
-  return gh<{ login: string }>(token, '/user').then((u) => u.login).catch(() => null);
 }

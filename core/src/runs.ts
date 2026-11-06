@@ -12,7 +12,7 @@ import { agentDefinition } from './library.js';
 import { projectNote, taskProject } from './project-context.js';
 import { createWorktree, git, gitLocal, localOrigin, removeWorktree, syncRepo, worktreeDir } from './repos.js';
 import { githubState, githubToken } from './github.js';
-import { openPullRequest, readPullRequest, tokenLogin, type Feedback, type PullRequest } from './pull-requests.js';
+import { openPullRequest, readPullRequest, type Feedback, type PullRequest } from './pull-requests.js';
 import { getSettings, saveSettings, type StepAgent } from './settings.js';
 
 /**
@@ -1140,7 +1140,7 @@ export async function checkPullRequest(id: string): Promise<Run> {
   const r = getRun(id);
   if (!r.pr) throw new Error('No pull request yet');
   const { slug: repoSlug, token } = await githubFor(r);
-  const { pr, feedback } = await readPullRequest(token, repoSlug, r.pr.number, await tokenLogin(token));
+  const { pr, feedback } = await readPullRequest(token, repoSlug, r.pr.number);
   const known = new Map(r.feedback.map((f) => [f.id, f]));
   const fresh = feedback.filter((f) => !known.has(f.id));
   r.feedback = feedback.map((f) => ({ ...f, addressed: known.get(f.id)?.addressed ?? false }));
