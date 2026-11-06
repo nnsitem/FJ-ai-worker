@@ -63,7 +63,14 @@ export function listArtifacts(): Artifact[] {
  * began (a shell command's output). Files that would be part of the code
  * (README, LICENSE…) a tool edited are left to git.
  */
-export function collectArtifacts(task: { id: string; title: string }, root: string, written: string[], since: number): number {
+export function collectArtifacts(
+  task: { id: string; title: string },
+  root: string,
+  written: string[],
+  since: number,
+  /** In a git checkout: the paths git sees changed or new — nothing else is a document of the task's (a fresh checkout's files are all "new"). */
+  changed: Set<string> | null = null,
+): number {
   const found = new Set<string>();
   for (const f of written) {
     const abs = path.resolve(root, f);
@@ -98,6 +105,7 @@ export function collectArtifacts(task: { id: string; title: string }, root: stri
   const index = readJson<{ items: Artifact[] }>(INDEX, { items: [] });
   let added = 0;
   for (const abs of found) {
+    if (changed && !changed.has(path.relative(root, abs).split(path.sep).join('/'))) continue;
     let buf: Buffer;
     try {
       const st = fs.statSync(abs);

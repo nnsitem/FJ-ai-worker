@@ -859,3 +859,15 @@ textarea.ao-mono-input {
 .ao-skill-detail-head > div {
   flex: 1 1 220px;
 }
+
+/* Steps 6–7: the pull request */
+.ao-pr-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ao-pr-line .ao-link-btn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; }
+.ao-pr-reviews { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.76rem; color: var(--muted); }
+.ao-pr-feedback { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ao-pr-feedback li { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--well, rgb(var(--ink) / 0.03)); border: 1px solid var(--rule); font-size: 0.78rem; }
+.ao-pr-feedback li[data-addressed] { opacity: 0.6; }
+.ao-pr-feedback-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ao-pr-feedback-head code { font-size: 0.7rem; color: var(--accent-ink); }
+.ao-pr-feedback-body { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--foreground); }
+.ao-small-note { font-size: 0.7rem; }

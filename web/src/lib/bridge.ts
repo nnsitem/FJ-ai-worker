@@ -22,6 +22,7 @@ export type WorkflowSettings = {
   review: { enabled: boolean };
   fix: StepAgent;
   test: StepAgent & { enabled: boolean; rounds: number };
+  pr: { confirm: boolean; draft: boolean };
 };
 export type LibraryAgent = { name: string; description: string; model: string | null; tools: string[] | null };
 export type LibrarySkill = { name: string; description: string };
@@ -114,10 +115,17 @@ export type Run = {
   round: number;
   fixSummary: string | null;
   tests: TestResult[];
+  linked: boolean;
+  requestedBase: string | null;
+  pr: PullRequest | null;
+  feedback: PrFeedback[];
+  movedToReview: boolean;
   error: string | null;
   events: RunEvent[];
   running: boolean;
 };
+export type PullRequest = { number: number; url: string; draft: boolean; state: 'open' | 'closed' | 'merged'; reviews: { author: string; state: string; at: string }[]; checkedAt: string };
+export type PrFeedback = { id: string; kind: 'review' | 'line' | 'comment'; author: string; body: string; path: string | null; line: number | null; at: string; addressed: boolean };
 export type TestResult = { round: number; at: string; passed: boolean; by: 'command' | 'claude'; output: string };
 export type ChangedFile = { path: string; status: string; added: number | null; removed: number | null };
 export type NewTask = {
@@ -130,6 +138,7 @@ export type NewTask = {
   maxRounds?: number;
   startWorkflow?: boolean;
   draft?: boolean;
+  base?: string;
 };
 export type ReviewDecision = { kind: 'approve' } | { kind: 'skip' } | { kind: 'changes'; feedback: string };
 export type TerminalKind = 'shell' | 'vpn';
@@ -209,7 +218,12 @@ type Bridge = {
   librarySkillFiles(name: string): P<{ path: string; bytes: number }[]>;
   librarySkillFile(name: string, rel: string): P<{ text: string; truncated: boolean; bytes: number }>;
   pickFolder(title?: string): P<string | null>;
-  runsSetPlace(id: string, place: { repo?: string; folder?: string }): P<Run>;
+  runsSetPlace(id: string, place: { repo?: string; folder?: string; base?: string }): P<Run>;
+  runsApprovePush(id: string): P<Run>;
+  runsMovedToReview(id: string, done: boolean): P<Run>;
+  runsCheckPr(id: string): P<Run>;
+  runsFixReview(id: string): P<Run>;
+  runsFinishReview(id: string): P<Run>;
   runsSetTicket(id: string, patch: Partial<ManualTicket>): P<Run>;
   projectContextList(): P<{ notes: ProjectContext[]; suggestions: string[]; template: string }>;
   projectContextSave(project: string, text: string): P<ProjectContext>;

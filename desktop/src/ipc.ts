@@ -40,6 +40,12 @@ import {
   runChanges,
   runFileDiff,
   sendMessage,
+  approvePush,
+  setMovedToReview,
+  checkPullRequest,
+  fixReview,
+  finishReview,
+  watchPullRequests,
   setTaskOptions,
   setTaskPlace,
   setTicket,
@@ -190,7 +196,14 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.librarySkillFiles, (name: string) => skillFiles(name));
   handle(CHANNELS.librarySkillFile, (name: string, rel: string) => skillFile(name, rel));
   handle(CHANNELS.libraryReveal, (kind: 'agent' | 'skill', name: string) => shell.showItemInFolder(libraryItem(kind, name).path));
-  handle(CHANNELS.runsSetPlace, (id: string, place: { repo?: string; folder?: string }) => withLive(setTaskPlace(id, place)));
+  handle(CHANNELS.runsSetPlace, (id: string, place: { repo?: string; folder?: string; base?: string }) => withLive(setTaskPlace(id, place)));
+  // Steps 6–7. There is no merge: a person merges on GitHub.
+  handle(CHANNELS.runsApprovePush, (id: string) => withLive(approvePush(id)));
+  handle(CHANNELS.runsMovedToReview, (id: string, done: boolean) => withLive(setMovedToReview(id, done)));
+  handle(CHANNELS.runsCheckPr, async (id: string) => withLive(await checkPullRequest(id)));
+  handle(CHANNELS.runsFixReview, (id: string) => withLive(fixReview(id)));
+  handle(CHANNELS.runsFinishReview, (id: string) => withLive(finishReview(id)));
+  watchPullRequests();
   handle(CHANNELS.runsSetTicket, (id: string, patch: Parameters<typeof setTicket>[1]) => withLive(setTicket(id, patch)));
 
   // Project context (core/src/project-context.ts): the notes, and the

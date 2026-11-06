@@ -55,6 +55,8 @@ export type WorkflowSettings = {
   fix: StepAgent;
   /** Step 5 (off: no tests, straight to step 6); rounds before it waits for you. */
   test: StepAgent & { enabled: boolean; rounds: number };
+  /** Step 6: wait for a person's go before pushing; open the PR as a draft. */
+  pr: { confirm: boolean; draft: boolean };
 };
 
 export type RepoSettings = {
@@ -90,6 +92,7 @@ export const DEFAULT_SETTINGS: Settings = {
     review: { enabled: true },
     fix: { agent: null, model: null },
     test: { agent: null, model: null, enabled: true, rounds: 3 },
+    pr: { confirm: true, draft: true },
   },
   defaultAgent: null,
 };
@@ -120,6 +123,7 @@ function mergeWorkflow(base: WorkflowSettings, patch?: WorkflowPatch): WorkflowS
     review: { ...base.review, ...patch?.review },
     fix: { ...base.fix, ...patch?.fix },
     test: { ...base.test, ...patch?.test },
+    pr: { ...base.pr, ...patch?.pr },
   };
 }
 

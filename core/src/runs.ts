@@ -10,7 +10,9 @@ import { toolEnv } from './network.js';
 import { collectArtifacts } from './artifacts.js';
 import { agentDefinition } from './library.js';
 import { projectNote, taskProject } from './project-context.js';
-import { createWorktree, git, removeWorktree, syncRepo, worktreeDir } from './repos.js';
+import { createWorktree, git, gitLocal, localOrigin, removeWorktree, syncRepo, worktreeDir } from './repos.js';
+import { githubState, githubToken } from './github.js';
+import { openPullRequest, readPullRequest, tokenLogin, type Feedback, type PullRequest } from './pull-requests.js';
 import { getSettings, saveSettings, type StepAgent } from './settings.js';
 
 /**
@@ -88,6 +90,19 @@ export type Run = {
   /** Claude's account of the fix, latest round. */
   fixSummary: string | null;
   tests: TestResult[];
+  /**
+   * A folder that is a git repo with a GitHub origin is worked in a worktree
+   * of its own (under the app's data), branched from origin's base — the
+   * person's checkout is never switched or touched.
+   */
+  linked: boolean;
+  /** The base branch asked for (else the repo's default). */
+  requestedBase: string | null;
+  /** Step 6's pull request, and step 7's review feedback. */
+  pr: PullRequest | null;
+  feedback: Feedback[];
+  /** Step 6 by hand: the ticket moved to Review. */
+  movedToReview: boolean;
   error: string | null;
   events: RunEvent[];
 };
@@ -117,6 +132,11 @@ function upgrade(r: Run): Run {
     round: r.round ?? 0,
     fixSummary: r.fixSummary ?? null,
     tests: r.tests ?? [],
+    linked: r.linked ?? false,
+    requestedBase: r.requestedBase ?? null,
+    pr: r.pr ?? null,
+    feedback: r.feedback ?? [],
+    movedToReview: r.movedToReview ?? false,
   };
 }
 
@@ -196,6 +216,8 @@ export type NewRun = {
   startWorkflow?: boolean;
   /** A blank task, as a new session in AI Office: its place, agent and brief come after. */
   draft?: boolean;
+  /** The branch to start from (else the repo's default). */
+  base?: string;
 };
 
 const slugId = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'task';
@@ -240,6 +262,11 @@ export function createRun(input: NewRun): Run {
     round: 0,
     fixSummary: null,
     tests: [],
+    linked: false,
+    requestedBase: input.base?.trim() || null,
+    pr: null,
+    feedback: [],
+    movedToReview: false,
     error: null,
     events: [],
   };
@@ -250,7 +277,7 @@ export function createRun(input: NewRun): Run {
 }
 
 /** Where a task works — set (or changed) until Claude has started in it. */
-export function setTaskPlace(id: string, place: { repo?: string; folder?: string }): Run {
+export function setTaskPlace(id: string, place: { repo?: string; folder?: string; base?: string }): Run {
   const r = getRun(id);
   if (live.has(id)) throw new Error('Wait for Claude to finish');
   if (r.sessionId || r.branch) throw new Error('Claude has already worked here — start a new task to work somewhere else');
@@ -264,8 +291,9 @@ export function setTaskPlace(id: string, place: { repo?: string; folder?: string
   } else if (folder) {
     if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) throw new Error('That folder isn’t there');
     if (r.source === 'repo') void removeWorktree(r.id, r.repo).catch(() => {});
-    Object.assign(r, { source: 'folder', repo: '', folder: path.resolve(folder), baseBranch: null });
+    Object.assign(r, { source: 'folder', repo: '', folder: path.resolve(folder), baseBranch: null, linked: false });
   } else throw new Error('Pick a repo or a folder');
+  if (place.base !== undefined) r.requestedBase = place.base.trim() || null;
   r.error = null;
   save(r);
   prepareOnly(r);
@@ -283,11 +311,14 @@ export function setTicket(id: string, patch: Partial<ManualTicket>): Run {
 
 /** The folder Claude works in. */
 export function workDir(r: Run): string {
-  return r.source === 'folder' && r.folder ? r.folder : worktreeDir(r.id);
+  return r.source === 'folder' && r.folder && !r.linked ? r.folder : worktreeDir(r.id);
 }
 
-/** The base the fix is measured against: origin's branch for a repo, the local one for a folder. */
-const baseRef = (r: Run) => (r.source === 'repo' ? `origin/${r.baseBranch}` : r.baseBranch!);
+/** The base the fix is measured against: origin's branch for a repo (or a linked folder), the local one for a plain folder. */
+const baseRef = (r: Run) => (r.source === 'repo' || r.linked ? `origin/${r.baseBranch}` : r.baseBranch!);
+
+/** git for the task: the app's (its own clone, its token) or the person's own (their repo, their credentials). */
+const gitFor = (r: Run) => (r.source === 'folder' ? gitLocal : git);
 
 async function isGitRepo(dir: string): Promise<boolean> {
   return git(['rev-parse', '--is-inside-work-tree'], dir)
@@ -315,7 +346,28 @@ async function prepareNow(r: Run): Promise<void> {
   if (r.source === 'none') throw new Error('Pick where this task works first — a repo or a folder (under the message box)');
   if (r.source === 'folder') {
     if (!r.folder || !fs.existsSync(r.folder)) throw new Error(`The folder ${r.folder} isn’t there`);
-    if (!r.baseBranch && (await isGitRepo(r.folder))) r.baseBranch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], r.folder)).trim();
+    const origin = (await isGitRepo(r.folder)) ? await localOrigin(r.folder) : null;
+    if (!origin) {
+      // Not a GitHub repo: Claude works in the folder as it is.
+      if (!r.baseBranch && (await isGitRepo(r.folder))) r.baseBranch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], r.folder)).trim();
+      return;
+    }
+    // A GitHub repo of the person's: a worktree of the task's own, from
+    // origin's base fetched now — their checkout stays as it is.
+    r.linked = true;
+    if (r.baseBranch && fs.existsSync(worktreeDir(r.id))) return;
+    let base = r.requestedBase;
+    if (!base) {
+      const head = await gitLocal(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], r.folder).catch(() => '');
+      base = head.trim().replace('refs/remotes/origin/', '') || 'main';
+    }
+    log(r, 'system', `Fetching origin/${base} (${origin.slug}) through the VPN…`);
+    await gitLocal(['fetch', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], r.folder, 900000);
+    const wt = worktreeDir(r.id);
+    fs.mkdirSync(path.dirname(wt), { recursive: true });
+    await gitLocal(['worktree', 'add', '--detach', wt, `origin/${base}`], r.folder, 900000);
+    r.baseBranch = base;
+    log(r, 'system', `Checked out origin/${base} in a worktree of its own (${wt}) — ${r.folder} itself is untouched.`);
     return;
   }
   if (r.baseBranch && fs.existsSync(worktreeDir(r.id))) return;
@@ -445,6 +497,11 @@ export async function deleteRun(id: string): Promise<void> {
   live.get(id)?.abort();
   // A folder of the person's own stays; only the app's own checkout goes.
   if (r.source === 'repo') await removeWorktree(id, r.repo);
+  else if (r.linked && r.folder) {
+    // The task's worktree goes; its branch (pushed, with its PR) stays in the repo.
+    await gitLocal(['worktree', 'remove', '--force', worktreeDir(id)], r.folder).catch(() => fs.rmSync(worktreeDir(id), { recursive: true, force: true }));
+    await gitLocal(['worktree', 'prune'], r.folder).catch(() => {});
+  }
   runs.delete(id);
   fs.rmSync(file(id), { force: true });
 }
@@ -521,6 +578,7 @@ export function acceptTests(id: string): Run {
   r.steps.test = 'skipped';
   log(r, 'system', 'Tests accepted as they are — going on.', false);
   save(r);
+  afterTests(r);
   return r;
 }
 
@@ -710,7 +768,11 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
     }
   } finally {
     try {
-      const n = collectArtifacts({ id: r.id, title: r.ticket.title || r.ticket.key || 'Task' }, workDir(r), written, since);
+      const wd = workDir(r);
+      // A git checkout: only what git sees changed or new counts.
+      const status = (await isGitRepo(wd)) ? await git(['status', '--porcelain=v1', '-uall'], wd).catch(() => null) : null;
+      const changed = status == null ? null : new Set(status.split('\n').filter(Boolean).map((l) => l.slice(3).replace(/^.* -> /, '').replace(/^"|"$/g, '')));
+      const n = collectArtifacts({ id: r.id, title: r.ticket.title || r.ticket.key || 'Task' }, wd, written, since, changed);
       if (n) log(r, 'system', `${n} document${n === 1 ? '' : 's'} kept in Artifacts.`, false);
     } catch {
       // keeping documents never fails the turn
@@ -789,7 +851,7 @@ const RETRY_PROMPT = (r: Run, failed: TestResult) =>
     'Reply with a short summary of what you changed.',
   ].join('\n');
 
-async function fix(r: Run, failed?: TestResult, byHand = false): Promise<void> {
+async function fix(r: Run, failed?: TestResult, byHand = false, review?: Feedback[]): Promise<void> {
   let abort: AbortController;
   try {
     abort = claim(r);
@@ -803,17 +865,20 @@ async function fix(r: Run, failed?: TestResult, byHand = false): Promise<void> {
     await assertClaudeAccount();
     await prepare(r);
     const wt = workDir(r);
-    if (!r.branch && (r.source === 'repo' || (await isGitRepo(wt)))) {
-      const name = `fix/${r.ticket.key}-${slug(r.ticket.title || r.ticket.description) || 'change'}`;
-      const exists = (await git(['branch', '--list', name], wt)).trim();
-      await git(exists ? ['switch', name] : ['switch', '-c', name], wt);
+    if (!r.branch && (r.source === 'repo' || r.linked || (await isGitRepo(wt)))) {
+      const words = slug(r.ticket.title || r.ticket.description) || 'change';
+      let name = `fix/${r.ticket.key ? `${r.ticket.key}-` : ''}${words}`;
+      // Never another task's branch: a name already there gets the task's own suffix.
+      if ((await git(['branch', '--list', name], wt)).trim()) name = `${name}-${r.id.slice(-8)}`;
+      await git(['switch', '-c', name], wt);
       r.branch = name;
-      log(r, 'system', `On branch ${name}. Move ${r.ticket.key} to In progress in Jira.`, false);
+      log(r, 'system', `On branch ${name}.${r.ticket.key ? ` Move ${r.ticket.key} to In progress in Jira.` : ''}`, false);
     }
-    if (failed) log(r, 'system', `Round ${r.round + 1}: fixing what the tests found.`, false);
+    if (review) log(r, 'system', `Dealing with ${review.length} review comment${review.length === 1 ? '' : 's'} on PR #${r.pr?.number}.`, false);
+    else if (failed) log(r, 'system', `Round ${r.round + 1}: fixing what the tests found.`, false);
     else if (byHand) log(r, 'system', `Round ${r.round + 1}: another go at the fix.`, false);
     r.fixSummary = await claudeTurn(r, abort, {
-      prompt: failed ? RETRY_PROMPT(r, failed) : FIX_PROMPT(r),
+      prompt: review ? REVIEW_PROMPT(r, review) : failed ? RETRY_PROMPT(r, failed) : FIX_PROMPT(r),
       resume: r.sessionId,
       step: 'fix',
       role: `fixing ${r.ticket.key || 'the task'} in this folder. Change files only inside it; never commit, push or switch branches`,
@@ -838,6 +903,7 @@ async function fix(r: Run, failed?: TestResult, byHand = false): Promise<void> {
     r.steps.test = 'skipped';
     log(r, 'system', 'Tests are off in the workflow — skipped.', false);
     save(r);
+    afterTests(r);
   }
 }
 
@@ -921,6 +987,203 @@ async function runTests(r: Run): Promise<void> {
   }
   const last = r.tests.at(-1);
   if (r.steps.test === 'failed' && !r.error && last && !last.passed) void fix(r, last);
+  if (r.steps.test === 'done') afterTests(r);
+}
+
+// ---- Steps 6–7: the pull request, and its review ----------------------------------
+
+/**
+ * Tests passed (or set aside): step 6. It waits for the person's go
+ * (Workflow settings: "a person pushes") — the branch goes to the company's
+ * GitHub — else it pushes and opens the PR at once. A follow-up (review
+ * comments dealt with) pushes to the same PR.
+ */
+function afterTests(r: Run): void {
+  if (!r.branch) {
+    r.steps.pr = 'skipped';
+    r.steps.humanReview = 'skipped';
+    log(r, 'system', 'No git branch here (the folder isn’t a git repo) — no pull request.', false);
+    save(r);
+    return;
+  }
+  if (getSettings().workflow.pr.confirm) {
+    r.steps.pr = 'waiting';
+    log(r, 'system', r.pr ? `Ready to push the changes to PR #${r.pr.number} — your go.` : 'Ready to push the branch and open the pull request — your go.', false);
+    save(r);
+  } else void pushAndOpen(r);
+}
+
+/** Step 6 by the person's go. */
+export function approvePush(id: string): Run {
+  const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for Claude to finish');
+  if (!r.branch) throw new Error('There is no branch to push');
+  void pushAndOpen(r);
+  return r;
+}
+
+/** Step 6 by hand: the ticket is in Review in Jira. */
+export function setMovedToReview(id: string, done: boolean): Run {
+  const r = getRun(id);
+  r.movedToReview = done;
+  save(r);
+  return r;
+}
+
+/** owner/name on GitHub, and the token to talk to it with. */
+async function githubFor(r: Run): Promise<{ slug: string; token: string }> {
+  if (r.source === 'repo') {
+    const token = githubToken();
+    if (!token) throw new Error('Sign in to GitHub first (Connections)');
+    return { slug: r.repo, token };
+  }
+  const origin = r.folder ? await localOrigin(r.folder) : null;
+  if (!origin) throw new Error('This folder has no GitHub origin');
+  // The repo's own credentials first (what pushes to it), else the app's sign-in.
+  const token = origin.token ?? githubToken();
+  if (!token) throw new Error('Sign in to GitHub first (Connections)');
+  return { slug: origin.slug, token };
+}
+
+function commitMessage(r: Run): string {
+  const t = r.ticket;
+  const head = `${t.key ? `${t.key}: ` : ''}${t.title || 'Changes by FJ AI Worker'}`.slice(0, 100);
+  const body = (r.fixSummary ?? '').replace(/\r/g, '').trim().slice(0, 2000);
+  return `${head}\n\n${body}\n\nMade with FJ AI Worker (Claude).`.trim();
+}
+
+function prBody(r: Run): string {
+  const t = r.ticket;
+  const lastTest = r.tests.at(-1);
+  return [
+    t.url ? `Ticket: ${t.url}` : t.key ? `Ticket: ${t.key}` : '',
+    '',
+    '## What changed',
+    r.fixSummary?.trim() || '(see the commits)',
+    '',
+    r.plan ? `<details><summary>The approved plan</summary>\n\n${r.plan.trim()}\n\n</details>` : '',
+    '',
+    '## Tests',
+    lastTest ? `${lastTest.passed ? '✅ Passed' : '⚠️ Not passing — accepted by a person'} (round ${lastTest.round}, ${lastTest.by === 'command' ? `\`${r.testCommand}\`` : 'run by Claude'})` : 'Not run.',
+    '',
+    '---',
+    '_Opened by FJ AI Worker. Review before merging — the app never merges._',
+  ]
+    .filter((l, i, a) => l !== '' || a[i - 1] !== '')
+    .join('\n');
+}
+
+async function pushAndOpen(r: Run): Promise<void> {
+  try {
+    claim(r);
+  } catch {
+    return;
+  }
+  r.steps.pr = 'running';
+  save(r);
+  try {
+    const wt = workDir(r);
+    const g = gitFor(r);
+    const { slug: repoSlug, token } = await githubFor(r);
+    // Commit what's there (the person's identity in their own repo; the
+    // GitHub account's, by its noreply address, in the app's clone).
+    if ((await g(['status', '--porcelain'], wt)).trim()) {
+      await g(['add', '-A'], wt);
+      const who: string[] = [];
+      if (r.source === 'repo') {
+        const me = await githubState().catch(() => null);
+        const login = me && me.signedIn ? me.user.login : 'fj-ai-worker';
+        who.push('-c', `user.name=${me && me.signedIn ? (me.user.name ?? login) : 'FJ AI Worker'}`, '-c', `user.email=${login}@users.noreply.github.com`);
+      }
+      await g([...who, 'commit', '-q', '-m', commitMessage(r)], wt);
+      log(r, 'system', 'Committed the changes.', false);
+    }
+    const ahead = (await g(['rev-list', '--count', `${baseRef(r)}..HEAD`], wt)).trim();
+    if (ahead === '0') throw new Error('Nothing to push — the branch has no changes over its base');
+    log(r, 'system', `Pushing ${r.branch} to ${repoSlug}…`, false);
+    save(r);
+    await g(['push', '-u', 'origin', `HEAD:refs/heads/${r.branch}`], wt, 900000);
+    if (!r.pr || r.pr.state !== 'open') {
+      const t = r.ticket;
+      r.pr = await openPullRequest(token, repoSlug, {
+        head: r.branch!,
+        base: r.baseBranch!,
+        title: `${t.key ? `${t.key}: ` : ''}${t.title || 'Changes by FJ AI Worker'}`.slice(0, 250),
+        body: prBody(r),
+        draft: getSettings().workflow.pr.draft,
+      });
+      log(r, 'system', `Opened PR #${r.pr.number}${r.pr.draft ? ' (draft)' : ''}: ${r.pr.url}${t.key ? ` — move ${t.key} to Review in Jira.` : ''}`, false);
+    } else log(r, 'system', `Pushed to PR #${r.pr.number}.`, false);
+    r.steps.pr = 'done';
+    r.steps.humanReview = 'waiting';
+  } catch (e) {
+    r.error = e instanceof Error ? e.message : String(e);
+    r.steps.pr = 'failed';
+    log(r, 'error', r.error, false);
+  } finally {
+    live.delete(r.id);
+    save(r);
+  }
+}
+
+/** Step 7: the PR as it is now, and any new review feedback. */
+export async function checkPullRequest(id: string): Promise<Run> {
+  const r = getRun(id);
+  if (!r.pr) throw new Error('No pull request yet');
+  const { slug: repoSlug, token } = await githubFor(r);
+  const { pr, feedback } = await readPullRequest(token, repoSlug, r.pr.number, await tokenLogin(token));
+  const known = new Map(r.feedback.map((f) => [f.id, f]));
+  const fresh = feedback.filter((f) => !known.has(f.id));
+  r.feedback = feedback.map((f) => ({ ...f, addressed: known.get(f.id)?.addressed ?? false }));
+  const was = r.pr.state;
+  r.pr = pr;
+  if (fresh.length) log(r, 'system', `${fresh.length} new review comment${fresh.length === 1 ? '' : 's'} on PR #${pr.number}.`, false);
+  if (pr.state !== was && pr.state !== 'open') {
+    r.steps.humanReview = 'done';
+    log(r, 'system', pr.state === 'merged' ? `PR #${pr.number} was merged.` : `PR #${pr.number} was closed without merging.`, false);
+  }
+  save(r);
+  return r;
+}
+
+/** Step 7: Claude deals with the review comments not yet handed to it, then tests and pushes to the same PR. */
+export function fixReview(id: string): Run {
+  const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for Claude to finish');
+  const open = r.feedback.filter((f) => !f.addressed);
+  if (!open.length) throw new Error('No review comments to deal with');
+  for (const f of open) f.addressed = true;
+  r.round = 0;
+  void fix(r, undefined, false, open);
+  return r;
+}
+
+/** Step 7 by the person: the review is over (merged or not — on GitHub, by a person). */
+export function finishReview(id: string): Run {
+  const r = getRun(id);
+  r.steps.humanReview = 'done';
+  log(r, 'system', 'Review marked done.', false);
+  save(r);
+  return r;
+}
+
+const REVIEW_PROMPT = (r: Run, review: Feedback[]) =>
+  [
+    `Step 7 — the reviewers of PR #${r.pr?.number} left these comments. Deal with each in the code (or, where one shouldn't change the code, say why).`,
+    '',
+    ...review.map((f) => `- ${f.author}${f.path ? ` on ${f.path}${f.line ? `:${f.line}` : ''}` : ''}: ${f.body.replace(/\n/g, '\n  ')}`),
+    '',
+    'Do not commit, push or switch branches — FJ AI Worker tests and pushes to the same PR after.',
+    'Reply with a short summary: what you changed for each comment.',
+  ].join('\n');
+
+/** While PRs wait for review: look at them every few minutes. */
+let watching: ReturnType<typeof setInterval> | null = null;
+export function watchPullRequests(): void {
+  if (watching) return;
+  watching = setInterval(() => {
+    for (const r of listRuns()) if (r.pr?.state === 'open' && r.steps.humanReview === 'waiting' && !live.has(r.id)) void checkPullRequest(r.id).catch(() => {});
+  }, 3 * 60 * 1000);
 }
 
 // ---- What the fix changed ------------------------------------------------------

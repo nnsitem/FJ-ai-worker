@@ -99,3 +99,40 @@ export async function removeWorktree(runId: string, repo: string): Promise<void>
   await git(['worktree', 'remove', '--force', wt], dir).catch(() => fs.rmSync(wt, { recursive: true, force: true }));
   await git(['worktree', 'prune'], dir).catch(() => {});
 }
+
+/**
+ * git in a repo of the person's own (a task's folder): their git config and
+ * credentials as they are — only the VPN tunnel set for github.com, and no
+ * password prompt (there's nobody to answer it).
+ */
+export function gitLocal(args: string[], cwd: string, timeoutMs = 300000): Promise<string> {
+  const { host, port } = getSettings().proxy;
+  const env = {
+    ...baseToolEnv(),
+    GIT_TERMINAL_PROMPT: '0',
+    GIT_CONFIG_COUNT: '1',
+    GIT_CONFIG_KEY_0: 'http.https://github.com/.proxy',
+    GIT_CONFIG_VALUE_0: `socks5h://${host}:${port}`,
+  };
+  return new Promise((resolve, reject) => {
+    execFile('git', args, { cwd, env, timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) reject(new Error(readableGitError(stderr || err.message)));
+      else resolve(stdout);
+    });
+  });
+}
+
+/** The GitHub owner/name (and any token written into the URL) a local repo's origin points at. */
+export async function localOrigin(folder: string): Promise<{ slug: string; token: string | null } | null> {
+  const url = (await gitLocal(['config', '--get', 'remote.origin.url'], folder).catch(() => '')).trim();
+  const m = /github\.com[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?$/.exec(url);
+  if (!m) return null;
+  let token: string | null = null;
+  try {
+    const u = new URL(url);
+    token = decodeURIComponent(u.password || '') || null;
+  } catch {
+    // an ssh-style URL: no token in it
+  }
+  return { slug: m[1], token };
+}

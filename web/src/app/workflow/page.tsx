@@ -348,7 +348,21 @@ function StepSettings({ settings, onSave }: { settings: Settings; onSave: (p: Se
               />
             </label>
           </div>
-          <p className="ao-pipe-menu-note">6–7 Pull request &amp; human review — coming in M5. Agents come from the Agents &amp; skills page.</p>
+          <label className="ao-pipe-check">
+            <input type="checkbox" checked={wf.pr.confirm} onChange={(e) => void onSave({ workflow: { pr: { confirm: e.target.checked } } })} />
+            <span>
+              6 · A person gives the go to push
+              <small>Off: the branch is pushed and the PR opened as soon as the tests pass.</small>
+            </span>
+          </label>
+          <label className="ao-pipe-check">
+            <input type="checkbox" checked={wf.pr.draft} onChange={(e) => void onSave({ workflow: { pr: { draft: e.target.checked } } })} />
+            <span>
+              6 · Open pull requests as drafts
+              <small>FJ AI Worker never merges — reviewers do, on GitHub.</small>
+            </span>
+          </label>
+          <p className="ao-pipe-menu-note">Agents come from the Agents &amp; skills page.</p>
         </div>
       )}
     </div>

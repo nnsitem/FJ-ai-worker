@@ -209,6 +209,8 @@ export function TaskView({
 function PlacePicker({ run, locked, onError }: { run: Run; locked: boolean; onError: (e: string | null) => void }) {
   const [open, setOpen] = useState(false);
   const [repo, setRepo] = useState(run.repo);
+  /** The branch to start from — empty: the repo's default. */
+  const [base, setBase] = useState(run.requestedBase ?? '');
   const [repos, setRepos] = useState<RepoSummary[]>([]);
   const box = useRef<HTMLSpanElement>(null);
 
@@ -230,7 +232,7 @@ function PlacePicker({ run, locked, onError }: { run: Run; locked: boolean; onEr
   const set = async (place: { repo?: string; folder?: string }) => {
     onError(null);
     try {
-      await call('runsSetPlace', run.id, place);
+      await call('runsSetPlace', run.id, { ...place, base });
       setOpen(false);
     } catch (e) {
       onError((e as Error).message);
@@ -258,6 +260,10 @@ function PlacePicker({ run, locked, onError }: { run: Run; locked: boolean; onEr
       {open && (
         <div className="ao-pipe-menu ao-place-menu" role="dialog" aria-label="Where it works">
           <div className="ao-pipe-setting">
+            <span>Start from branch</span>
+            <input className="ao-task-input ao-mono-input" value={base} onChange={(e) => setBase(e.target.value)} placeholder="the repo’s default (e.g. develop)" />
+          </div>
+          <div className="ao-pipe-setting">
             <span>Company repo</span>
             <div className="ao-place-row">
               <input className="ao-task-input" list="ao-place-repos" value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="owner/repo" autoFocus />
@@ -271,7 +277,7 @@ function PlacePicker({ run, locked, onError }: { run: Run; locked: boolean; onEr
               <option key={r.fullName} value={r.fullName} />
             ))}
           </datalist>
-          <p className="ao-pipe-menu-note">Cloned through the VPN into a checkout of the task&apos;s own.</p>
+          <p className="ao-pipe-menu-note">Cloned through the VPN into a checkout of the task&apos;s own. A folder that&apos;s a GitHub repo gets a worktree of its own too, from origin&apos;s latest — the folder itself isn&apos;t touched.</p>
           <div className="ao-pipe-setting">
             <span>Folder on this computer</span>
             <button type="button" className="ao-btn-secondary ao-btn-compact ao-place-folder" onClick={() => void pickFolder()}>

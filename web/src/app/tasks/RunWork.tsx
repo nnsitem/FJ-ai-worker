@@ -61,12 +61,108 @@ export function RunWork({ run, act }: { run: Run; act: Act }) {
 
       {(run.steps.test !== 'pending' || run.tests.length > 0) && <Tests run={run} act={act} />}
 
-      {(run.steps.test === 'done' || run.steps.test === 'skipped') && (
-        <p className="ao-pipe-panel-note">
-          Next, step 6: FJ AI Worker commits, pushes {run.branch} and opens the pull request, and you move {t.key || 'the ticket'} to Review — coming in M5.
-        </p>
-      )}
+      {run.steps.pr !== 'pending' && <PullRequestSection run={run} act={act} />}
     </>
+  );
+}
+
+const PR_STATE: Record<string, string> = { open: 'Open', closed: 'Closed', merged: 'Merged' };
+const REVIEW_STATE: Record<string, string> = { APPROVED: 'approved', CHANGES_REQUESTED: 'asked for changes', COMMENTED: 'commented', DISMISSED: 'dismissed' };
+
+/**
+ * Steps 6–7: push and open the pull request (on the person's go, unless the
+ * workflow is set to go on its own), then its review — what reviewers said,
+ * handed to Claude to deal with, pushed to the same PR. Merging is a
+ * person's, on GitHub: there's no merge here.
+ */
+function PullRequestSection({ run, act }: { run: Run; act: Act }) {
+  const t = run.ticket;
+  const pr = run.pr;
+  const open = run.feedback.filter((f) => !f.addressed);
+  const busy = run.running;
+  return (
+    <section>
+      <p className="ao-task-panel-label">
+        Step 6–7 — pull request{pr && <> · <span className="ao-task-panel-id">#{pr.number}</span></>}
+      </p>
+      <div className="ao-pipe-check-panel">
+        {run.steps.pr === 'waiting' && !busy && (
+          <>
+            <p className="ao-pipe-panel-note" data-tone="ready">
+              {pr
+                ? `Push the new commits on ${run.branch} to PR #${pr.number}?`
+                : `Push ${run.branch} to origin and open a pull request into ${run.baseBranch}? It goes to the company's GitHub.`}
+            </p>
+            <div className="ao-pipe-panel-actions">
+              <button type="button" className="ao-btn-primary ao-btn-compact" onClick={() => void act(() => call('runsApprovePush', run.id))}>
+                {pr ? 'Push to the PR' : 'Push & open PR'}
+              </button>
+            </div>
+          </>
+        )}
+        {run.steps.pr === 'running' && <p className="ao-task-panel-muted">Pushing{pr ? '' : ' and opening the pull request'}…</p>}
+        {run.steps.pr === 'failed' && !busy && (
+          <div className="ao-pipe-panel-actions">
+            <button type="button" className="ao-btn-primary ao-btn-compact" onClick={() => void act(() => call('runsApprovePush', run.id))}>Try again</button>
+          </div>
+        )}
+        {pr && (
+          <>
+            <div className="ao-pr-line">
+              <span className="ao-pipe-verdict" data-verdict={pr.state === 'merged' ? 'approved' : pr.state === 'closed' ? 'changes' : undefined}>
+                {pr.draft && pr.state === 'open' ? 'Draft' : PR_STATE[pr.state]}
+              </span>
+              <button type="button" className="ao-link-btn" onClick={() => void call('openExternal', pr.url)}>{pr.url.replace(/^https:\/\/github\.com\//, '')}</button>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="ao-btn-secondary ao-btn-compact" disabled={busy} onClick={() => void act(() => call('runsCheckPr', run.id))}>Check now</button>
+            </div>
+            {pr.reviews.length > 0 && (
+              <ul className="ao-pr-reviews">
+                {pr.reviews.map((rv) => (
+                  <li key={rv.author}>
+                    <b>{rv.author}</b> {REVIEW_STATE[rv.state] ?? rv.state.toLowerCase()}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label className="ao-pipe-check">
+              <input type="checkbox" checked={run.movedToReview} onChange={(e) => void act(() => call('runsMovedToReview', run.id, e.target.checked))} />
+              <span>
+                Moved {t.key || 'the ticket'} to Review in Jira
+                <small>By hand until Jira is connected for writing.</small>
+              </span>
+            </label>
+            {run.feedback.length > 0 && (
+              <ul className="ao-pr-feedback">
+                {run.feedback.map((f) => (
+                  <li key={f.id} data-addressed={f.addressed || undefined}>
+                    <span className="ao-pr-feedback-head">
+                      <b>{f.author}</b>
+                      {f.path && <code>{f.path}{f.line ? `:${f.line}` : ''}</code>}
+                      {f.addressed && <span className="ao-task-panel-muted">handed to Claude</span>}
+                    </span>
+                    <span className="ao-pr-feedback-body">{f.body}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {run.steps.humanReview === 'waiting' && !busy && (
+              <div className="ao-pipe-panel-actions">
+                {open.length > 0 && (
+                  <button type="button" className="ao-btn-primary ao-btn-compact" onClick={() => void act(() => call('runsFixReview', run.id))}>
+                    Fix {open.length} comment{open.length === 1 ? '' : 's'} with Claude
+                  </button>
+                )}
+                <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => void act(() => call('runsFinishReview', run.id))}>Review done</button>
+              </div>
+            )}
+            <p className="ao-task-panel-muted ao-small-note">
+              Looked at every few minutes while it waits for review (last {new Date(pr.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}). FJ AI Worker never merges — a person does, on GitHub.
+            </p>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 
