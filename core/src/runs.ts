@@ -7,11 +7,20 @@ import { dataPath } from './config.js';
 import { assertClaudeAccount, claudeEnv, claudeExecutable } from './claude-account.js';
 import { baseToolEnv } from './login-env.js';
 import { toolEnv } from './network.js';
+import { collectArtifacts } from './artifacts.js';
+import { agentDefinition } from './library.js';
 import { createWorktree, git, removeWorktree, syncRepo, worktreeDir } from './repos.js';
-import { getSettings, saveSettings } from './settings.js';
+import { getSettings, saveSettings, type StepAgent } from './settings.js';
 
 /**
- * A run: one ticket worked through the seven steps. Until Jira is allowed,
+ * A task (stored as a "run"): a conversation with Claude in a folder — a
+ * company repo (cloned through the VPN, a worktree of its own) or a folder
+ * already on this machine — with a library agent and a model of its
+ * choosing. The person can talk to it at any time; "Run workflow" carries
+ * its ticket through the seven steps in that same conversation, each step
+ * Claude does taking the Workflow page's agent and model when set.
+ *
+ * The seven steps: Until Jira is allowed,
  * the ticket is typed in by hand (key, title, description) and the steps that
  * would touch Jira — writing the plan to it, moving it — are done by the
  * person, the app showing what to paste and keeping a tick.
@@ -45,7 +54,15 @@ export type RunEvent = {
 export type Run = {
   id: string;
   ticket: ManualTicket;
+  /** Where it works: a company repo (owner/name) or a folder on this machine. */
+  source: 'repo' | 'folder';
   repo: string;
+  folder: string | null;
+  /** The task's library agent and model (null: plain Claude Code, the default model). */
+  agent: string | null;
+  model: string | null;
+  /** "Run workflow" pressed: the steps are under way. */
+  workflowStarted: boolean;
   baseBranch: string | null;
   createdAt: string;
   updatedAt: string;
@@ -87,6 +104,11 @@ export type TestResult = {
 function upgrade(r: Run): Run {
   return {
     ...r,
+    source: r.source ?? 'repo',
+    folder: r.folder ?? null,
+    agent: r.agent ?? null,
+    model: r.model ?? null,
+    workflowStarted: r.workflowStarted ?? r.steps.analyze !== 'pending',
     branch: r.branch ?? null,
     movedInProgress: r.movedInProgress ?? false,
     testCommand: r.testCommand ?? '',
@@ -160,29 +182,50 @@ export function getRun(id: string): Run {
 
 // ---- Creating and steering --------------------------------------------------
 
-export type NewRun = { ticket: ManualTicket; repo: string; autoApprove: boolean; testCommand?: string; maxRounds?: number };
+export type NewRun = {
+  ticket: ManualTicket;
+  repo?: string;
+  folder?: string;
+  agent?: string | null;
+  model?: string | null;
+  autoApprove?: boolean;
+  testCommand?: string;
+  maxRounds?: number;
+  /** Start the seven steps now (else it's a conversation until "Run workflow"). */
+  startWorkflow?: boolean;
+};
+
+const slugId = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'task';
 
 export function createRun(input: NewRun): Run {
   loadAll();
   const key = input.ticket.key.trim().toUpperCase();
   const title = input.ticket.title.trim();
-  if (!key) throw new Error('Give the ticket’s key (e.g. BF9-123)');
-  if (!title && !input.ticket.description.trim()) throw new Error('Give the ticket’s title or description');
-  if (!/^[\w.-]+\/[\w.-]+$/.test(input.repo.trim())) throw new Error('Pick the repo (owner/name)');
-  const repo = input.repo.trim();
-  const testCommand = (input.testCommand ?? getSettings().repos[repo]?.testCommand ?? '').trim();
-  // Remembered for the repo's next run.
-  if (input.testCommand !== undefined) saveSettings({ repos: { [repo]: { testCommand } } });
+  if (!key && !title) throw new Error('Give the task a name, or its ticket key');
+  const repo = (input.repo ?? '').trim();
+  const folder = (input.folder ?? '').trim();
+  if (!repo && !folder) throw new Error('Pick a repo or a folder');
+  if (repo && !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('A repo is owner/name');
+  if (!repo && (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory())) throw new Error('That folder isn’t there');
+  const wf = getSettings().workflow;
+  const testCommand = (input.testCommand ?? (repo ? getSettings().repos[repo]?.testCommand : '') ?? '').trim();
+  // Remembered for the repo's next task.
+  if (repo && input.testCommand !== undefined) saveSettings({ repos: { [repo]: { testCommand } } });
   const now = new Date().toISOString();
   const r: Run = {
-    id: `${key.toLowerCase()}-${randomUUID().slice(0, 8)}`,
+    id: `${slugId(key || title)}-${randomUUID().slice(0, 8)}`,
     ticket: { key, title, description: input.ticket.description.trim(), url: input.ticket.url?.trim() || null },
+    source: repo ? 'repo' : 'folder',
     repo,
+    folder: repo ? null : path.resolve(folder),
+    agent: input.agent || null,
+    model: input.model || null,
+    workflowStarted: false,
     baseBranch: null,
     createdAt: now,
     updatedAt: now,
     steps: Object.fromEntries(STEPS.map((s) => [s, 'pending'])) as Record<StepId, StepState>,
-    autoApprove: input.autoApprove,
+    autoApprove: input.autoApprove ?? !wf.review.enabled,
     plan: null,
     revisions: [],
     planInTicket: false,
@@ -190,7 +233,7 @@ export function createRun(input: NewRun): Run {
     branch: null,
     movedInProgress: false,
     testCommand,
-    maxRounds: Math.min(10, Math.max(1, Math.round(input.maxRounds ?? 3))),
+    maxRounds: Math.min(10, Math.max(1, Math.round(input.maxRounds ?? wf.test.rounds))),
     round: 0,
     fixSummary: null,
     tests: [],
@@ -198,8 +241,141 @@ export function createRun(input: NewRun): Run {
     events: [],
   };
   save(r);
-  void analyse(r);
+  if (input.startWorkflow) void startWorkflowNow(r);
+  else void prepareOnly(r);
   return r;
+}
+
+/** The folder Claude works in. */
+export function workDir(r: Run): string {
+  return r.source === 'folder' && r.folder ? r.folder : worktreeDir(r.id);
+}
+
+/** The base the fix is measured against: origin's branch for a repo, the local one for a folder. */
+const baseRef = (r: Run) => (r.source === 'repo' ? `origin/${r.baseBranch}` : r.baseBranch!);
+
+async function isGitRepo(dir: string): Promise<boolean> {
+  return git(['rev-parse', '--is-inside-work-tree'], dir)
+    .then((o) => o.trim() === 'true')
+    .catch(() => false);
+}
+
+const preparing = new Map<string, Promise<void>>();
+
+/**
+ * The checkout ready (a repo cloned or fetched, its worktree made), and the
+ * base branch known. One at a time per task: a message or a step that comes
+ * while it's under way waits for the same one.
+ */
+function prepare(r: Run): Promise<void> {
+  let p = preparing.get(r.id);
+  if (!p) {
+    p = prepareNow(r).finally(() => preparing.delete(r.id));
+    preparing.set(r.id, p);
+  }
+  return p;
+}
+
+async function prepareNow(r: Run): Promise<void> {
+  if (r.source === 'folder') {
+    if (!r.folder || !fs.existsSync(r.folder)) throw new Error(`The folder ${r.folder} isn’t there`);
+    if (!r.baseBranch && (await isGitRepo(r.folder))) r.baseBranch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], r.folder)).trim();
+    return;
+  }
+  if (r.baseBranch && fs.existsSync(worktreeDir(r.id))) return;
+  log(r, 'system', `Getting ${r.repo} from GitHub…`);
+  r.baseBranch ??= (await syncRepo(r.repo)).defaultBranch;
+  const wt = await createWorktree(r.id, r.repo, r.baseBranch);
+  log(r, 'system', `Checked out ${r.baseBranch} at ${wt}`);
+}
+
+/** A new task without the workflow: its checkout made ready, for talking to Claude in. */
+function prepareOnly(r: Run): void {
+  prepare(r)
+    .catch((e) => {
+      r.error = e instanceof Error ? e.message : String(e);
+      log(r, 'error', r.error, false);
+    })
+    .finally(() => save(r));
+}
+
+/** "Run workflow": the seven steps from the start. */
+export function startWorkflow(id: string): Run {
+  const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for Claude to finish');
+  if (r.workflowStarted && r.steps.analyze !== 'failed') throw new Error('The workflow is already under way');
+  void startWorkflowNow(r);
+  return r;
+}
+
+function startWorkflowNow(r: Run): Promise<void> {
+  r.workflowStarted = true;
+  return analyse(r);
+}
+
+/** The task's own agent and model, for its conversation (and steps with none of their own). */
+export function setTaskOptions(id: string, opts: { agent?: string | null; model?: string | null }): Run {
+  const r = getRun(id);
+  if ('agent' in opts) r.agent = opts.agent || null;
+  if ('model' in opts) r.model = opts.model || null;
+  save(r);
+  return r;
+}
+
+/** A message from the person, at any point: Claude answers in the same conversation (and may change files). */
+export function sendMessage(id: string, text: string): Run {
+  const r = getRun(id);
+  const msg = text.trim();
+  if (!msg) throw new Error('Write something');
+  if (live.has(id)) throw new Error('Wait for Claude to finish');
+  void chat(r, msg);
+  return r;
+}
+
+async function chat(r: Run, text: string): Promise<void> {
+  let abort: AbortController;
+  try {
+    abort = claim(r);
+  } catch {
+    return;
+  }
+  log(r, 'you', text);
+  try {
+    await assertClaudeAccount();
+    await prepare(r);
+    await claudeTurn(r, abort, {
+      prompt: r.sessionId ? text : `${taskContext(r)}\n\n---\n${text}`,
+      resume: r.sessionId,
+      step: 'chat',
+      role: 'helping with this task in this folder. Change files only inside it; never commit, push or switch branches',
+      tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite', 'Skill', 'WebFetch', 'WebSearch'],
+      canUseTool: fixPermissions(r),
+      maxTurns: 200,
+    });
+  } catch (e) {
+    r.error = abort.signal.aborted ? 'Stopped' : e instanceof Error ? e.message : String(e);
+    log(r, 'error', r.error, false);
+  } finally {
+    live.delete(r.id);
+    save(r);
+  }
+}
+
+/** What the task is, for the first message Claude gets in it. */
+function taskContext(r: Run): string {
+  const t = r.ticket;
+  const where =
+    r.source === 'repo'
+      ? `the ${r.repo} repository (checked out at ${r.baseBranch ?? 'its default branch'}, in the current folder)`
+      : `the folder ${r.folder} (the current folder)`;
+  return [
+    `You are working on ${t.key ? `ticket ${t.key}` : 'a task'} in ${where}.`,
+    '',
+    `# ${t.key ? `${t.key}: ` : ''}${t.title || '(no title)'}`,
+    t.url ? `Ticket: ${t.url}` : '',
+    '',
+    t.description || '(no description)',
+  ].join('\n');
 }
 
 const live = new Map<string, AbortController>();
@@ -224,7 +400,8 @@ export function stopRun(id: string): Run {
 export async function deleteRun(id: string): Promise<void> {
   const r = getRun(id);
   live.get(id)?.abort();
-  await removeWorktree(id, r.repo);
+  // A folder of the person's own stays; only the app's own checkout goes.
+  if (r.source === 'repo') await removeWorktree(id, r.repo);
   runs.delete(id);
   fs.rmSync(file(id), { force: true });
 }
@@ -308,7 +485,7 @@ export function acceptTests(id: string): Run {
 export function rerunAnalysis(id: string): Run {
   const r = getRun(id);
   if (live.has(id)) throw new Error('Already running');
-  r.sessionId = null;
+  r.workflowStarted = true;
   void analyse(r);
   return r;
 }
@@ -327,23 +504,15 @@ Numbered steps to fix it: which files change and how, what tests to add or updat
 What could break, and anything the reviewer should decide (or "None").`;
 
 function firstPrompt(r: Run): string {
-  const t = r.ticket;
   return [
-    `You are working ticket ${t.key} in the ${r.repo} repository (checked out at the tip of ${r.baseBranch}, in the current folder).`,
-    '',
-    `# ${t.key}: ${t.title || '(no title)'}`,
-    t.url ? `Ticket: ${t.url}` : '',
-    '',
-    t.description || '(no description)',
+    taskContext(r),
     '',
     '---',
-    'Step 1 — analyse: read the code that matters to this ticket until you understand it. Do not change any files; your tools are read-only.',
-    'Step 2 — plan: write the plan to fix it, for a reviewer to approve before anyone changes code.',
+    'Step 1 — analyse: read the code that matters to this task until you understand it. Do not change any files; your tools are read-only.',
+    'Step 2 — plan: write the plan to do it, for a reviewer to approve before anyone changes code.',
     '',
     PLAN_FORMAT,
-  ]
-    .filter((l) => l !== null)
-    .join('\n');
+  ].join('\n');
 }
 
 const revisePrompt = (feedback: string) =>
@@ -385,19 +554,17 @@ async function analyse(r: Run, feedback?: string): Promise<void> {
   save(r);
   try {
     await assertClaudeAccount();
-    if (!r.baseBranch || !feedback) {
-      log(r, 'system', `Getting ${r.repo} from GitHub…`);
-      r.baseBranch ??= (await syncRepo(r.repo)).defaultBranch;
-      const wt = await createWorktree(r.id, r.repo, r.baseBranch);
-      log(r, 'system', `Checked out ${r.baseBranch} at ${wt}`);
-    }
-    const resume = feedback ? r.sessionId : null;
+    await prepare(r);
+    // Revising: the same conversation. Starting: the task's conversation so far,
+    // if the person already talked to Claude in it.
+    const resume = r.sessionId;
     const result = await claudeTurn(r, abort, {
       prompt: feedback && resume ? revisePrompt(feedback) : firstPrompt(r),
       resume,
+      step: 'analyse',
       role: 'analysing a ticket before any code is changed. Only read; never try to edit, write or run commands',
       // Read-only: these exist, nothing else does.
-      tools: ['Read', 'Grep', 'Glob'],
+      tools: ['Read', 'Grep', 'Glob', 'Skill'],
       maxTurns: 80,
       onText: (text) => {
         if (r.steps.analyze === 'running' && /##\s*Plan/.test(text)) r.steps.analyze = 'done';
@@ -432,6 +599,8 @@ async function analyse(r: Run, feedback?: string): Promise<void> {
 type Turn = {
   prompt: string;
   resume: string | null;
+  /** Which step (or the conversation), for the Workflow page's agent and model. */
+  step: 'analyse' | 'fix' | 'test' | 'chat';
   /** What it's doing, for the system prompt. */
   role: string;
   tools: string[];
@@ -442,36 +611,65 @@ type Turn = {
 
 /** One prompt to Claude in the run's worktree, logged as it goes; resolves with its final reply. */
 async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<string> {
+  const cfg: StepAgent | null = t.step === 'chat' ? null : getSettings().workflow[t.step];
+  const agentName = cfg?.agent || r.agent;
+  const model = cfg?.model || r.model;
+  const rules = `You are FJ AI Worker, ${t.role}.`;
+  const def = agentName ? agentDefinition(agentName) : null;
+  if (agentName && !def) log(r, 'system', `The agent ${agentName} isn’t in the library any more — going on without it.`, false);
   const stream = query({
     prompt: t.prompt,
     options: {
-      cwd: worktreeDir(r.id),
+      cwd: workDir(r),
       env: claudeEnv(),
       ...(claudeExecutable() ? { pathToClaudeCodeExecutable: claudeExecutable()! } : {}),
-      systemPrompt: { type: 'preset', preset: 'claude_code', append: `You are FJ AI Worker, ${t.role}.` },
+      // A library agent runs the conversation with its own prompt (and the
+      // step's rules after it); otherwise Claude Code's own, with the rules.
+      ...(def && agentName
+        ? { agents: { [agentName]: { ...def, prompt: `${def.prompt}\n\n${rules}` } }, agent: agentName }
+        : { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: rules } }),
+      ...(model ? { model } : {}),
       tools: t.tools,
       canUseTool: t.canUseTool ?? (async (_tool, input) => ({ behavior: 'allow', updatedInput: input })),
-      settingSources: [],
+      // The app's own Claude folder (claude-account.ts): the imported skills
+      // and agents — nothing of the person's own ~/.claude.
+      settingSources: ['user'],
       maxTurns: t.maxTurns,
       abortController: abort,
       ...(t.resume ? { resume: t.resume } : {}),
     },
   });
   let result: string | null = null;
-  for await (const m of stream as AsyncIterable<SDKMessage>) {
-    if (m.type === 'assistant') {
-      if (m.session_id) r.sessionId = m.session_id;
-      for (const b of m.message.content) {
-        if (b.type === 'text' && b.text.trim()) {
-          log(r, 'text', b.text, false);
-          t.onText?.(b.text);
-        } else if (b.type === 'tool_use') log(r, 'tool', describeTool(b.name, (b.input ?? {}) as Record<string, unknown>), false);
+  // For the Artifacts page: what it wrote, and since when.
+  const since = Date.now() - 1000;
+  const written: string[] = [];
+  try {
+    for await (const m of stream as AsyncIterable<SDKMessage>) {
+      if (m.type === 'assistant') {
+        if (m.session_id) r.sessionId = m.session_id;
+        for (const b of m.message.content) {
+          if (b.type === 'text' && b.text.trim()) {
+            log(r, 'text', b.text, false);
+            t.onText?.(b.text);
+          } else if (b.type === 'tool_use') {
+            const input = (b.input ?? {}) as Record<string, unknown>;
+            log(r, 'tool', describeTool(b.name, input), false);
+            if ((b.name === 'Write' || b.name === 'Edit') && typeof input.file_path === 'string') written.push(input.file_path);
+          }
+        }
+        save(r);
+      } else if (m.type === 'result') {
+        if (m.subtype === 'success' && !m.is_error) result = m.result;
+        else if (m.subtype === 'error_max_turns') throw new Error('Claude ran out of turns before finishing');
+        else throw new Error(m.subtype === 'success' ? m.result : `Claude stopped (${m.subtype})`);
       }
-      save(r);
-    } else if (m.type === 'result') {
-      if (m.subtype === 'success' && !m.is_error) result = m.result;
-      else if (m.subtype === 'error_max_turns') throw new Error('Claude ran out of turns before finishing');
-      else throw new Error(m.subtype === 'success' ? m.result : `Claude stopped (${m.subtype})`);
+    }
+  } finally {
+    try {
+      const n = collectArtifacts({ id: r.id, title: r.ticket.title || r.ticket.key || 'Task' }, workDir(r), written, since);
+      if (n) log(r, 'system', `${n} document${n === 1 ? '' : 's'} kept in Artifacts.`, false);
+    } catch {
+      // keeping documents never fails the turn
     }
   }
   if (result == null) throw new Error('Claude gave no answer');
@@ -491,7 +689,7 @@ const slug = (s: string) =>
 /** Inside the run's worktree (after resolving `..` and symlinks of the parent). */
 function insideWorktree(r: Run, p: unknown): boolean {
   if (typeof p !== 'string' || !p) return false;
-  const root = fs.realpathSync(worktreeDir(r.id));
+  const root = fs.realpathSync(workDir(r));
   const abs = path.resolve(root, p);
   let real = abs;
   try {
@@ -525,7 +723,7 @@ function fixPermissions(r: Run): CanUseTool {
 
 const FIX_PROMPT = (r: Run) =>
   [
-    `Step 4 — fix: the plan is approved. Make the change now, in this checkout (branch ${r.branch}).`,
+    `Step 4 — fix: the plan is approved. Make the change now, in this folder${r.branch ? ` (branch ${r.branch})` : ''}.`,
     '',
     '- Follow the plan; if something in it turns out wrong, do what is right and say why.',
     '- Add or update tests where the plan says so.',
@@ -559,12 +757,9 @@ async function fix(r: Run, failed?: TestResult, byHand = false): Promise<void> {
   save(r);
   try {
     await assertClaudeAccount();
-    const wt = worktreeDir(r.id);
-    if (!fs.existsSync(wt)) {
-      r.baseBranch ??= (await syncRepo(r.repo)).defaultBranch;
-      await createWorktree(r.id, r.repo, r.baseBranch);
-    }
-    if (!r.branch) {
+    await prepare(r);
+    const wt = workDir(r);
+    if (!r.branch && (r.source === 'repo' || (await isGitRepo(wt)))) {
       const name = `fix/${r.ticket.key}-${slug(r.ticket.title || r.ticket.description) || 'change'}`;
       const exists = (await git(['branch', '--list', name], wt)).trim();
       await git(exists ? ['switch', name] : ['switch', '-c', name], wt);
@@ -576,8 +771,9 @@ async function fix(r: Run, failed?: TestResult, byHand = false): Promise<void> {
     r.fixSummary = await claudeTurn(r, abort, {
       prompt: failed ? RETRY_PROMPT(r, failed) : FIX_PROMPT(r),
       resume: r.sessionId,
-      role: `fixing ticket ${r.ticket.key} in this checkout. Change files only inside it; never commit, push or switch branches`,
-      tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite'],
+      step: 'fix',
+      role: `fixing ${r.ticket.key || 'the task'} in this folder. Change files only inside it; never commit, push or switch branches`,
+      tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite', 'Skill'],
       canUseTool: fixPermissions(r),
       maxTurns: 200,
     });
@@ -592,7 +788,13 @@ async function fix(r: Run, failed?: TestResult, byHand = false): Promise<void> {
     live.delete(r.id);
     save(r);
   }
-  if (r.steps.fix === 'done') void runTests(r);
+  if (r.steps.fix !== 'done') return;
+  if (getSettings().workflow.test.enabled) void runTests(r);
+  else {
+    r.steps.test = 'skipped';
+    log(r, 'system', 'Tests are off in the workflow — skipped.', false);
+    save(r);
+  }
 }
 
 // ---- Step 5: the tests --------------------------------------------------------
@@ -636,15 +838,16 @@ async function runTests(r: Run): Promise<void> {
     if (r.testCommand) {
       log(r, 'system', `Running ${r.testCommand}`, false);
       save(r);
-      const out = await runCommand(r.testCommand, worktreeDir(r.id), abort.signal);
+      const out = await runCommand(r.testCommand, workDir(r), abort.signal);
       if (abort.signal.aborted) throw new Error('Stopped');
       result = { round, at: new Date().toISOString(), passed: out.ok, by: 'command', output: out.output };
     } else {
       const reply = await claudeTurn(r, abort, {
         prompt: TEST_PROMPT,
         resume: r.sessionId,
-        role: `testing the fix for ${r.ticket.key}. Run tests and read; do not change files, commit or push`,
-        tools: ['Read', 'Grep', 'Glob', 'Bash'],
+        step: 'test',
+        role: `testing the fix for ${r.ticket.key || 'the task'}. Run tests and read; do not change files, commit or push`,
+        tools: ['Read', 'Grep', 'Glob', 'Bash', 'Skill'],
         canUseTool: fixPermissions(r),
         maxTurns: 60,
       });
@@ -683,9 +886,9 @@ export type ChangedFile = { path: string; status: string; added: number | null; 
 /** Files changed in the run's checkout against the base (committed or not, new files included). */
 export async function runChanges(id: string): Promise<ChangedFile[]> {
   const r = getRun(id);
-  const wt = worktreeDir(r.id);
-  if (!fs.existsSync(wt) || !r.baseBranch) return [];
-  const base = (await git(['merge-base', 'HEAD', `origin/${r.baseBranch}`], wt)).trim();
+  const wt = workDir(r);
+  if (!fs.existsSync(wt) || !r.baseBranch || !(await isGitRepo(wt))) return [];
+  const base = (await git(['merge-base', 'HEAD', baseRef(r)], wt)).trim();
   const counts = new Map<string, [number | null, number | null]>();
   for (const line of (await git(['diff', '--numstat', base], wt)).split('\n')) {
     const [a, d, ...p] = line.split('\t');
@@ -713,9 +916,9 @@ export async function runChanges(id: string): Promise<ChangedFile[]> {
 /** One file's diff against the base (a new file: all of it). */
 export async function runFileDiff(id: string, file: string): Promise<string> {
   const r = getRun(id);
-  const wt = worktreeDir(r.id);
+  const wt = workDir(r);
   if (!insideWorktree(r, file)) throw new Error('Not in the checkout');
-  const base = (await git(['merge-base', 'HEAD', `origin/${r.baseBranch}`], wt)).trim();
+  const base = (await git(['merge-base', 'HEAD', baseRef(r)], wt)).trim();
   const tracked = (await git(['ls-files', '--', file], wt)).trim();
   if (!tracked) {
     const text = fs.readFileSync(path.join(wt, file), 'utf8');

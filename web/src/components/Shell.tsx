@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { bridge, call } from '@/lib/bridge';
-import { ConnectionsIcon, PanelIcon, RunsIcon, SettingsIcon, TicketsIcon, VpnIcon } from './icons';
+import { AgentsIcon, ArtifactsIcon, ConnectionsIcon, PanelIcon, RunsIcon, SettingsIcon, TicketsIcon, VpnIcon, WorkflowIcon } from './icons';
 import { TerminalDock } from './TerminalDock';
 import { requestDock } from '@/lib/terminal-dock';
 
@@ -14,11 +14,19 @@ const GROUPS: { label: string; items: Item[] }[] = [
   {
     label: 'Work',
     items: [
-      { href: '/runs', label: 'Runs', icon: RunsIcon },
+      { href: '/tasks', label: 'Tasks', icon: RunsIcon },
+      { href: '/workflow', label: 'Workflow', icon: WorkflowIcon },
+      { href: '/artifacts', label: 'Artifacts', icon: ArtifactsIcon },
       { href: '/tickets', label: 'Tickets', icon: TicketsIcon },
     ],
   },
-  { label: 'Setup', items: [{ href: '/', label: 'Connections', icon: ConnectionsIcon }] },
+  {
+    label: 'Setup',
+    items: [
+      { href: '/agents', label: 'Agents & skills', icon: AgentsIcon },
+      { href: '/', label: 'Connections', icon: ConnectionsIcon },
+    ],
+  },
 ];
 const BOTTOM: Item = { href: '/settings', label: 'Settings', icon: SettingsIcon };
 const ALL = [...GROUPS.flatMap((g) => g.items), BOTTOM];

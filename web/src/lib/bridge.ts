@@ -13,7 +13,19 @@ export type Settings = {
   jira: { site: string; email: string };
   projects: ProjectLink[];
   repos: Record<string, { testCommand: string }>;
+  workflow: WorkflowSettings;
+  defaultAgent: string | null;
 };
+export type StepAgent = { agent: string | null; model: string | null };
+export type WorkflowSettings = {
+  analyse: StepAgent;
+  review: { enabled: boolean };
+  fix: StepAgent;
+  test: StepAgent & { enabled: boolean; rounds: number };
+};
+export type LibraryAgent = { name: string; description: string; model: string | null; tools: string[] | null };
+export type LibrarySkill = { name: string; description: string };
+export type Library = { agents: LibraryAgent[]; skills: LibrarySkill[]; aiOfficeLibrary: string | null };
 export type ProjectLink = { jiraKey: string; repo: string };
 export type SettingsPatch = {
   proxy?: Partial<Settings['proxy']>;
@@ -23,6 +35,8 @@ export type SettingsPatch = {
   claude?: Partial<Settings['claude']>;
   jira?: Partial<Settings['jira']>;
   projects?: ProjectLink[];
+  workflow?: { [K in keyof WorkflowSettings]?: Partial<WorkflowSettings[K]> };
+  defaultAgent?: string | null;
 };
 export type VpnStatus = { tunnel: boolean; github: boolean; error?: string; checkedAt: string };
 export type GithubUser = { login: string; name: string | null; avatarUrl: string };
@@ -78,7 +92,12 @@ export type RunEvent = { at: string; kind: 'text' | 'tool' | 'system' | 'error' 
 export type Run = {
   id: string;
   ticket: ManualTicket;
+  source: 'repo' | 'folder';
   repo: string;
+  folder: string | null;
+  agent: string | null;
+  model: string | null;
+  workflowStarted: boolean;
   baseBranch: string | null;
   createdAt: string;
   updatedAt: string;
@@ -101,10 +120,33 @@ export type Run = {
 };
 export type TestResult = { round: number; at: string; passed: boolean; by: 'command' | 'claude'; output: string };
 export type ChangedFile = { path: string; status: string; added: number | null; removed: number | null };
+export type NewTask = {
+  ticket: ManualTicket;
+  repo?: string;
+  folder?: string;
+  agent?: string | null;
+  model?: string | null;
+  testCommand?: string;
+  maxRounds?: number;
+  startWorkflow?: boolean;
+};
 export type ReviewDecision = { kind: 'approve' } | { kind: 'skip' } | { kind: 'changes'; feedback: string };
 export type TerminalKind = 'shell' | 'vpn';
 export type TerminalInfo = { id: string; kind: TerminalKind; title: string; running: boolean; exitCode: number | null; startedAt: string };
 export type TerminalEvent = { kind: 'data'; id: string; data: string } | { kind: 'exit'; id: string; exitCode: number } | { kind: 'list' };
+export type ArtifactKind = 'doc' | 'data' | 'image' | 'pdf' | 'office';
+export type ArtifactVersion = { hash: string; at: string; size: number; file: string };
+export type Artifact = {
+  id: string;
+  name: string;
+  relPath: string;
+  taskId: string;
+  taskTitle: string;
+  kind: ArtifactKind;
+  ext: string;
+  versions: ArtifactVersion[];
+  updatedAt: string;
+};
 export type AppInfo = { version: string; platform: string; claudeConfigDir: string; vpnBrowser: boolean };
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -138,7 +180,7 @@ type Bridge = {
   jiraTicket(key: string): P<TicketDetail>;
   githubAllRepos(): P<RepoSummary[]>;
   runsList(): P<Run[]>;
-  runsCreate(input: { ticket: ManualTicket; repo: string; autoApprove: boolean; testCommand?: string; maxRounds?: number }): P<Run>;
+  runsCreate(input: NewTask): P<Run>;
   runsReview(id: string, decision: ReviewDecision): P<Run>;
   runsPlanInTicket(id: string, done: boolean): P<Run>;
   runsStop(id: string): P<Run>;
@@ -152,6 +194,24 @@ type Bridge = {
   runsChanges(id: string): P<ChangedFile[]>;
   runsFileDiff(id: string, file: string): P<string>;
   runsOpenFolder(id: string, how: 'folder' | 'vscode'): P<void>;
+  runsSend(id: string, text: string): P<Run>;
+  runsStartWorkflow(id: string): P<Run>;
+  runsSetOptions(id: string, opts: { agent?: string | null; model?: string | null }): P<Run>;
+  libraryList(): P<Library>;
+  libraryImport(from: 'aiOffice' | 'pick'): P<{ agents: number; skills: number } | null>;
+  libraryRemove(kind: 'agent' | 'skill', name: string): P<void>;
+  libraryItem(kind: 'agent' | 'skill', name: string): P<{ text: string; files: string[]; path: string }>;
+  libraryCreate(kind: 'agent' | 'skill', name: string, description: string): P<void>;
+  librarySave(kind: 'agent' | 'skill', name: string, text: string): P<void>;
+  libraryReveal(kind: 'agent' | 'skill', name: string): P<void>;
+  librarySkillFiles(name: string): P<{ path: string; bytes: number }[]>;
+  librarySkillFile(name: string, rel: string): P<{ text: string; truncated: boolean; bytes: number }>;
+  pickFolder(title?: string): P<string | null>;
+  artifactsList(): P<Artifact[]>;
+  artifactsContent(id: string, hash?: string): P<{ text: string | null; dataUrl: string | null }>;
+  artifactsOpen(id: string, hash?: string): P<void>;
+  artifactsSaveAs(id: string, hash?: string): P<string | null>;
+  artifactsDelete(id: string): P<void>;
   /** A run changed — or, `deleted`, went. */
   onRun(cb: (run: Run | { id: string; deleted: true }) => void): () => void;
   termList(): P<TerminalInfo[]>;

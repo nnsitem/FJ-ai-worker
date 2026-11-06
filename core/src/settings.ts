@@ -37,6 +37,24 @@ export type Settings = {
   projects: ProjectLink[];
   /** Per repo (owner/name): how its tests run (step 5), remembered from the last run. */
   repos: Record<string, RepoSettings>;
+  /** How the seven steps run (Workflow page). */
+  workflow: WorkflowSettings;
+  /** The agent a new task starts with (Agents & skills); null: plain Claude Code. */
+  defaultAgent: string | null;
+};
+
+/** A step Claude does: a library agent and a model, each null for the task's own. */
+export type StepAgent = { agent: string | null; model: string | null };
+
+export type WorkflowSettings = {
+  /** Steps 1–2. */
+  analyse: StepAgent;
+  /** Step 3: a person approves the plan (off: it goes straight on). */
+  review: { enabled: boolean };
+  /** Step 4. */
+  fix: StepAgent;
+  /** Step 5 (off: no tests, straight to step 6); rounds before it waits for you. */
+  test: StepAgent & { enabled: boolean; rounds: number };
 };
 
 export type RepoSettings = {
@@ -67,6 +85,13 @@ export const DEFAULT_SETTINGS: Settings = {
   jira: { site: '', email: '' },
   projects: [],
   repos: {},
+  workflow: {
+    analyse: { agent: null, model: null },
+    review: { enabled: true },
+    fix: { agent: null, model: null },
+    test: { agent: null, model: null, enabled: true, rounds: 3 },
+  },
+  defaultAgent: null,
 };
 
 const FILE = 'settings.json';
@@ -82,6 +107,19 @@ export function getSettings(): Settings {
     jira: { ...DEFAULT_SETTINGS.jira, ...s.jira },
     projects: s.projects ?? [],
     repos: s.repos ?? {},
+    workflow: mergeWorkflow(DEFAULT_SETTINGS.workflow, s.workflow),
+    defaultAgent: s.defaultAgent ?? null,
+  };
+}
+
+type WorkflowPatch = { [K in keyof WorkflowSettings]?: Partial<WorkflowSettings[K]> };
+
+function mergeWorkflow(base: WorkflowSettings, patch?: WorkflowPatch): WorkflowSettings {
+  return {
+    analyse: { ...base.analyse, ...patch?.analyse },
+    review: { ...base.review, ...patch?.review },
+    fix: { ...base.fix, ...patch?.fix },
+    test: { ...base.test, ...patch?.test },
   };
 }
 
@@ -94,6 +132,8 @@ export type SettingsPatch = {
   jira?: Partial<Settings['jira']>;
   projects?: ProjectLink[];
   repos?: Record<string, RepoSettings>;
+  workflow?: WorkflowPatch;
+  defaultAgent?: string | null;
 };
 
 export function saveSettings(patch: SettingsPatch): Settings {
@@ -107,7 +147,10 @@ export function saveSettings(patch: SettingsPatch): Settings {
     jira: { ...cur.jira, ...patch.jira },
     projects: patch.projects ?? cur.projects,
     repos: { ...cur.repos, ...patch.repos },
+    workflow: mergeWorkflow(cur.workflow, patch.workflow),
+    defaultAgent: patch.defaultAgent !== undefined ? patch.defaultAgent || null : cur.defaultAgent,
   };
+  next.workflow.test.rounds = Math.min(10, Math.max(1, Math.round(Number(next.workflow.test.rounds) || 3)));
   next.jira.site = normaliseSite(next.jira.site);
   next.jira.email = next.jira.email.trim();
   next.projects = next.projects

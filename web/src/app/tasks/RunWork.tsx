@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { call, type ChangedFile, type Run } from '@/lib/bridge';
 
 /**
- * Steps 4–5 of a run: the fix on its branch (with the ticket moved by hand),
- * the test rounds, and what changed.
+ * Steps 4–5 of a task: the fix on its branch (with the ticket moved by
+ * hand) and the test rounds. What changed is the Changes tab (ChangesCard).
  */
 export function RunWork({ run, act }: { run: Run; act: (fn: () => Promise<unknown>) => Promise<void> }) {
   const t = run.ticket;
@@ -16,12 +16,12 @@ export function RunWork({ run, act }: { run: Run; act: (fn: () => Promise<unknow
       <section className="aw-card">
         <div className="aw-card-head">
           <h2>Step 4 — fix</h2>
-          {run.branch && <span className="aw-pill aw-mono" data-tone="info">{run.branch}</span>}
+          {run.branch && <span className="aw-pill aw-mono aw-branch" data-tone="info" title={run.branch}>{run.branch}</span>}
         </div>
         {run.branch && (
           <label className="aw-check">
             <input type="checkbox" checked={run.movedInProgress} onChange={(e) => void act(() => call('runsMovedInProgress', run.id, e.target.checked))} />
-            <span>Moved {t.key} to In progress in Jira <span className="aw-muted">— by hand until Jira is connected</span></span>
+            <span>Moved {t.key || 'the ticket'} to In progress in Jira <span className="aw-muted">— by hand until Jira is connected</span></span>
           </label>
         )}
         {run.fixSummary ? <div className="aw-prose aw-summary">{run.fixSummary}</div> : run.steps.fix === 'running' && <p className="aw-muted">Claude is changing the code…</p>}
@@ -35,10 +35,9 @@ export function RunWork({ run, act }: { run: Run; act: (fn: () => Promise<unknow
       </section>
 
       {(run.steps.test !== 'pending' || run.tests.length > 0) && <TestsCard run={run} act={act} />}
-      {run.steps.fix !== 'running' && run.branch && <ChangesCard run={run} />}
 
       {(run.steps.test === 'done' || run.steps.test === 'skipped') && (
-        <p className="aw-note">Next, step 6: FJ AI Worker commits, pushes {run.branch} and opens the pull request, and you move {t.key} to Review — coming in M5.</p>
+        <p className="aw-note">Next, step 6: FJ AI Worker commits, pushes {run.branch} and opens the pull request, and you move {t.key || 'the ticket'} to Review — coming in M5.</p>
       )}
     </>
   );
@@ -100,7 +99,7 @@ function TestsCard({ run, act }: { run: Run; act: (fn: () => Promise<unknown>) =
   );
 }
 
-function ChangesCard({ run }: { run: Run }) {
+export function ChangesCard({ run }: { run: Run }) {
   const [files, setFiles] = useState<ChangedFile[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [diff, setDiff] = useState<string | null>(null);

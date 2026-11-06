@@ -18,6 +18,11 @@ import {
   AltArrowUpIcon as SolarUp,
   AltArrowDownIcon as SolarDown,
   CloseIcon as SolarClose,
+  UsersGroupRoundedIcon as SolarAgents,
+  DocumentsIcon as SolarDocuments,
+  Widget4Icon as SolarBoard,
+  ChatRoundLineIcon as SolarChatLine,
+  BookBookmarkIcon as SolarSkills,
   SquareBottomDownIcon as SolarPanel,
 } from '@solar-icons/react/bold-duotone';
 
@@ -31,7 +36,12 @@ function solar(Glyph: SolarIcon) {
   return Icon;
 }
 
-export const RunsIcon = solar(SolarPlayCircle);
+/** Tasks (a conversation each). */
+export const RunsIcon = solar(SolarChatLine);
+export const PlayIcon = solar(SolarPlayCircle);
+export const WorkflowIcon = solar(SolarBoard);
+export const ArtifactsIcon = solar(SolarDocuments);
+export const AgentsIcon = solar(SolarAgents);
 export const TicketsIcon = solar(SolarClipboardList);
 export const ConnectionsIcon = solar(SolarPlugCircle);
 export const SettingsIcon = solar(SolarSettings);
@@ -47,3 +57,4 @@ export const ChevronDownIcon = solar(SolarDown);
 export const CloseIcon = solar(SolarClose);
 /** The panel toggle in the top bar. */
 export const PanelIcon = solar(SolarPanel);
+export const SkillsIcon = solar(SolarSkills);

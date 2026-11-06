@@ -1,4 +1,4 @@
-import { app, ipcMain, session, shell, type BrowserWindow } from 'electron';
+import { app, dialog, ipcMain, session, shell, type BrowserWindow } from 'electron';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -39,6 +39,10 @@ import {
   reviewPlan,
   runChanges,
   runFileDiff,
+  sendMessage,
+  setTaskOptions,
+  startWorkflow,
+  workDir,
   setMovedInProgress,
   setPlanInTicket,
   setTestCommand,
@@ -46,8 +50,9 @@ import {
   type NewRun,
   type Run,
 } from '../../core/src/runs.js';
-import { worktreeDir } from '../../core/src/repos.js';
+import { aiOfficeLibrary, createLibraryItem, importLibrary, libraryItem, readLibrary, removeFromLibrary, saveLibraryItem, skillFile, skillFiles } from '../../core/src/library.js';
 import { closeTerminal, listTerminals, onTerminalEvent, openTerminal, resizeTerminal, terminalBuffer, writeTerminal, type TerminalKind } from './terminal.js';
+import { artifactContent, artifactFile, deleteArtifact, listArtifacts } from '../../core/src/artifacts.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
 export { CHANNELS };
@@ -153,9 +158,62 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.runsAcceptTests, (id: string) => withLive(acceptTests(id)));
   handle(CHANNELS.runsChanges, (id: string) => runChanges(id));
   handle(CHANNELS.runsFileDiff, (id: string, file: string) => runFileDiff(id, file));
+  handle(CHANNELS.runsSend, (id: string, text: string) => withLive(sendMessage(id, text)));
+  handle(CHANNELS.runsStartWorkflow, (id: string) => withLive(startWorkflow(id)));
+  handle(CHANNELS.runsSetOptions, (id: string, opts: { agent?: string | null; model?: string | null }) => withLive(setTaskOptions(id, opts)));
+
+  // The agents and skills library (core/src/library.ts): imported from AI
+  // Office's, or from a folder the person picks.
+  handle(CHANNELS.libraryList, () => readLibrary());
+  handle(CHANNELS.libraryImport, async (from: 'aiOffice' | 'pick') => {
+    let dir: string | null = from === 'aiOffice' ? aiOfficeLibrary() : null;
+    if (from === 'pick') {
+      const w = win();
+      const opts = { title: 'Import agents and skills', properties: ['openDirectory' as const] };
+      const picked = w ? await dialog.showOpenDialog(w, opts) : await dialog.showOpenDialog(opts);
+      if (picked.canceled) return null;
+      dir = picked.filePaths[0] ?? null;
+    }
+    if (!dir) throw new Error('AI Office’s library isn’t on this computer');
+    return importLibrary(dir);
+  });
+  handle(CHANNELS.libraryRemove, (kind: 'agent' | 'skill', name: string) => removeFromLibrary(kind, name));
+  handle(CHANNELS.libraryItem, (kind: 'agent' | 'skill', name: string) => libraryItem(kind, name));
+  handle(CHANNELS.libraryCreate, (kind: 'agent' | 'skill', name: string, description: string) => {
+    createLibraryItem(kind, name, description);
+  });
+  handle(CHANNELS.librarySave, (kind: 'agent' | 'skill', name: string, text: string) => saveLibraryItem(kind, name, text));
+  handle(CHANNELS.librarySkillFiles, (name: string) => skillFiles(name));
+  handle(CHANNELS.librarySkillFile, (name: string, rel: string) => skillFile(name, rel));
+  handle(CHANNELS.libraryReveal, (kind: 'agent' | 'skill', name: string) => shell.showItemInFolder(libraryItem(kind, name).path));
+  handle(CHANNELS.pickFolder, async (title?: string) => {
+    const w = win();
+    const opts = { title: title || 'Pick a folder', properties: ['openDirectory' as const] };
+    const picked = w ? await dialog.showOpenDialog(w, opts) : await dialog.showOpenDialog(opts);
+    return picked.canceled ? null : (picked.filePaths[0] ?? null);
+  });
+
+  // Artifacts (core/src/artifacts.ts).
+  handle(CHANNELS.artifactsList, () => listArtifacts());
+  handle(CHANNELS.artifactsContent, (id: string, hash?: string) => artifactContent(id, hash));
+  handle(CHANNELS.artifactsOpen, async (id: string, hash?: string) => {
+    const err = await shell.openPath(artifactFile(id, hash).path);
+    if (err) throw new Error(err);
+  });
+  handle(CHANNELS.artifactsSaveAs, async (id: string, hash?: string) => {
+    const f = artifactFile(id, hash);
+    const w = win();
+    const opts = { defaultPath: path.join(app.getPath('downloads'), f.name) };
+    const r = w ? await dialog.showSaveDialog(w, opts) : await dialog.showSaveDialog(opts);
+    if (r.canceled || !r.filePath) return null;
+    fs.copyFileSync(f.path, r.filePath);
+    return r.filePath;
+  });
+  handle(CHANNELS.artifactsDelete, (id: string) => deleteArtifact(id));
+
   // The run's checkout, in the Finder / Explorer or in VS Code.
   handle(CHANNELS.runsOpenFolder, async (id: string, how: 'folder' | 'vscode') => {
-    const dir = worktreeDir(getRun(id).id);
+    const dir = workDir(getRun(id));
     if (!fs.existsSync(dir)) throw new Error('The checkout isn’t there yet');
     if (how === 'vscode') {
       await new Promise<void>((resolve, reject) =>
