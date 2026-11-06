@@ -52,27 +52,27 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
   const label = !status ? 'Checking…' : status.github ? 'Connected' : status.tunnel ? 'Tunnel open, GitHub not reachable' : 'Not connected';
 
   return (
-    <section className="aw-card">
-      <div className="aw-card-head">
-        <span className="aw-card-icon"><VpnIcon size={17} /></span>
-        <h2>VPN</h2>
-        <span className="aw-pill" data-tone={tone}>{label}</span>
-      </div>
-      <p className="aw-muted">GitHub is reached through the company VPN tunnel. Jira and Claude go direct.</p>
-      {status?.error && !status.github && <p className="aw-error">{status.error}</p>}
-      {error && <p className="aw-error">{error}</p>}
-      <div className="aw-row">
+    <section className="ao-status-card ao-conn-card">
+      <h3>
+          <span className="ao-conn-icon"><VpnIcon size={17} /></span>
+          VPN
+          <span className="ao-badge" data-tone={tone}>{label}</span>
+      </h3>
+      <p>GitHub is reached through the company VPN tunnel. Jira and Claude go direct.</p>
+      {status?.error && !status.github && <p className="ao-task-panel-error">{status.error}</p>}
+      {error && <p className="ao-task-panel-error">{error}</p>}
+      <div className="ao-status-actions">
         {!status?.github && (
           <>
-            <button type="button" className="aw-btn" data-primary onClick={connect}>
+            <button type="button" className="ao-btn-primary" onClick={connect}>
               Connect VPN
             </button>
-            <button type="button" className="aw-btn" onClick={openScript}>
+            <button type="button" className="ao-btn-secondary" onClick={openScript}>
               Open in the Terminal app
             </button>
           </>
         )}
-        <button type="button" className="aw-btn" onClick={() => void check()} disabled={checking}>
+        <button type="button" className="ao-btn-secondary" onClick={() => void check()} disabled={checking}>
           {checking ? 'Checking…' : 'Check again'}
         </button>
       </div>

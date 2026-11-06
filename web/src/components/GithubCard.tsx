@@ -81,75 +81,75 @@ export function GithubCard({ vpnUp }: { vpnUp: boolean }) {
   const signedIn = state?.signedIn === true;
 
   return (
-    <section className="aw-card">
-      <div className="aw-card-head">
-        <span className="aw-card-icon"><GithubIcon size={17} /></span>
-        <h2>GitHub</h2>
-        <span className="aw-pill" data-tone={signedIn ? 'ok' : vpnUp ? 'warn' : undefined}>
+    <section className="ao-status-card ao-conn-card">
+      <h3>
+          <span className="ao-conn-icon"><GithubIcon size={17} /></span>
+          GitHub
+          <span className="ao-badge" data-tone={signedIn ? 'ok' : vpnUp ? 'warn' : undefined}>
           {signedIn ? 'Signed in' : vpnUp ? 'Not signed in' : 'Waiting for the VPN'}
         </span>
-      </div>
+      </h3>
 
       {state?.signedIn ? (
         <>
-          <div className="aw-who">
+          <div className="ao-who">
             {/* eslint-disable-next-line @next/next/no-img-element -- a remote avatar in a static export */}
             <img src={state.user.avatarUrl} alt="" />
             <div>
               <strong>{state.user.name ?? state.user.login}</strong>
-              <span className="aw-muted">@{state.user.login}{state.scopes.length > 0 && ` · ${state.scopes.join(', ')}`}</span>
+              <span className="ao-soft">@{state.user.login}{state.scopes.length > 0 && ` · ${state.scopes.join(', ')}`}</span>
             </div>
           </div>
-          {reposError && <p className="aw-error">{reposError}</p>}
+          {reposError && <p className="ao-task-panel-error">{reposError}</p>}
           {repos && (
             <>
-              <p className="aw-muted">{repos.length} repositories reachable{repos.length === 50 && ' (first 50)'}</p>
-              <ul className="aw-list">
+              <p>{repos.length} repositories reachable{repos.length === 50 && ' (first 50)'}</p>
+              <ul className="ao-conn-list">
                 {repos.slice(0, 8).map((r) => (
                   <li key={r.fullName}>
-                    <span className="aw-mono">{r.fullName}</span>
-                    {r.private && <span className="aw-pill">private</span>}
+                    <span className="ao-mono">{r.fullName}</span>
+                    {r.private && <span className="ao-tag">private</span>}
                   </li>
                 ))}
               </ul>
             </>
           )}
-          <div className="aw-row">
-            <button type="button" className="aw-btn" data-danger onClick={signOut}>Sign out</button>
+          <div className="ao-status-actions">
+            <button type="button" className="ao-btn-danger" onClick={signOut}>Sign out</button>
           </div>
         </>
       ) : device ? (
         <>
           <p>Open this link in the browser signed in to the company GitHub, and enter the code:</p>
-          <div className="aw-code">{device.userCode}</div>
+          <div className="ao-device-code">{device.userCode}</div>
           <LinkOpener url={device.verificationUri} />
-          <div className="aw-row">
-            <span className="aw-muted">Waiting for GitHub…</span>
-            <button type="button" className="aw-btn" onClick={() => void call('githubDeviceCancel')}>Cancel</button>
+          <div className="ao-status-actions">
+            <span className="ao-soft">Waiting for GitHub…</span>
+            <button type="button" className="ao-btn-secondary" onClick={() => void call('githubDeviceCancel')}>Cancel</button>
           </div>
         </>
       ) : pasting ? (
         <>
-          <label className="aw-field">
-            <span>Personal access token</span>
-            <input className="aw-input aw-mono" type="password" value={token} onChange={(e) => setToken(e.target.value)} autoFocus placeholder="ghp_… or github_pat_…" />
-            <small>Scopes: repo, read:org. If the organisation uses SSO, authorise the token for it on GitHub.</small>
+          <label className="ao-task-panel-field">
+            <span className="ao-task-panel-label">Personal access token</span>
+            <input className="ao-task-input ao-mono-input" type="password" value={token} onChange={(e) => setToken(e.target.value)} autoFocus placeholder="ghp_… or github_pat_…" />
+            <small className="ao-field-note">Scopes: repo, read:org. If the organisation uses SSO, authorise the token for it on GitHub.</small>
           </label>
-          <div className="aw-row">
-            <button type="button" className="aw-btn" data-primary disabled={busy || !token.trim()} onClick={() => run(() => call('githubUseToken', token))}>
+          <div className="ao-status-actions">
+            <button type="button" className="ao-btn-primary" disabled={busy || !token.trim()} onClick={() => run(() => call('githubUseToken', token))}>
               {busy ? 'Checking…' : 'Use this token'}
             </button>
-            <button type="button" className="aw-btn" onClick={() => setPasting(false)}>Back</button>
+            <button type="button" className="ao-btn-secondary" onClick={() => setPasting(false)}>Back</button>
           </div>
         </>
       ) : (
-        <div className="aw-row">
-          <button type="button" className="aw-btn" data-primary disabled={!vpnUp || busy} onClick={startDevice}>Sign in with GitHub</button>
-          <button type="button" className="aw-btn" disabled={!vpnUp || busy} onClick={() => setPasting(true)}>Paste a token</button>
-          <button type="button" className="aw-btn" disabled={!vpnUp || busy} onClick={() => run(() => call('githubFromGh'))}>Use gh’s sign-in</button>
+        <div className="ao-status-actions">
+          <button type="button" className="ao-btn-primary" disabled={!vpnUp || busy} onClick={startDevice}>Sign in with GitHub</button>
+          <button type="button" className="ao-btn-secondary" disabled={!vpnUp || busy} onClick={() => setPasting(true)}>Paste a token</button>
+          <button type="button" className="ao-btn-secondary" disabled={!vpnUp || busy} onClick={() => run(() => call('githubFromGh'))}>Use gh’s sign-in</button>
         </div>
       )}
-      {error && <p className="aw-error">{error}</p>}
+      {error && <p className="ao-task-panel-error">{error}</p>}
     </section>
   );
 }

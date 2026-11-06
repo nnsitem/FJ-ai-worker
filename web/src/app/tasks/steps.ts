@@ -24,3 +24,18 @@ export const STATE_TONE: Record<StepState, string | undefined> = {
   skipped: undefined,
   failed: 'bad',
 };
+
+export type Standing = 'working' | 'you' | 'done' | 'idle';
+
+/** Where a task stands, for the Tasks tabs and its card. */
+export function standing(r: Run): Standing {
+  if (r.running) return 'working';
+  const cur = currentStep(r);
+  if (r.workflowStarted && !cur) return 'done';
+  if (r.error || cur?.state === 'waiting') return 'you';
+  return 'idle';
+}
+
+/** Where a task works, short: the repo's name, the folder's, or none yet. */
+export const placeName = (r: Run) =>
+  r.source === 'repo' ? r.repo.split('/')[1] || r.repo : r.source === 'folder' ? ((r.folder ?? '').split(/[\\/]/).filter(Boolean).pop() ?? '') : 'no folder';

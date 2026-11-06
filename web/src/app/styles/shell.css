@@ -1,0 +1,4926 @@
+.ao-shell-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.ao-shell-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: var(--gap);
+  padding: var(--gap);
+  padding-top: 0;
+}
+
+/* ---------- shared bits ---------- */
+
+.ao-spacer {
+  flex: 1;
+}
+
+.ao-dot-sep {
+  color: var(--soft);
+  padding: 0 0.15rem;
+}
+
+.ao-mono-dim {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--soft);
+}
+
+.ao-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  color: var(--soft);
+  flex-shrink: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+button.ao-icon-btn:hover:not(:disabled) {
+  background: rgb(var(--ink) / 0.06);
+  color: var(--foreground);
+}
+
+.ao-icon-static {
+  pointer-events: none;
+}
+
+.ao-count {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--soft);
+  background: rgb(var(--ink) / 0.05);
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+  min-width: 20px;
+  text-align: center;
+}
+
+.ao-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.7rem;
+  /* Transparent, so it's as tall as a secondary button beside it. */
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--accent-fill);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 550;
+  transition: background 0.12s ease;
+}
+
+.ao-btn-primary:hover:not(:disabled) {
+  background: var(--accent-fill-hover);
+}
+
+.ao-btn-primary:disabled {
+  opacity: 0.5;
+}
+
+.ao-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+
+.ao-btn-secondary:hover:not(:disabled) {
+  color: var(--foreground);
+  border-color: var(--soft);
+}
+
+.ao-btn-secondary:disabled {
+  opacity: 0.5;
+}
+
+.ao-gitlab-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.ao-gitlab-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  border: 1px solid var(--rule);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.ao-gitlab-input:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+/* Header-sized: it sits beside a 26px search field, not in a panel header. */
+.ao-btn-compact {
+  height: 26px;
+  padding: 0 0.6rem;
+  border-radius: 9px;
+  font-size: 0.76rem;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.ao-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--soft);
+  flex-shrink: 0;
+}
+
+.ao-live-dot[data-busy='true'] {
+  background: var(--fill-violet);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.16);
+  animation: ao-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ao-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---------- sidebar ---------- */
+
+.ao-sidebar {
+  width: 208px;
+  flex-shrink: 0;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.15s ease;
+  padding-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.ao-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  /* Left inset = .ao-nav-group's 0.5rem + .ao-nav-item's 0.6rem, so the logo
+     starts on the same line as every icon under it (menu, Settings, the
+     user's photo) — and the top corner mirrors the bottom one. */
+  padding: 0.85rem 0.7rem 0.9rem 1.1rem;
+}
+
+.ao-logo-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.ao-sidebar-brand {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+
+
+
+.ao-nav-group {
+  display: flex;
+  flex-direction: column;
+  /* Room between items, so neighbouring hover/active pills don't touch. */
+  gap: 4px;
+  padding: 0.2rem 0.5rem;
+}
+
+.ao-nav-group-label {
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--soft);
+  padding: 0.7rem 0.6rem 0.3rem;
+}
+
+.ao-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.83rem;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ao-nav-item svg {
+  flex-shrink: 0;
+}
+
+.ao-nav-item:hover {
+  background: rgb(var(--ink) / 0.045);
+  color: var(--foreground);
+}
+
+.ao-nav-item[data-active='true'] {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+  font-weight: 550;
+}
+
+.ao-nav-spacer {
+  flex: 1;
+}
+
+/* Takes the room between the brand and the foot, and scrolls when the
+   window is too short for every page. */
+.ao-sidebar-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The last page keeps the same air above the divider as Settings has
+     below it. */
+  padding-bottom: 0.5rem;
+}
+
+.ao-sidebar-header,
+.ao-sidebar-bottom,
+.ao-sidebar-user-wrap {
+  flex-shrink: 0;
+}
+
+.ao-sidebar-bottom {
+  border-top: 1px solid var(--rule);
+  padding-top: 0.7rem;
+}
+
+/* Last in the sidebar (Personal mode — no signed-in user row under it): drop
+   the group's own bottom padding so Settings sits as far above the edge as
+   it does below the divider. */
+.ao-sidebar-bottom:last-child {
+  padding-bottom: 0;
+}
+
+/* Signed-in user at the foot of the sidebar (Organization mode) — a button
+   opening the account menu above it. */
+.ao-sidebar-user-wrap {
+  position: relative;
+}
+
+/* Straight after the menu (Settings moved into the account menu), the same
+   divider the Settings group had. */
+.ao-sidebar-scroll + .ao-sidebar-user-wrap {
+  border-top: 1px solid var(--rule);
+}
+
+.ao-sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: calc(100% - 1rem);
+  text-align: left;
+  margin: 0.35rem 0.5rem 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ao-sidebar-user:hover,
+.ao-sidebar-user[data-open='true'] {
+  background: rgb(var(--ink) / 0.04);
+  color: var(--foreground);
+}
+
+/* The account menu: the right-click menu's surface (board.css
+   .ao-context-menu), opening upward from the user row. */
+.ao-user-menu {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: calc(100% + 6px);
+  z-index: 60;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 16px 40px rgb(var(--shade) / calc(0.5 * var(--shade-k)));
+}
+
+.ao-user-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.5rem 0.6rem;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ao-user-menu-head .ao-sidebar-user-avatar {
+  width: 30px;
+  height: 30px;
+}
+
+.ao-user-menu-who {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ao-user-menu-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-user-menu-email {
+  font-size: 0.7rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Menu items here include a Link (Settings) — keep it looking like the rest. */
+.ao-user-menu .ao-context-item {
+  text-decoration: none;
+}
+
+.ao-user-menu .ao-context-item:disabled {
+  opacity: 0.6;
+}
+
+.ao-sidebar-user-avatar {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.66rem;
+  font-weight: 650;
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-line);
+  /* The photo, when there is one, fills the same circle. */
+  object-fit: cover;
+}
+
+.ao-sidebar-user-email {
+  min-width: 0;
+  font-size: 0.74rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Today's work status: a dot on the avatar and a line under the email. */
+.ao-sidebar-user-pic {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* Two classes, so .ao-presence-dot's own position (relative, for its
+   pulse ring) never wins over this corner placement. */
+.ao-presence-dot.ao-sidebar-user-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  box-shadow: 0 0 0 2px var(--background);
+}
+
+/* Online: green, with a soft ring that breathes out; offline: grey, still. */
+.ao-presence-dot {
+  position: relative;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--soft);
+}
+
+.ao-presence-dot[data-online] {
+  background: var(--fill-green);
+}
+
+.ao-presence-dot[data-online]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--fill-green);
+  animation: ao-presence-pulse 2s ease-out infinite;
+}
+
+@keyframes ao-presence-pulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-presence-dot[data-online]::after { animation: none; }
+}
+
+/* The menu's Online | Offline switch. */
+.ao-presence-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin: 2px 4px 6px;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: var(--background);
+}
+
+.ao-presence-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: var(--soft);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ao-presence-switch button[aria-checked='true'] {
+  color: var(--foreground);
+  background: var(--card-active);
+  border-color: var(--rule-strong);
+}
+
+.ao-presence-switch button[aria-checked='true'][data-on] {
+  border-color: rgba(63, 185, 80, 0.4);
+}
+
+.ao-work-status-hint {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.7rem;
+  color: var(--amber-ink);
+}
+
+.ao-work-status-leave {
+  margin-top: 2px;
+  text-decoration: none;
+}
+
+.ao-sidebar-user-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ao-sidebar-user-status {
+  font-size: 0.66rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-work-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--rule-strong);
+}
+
+.ao-work-dot[data-tone='site'] { background: var(--fill-green); }
+.ao-work-dot[data-tone='remote'] { background: var(--fill-blue); }
+.ao-work-dot[data-tone='leave'] { background: var(--fill-amber); }
+
+/* The account menu's "Today I'm…" list. */
+.ao-work-status {
+  padding: 2px 0 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ao-work-status-title {
+  display: block;
+  padding: 0.35rem 0.6rem 0.25rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.ao-work-status ul {
+  list-style: none;
+}
+
+.ao-work-status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.38rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ao-work-status-item:hover:not(:disabled) {
+  background: var(--card-hover);
+}
+
+.ao-work-status-item[aria-checked='true'] {
+  background: var(--card-active);
+}
+
+.ao-work-status-item:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.ao-work-status-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.ao-work-status-item svg {
+  color: var(--accent-ink);
+}
+
+.ao-work-status-clear {
+  color: var(--soft);
+}
+
+.ao-work-status-error {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.7rem;
+  color: var(--red);
+}
+
+/* ---------- main column ---------- */
+
+.ao-topbar {
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 460px) 1fr;
+  align-items: center;
+  gap: 1rem;
+  padding: 10px var(--gap) 10px var(--traffic-inset);
+}
+
+.ao-topbar-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* The centre slot mirrors the reference's command bar; here it's the one
+   action the app is actually for — putting a task on the board. Both side
+   cells are 1fr, so it stays centred in the window even though the left one
+   is reserved for the traffic lights. */
+/* Search plus a compact New session button, sharing the header's centre slot. */
+.ao-command-group {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.ao-command {
+  -webkit-app-region: no-drag;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 26px;
+  padding: 0 0.75rem;
+  border-radius: 9px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  color: var(--soft);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ao-command[data-ai] svg {
+  color: var(--accent-ink);
+}
+
+.ao-command[data-ai][aria-expanded='true'] {
+  border-color: var(--accent-line);
+  background: var(--card-hover);
+}
+
+.ao-command:focus-within {
+  border-color: var(--accent-line);
+  background: var(--card-hover);
+}
+
+/* The centre control is now a button that opens a new draft session. */
+
+
+.ao-command-new:disabled {
+  opacity: 0.6;
+}
+
+.ao-command {
+  cursor: pointer;
+  text-align: left;
+}
+
+.ao-command:hover {
+  border-color: var(--rule-strong);
+  background: var(--card-hover);
+}
+
+.ao-command-placeholder {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--soft);
+}
+
+.ao-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--soft);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  padding: 0 0.25rem;
+  flex-shrink: 0;
+}
+
+/* Folder chip on the right of the command bar — quiet until a folder is set,
+   then it wears the accent tint to show the next card is pinned to real disk. */
+.ao-command-folder {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  max-width: 140px;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+  color: var(--soft);
+  font-size: 0.7rem;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.ao-command-folder span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-command-folder:hover {
+  background: rgb(var(--ink) / 0.06);
+  color: var(--foreground);
+}
+
+.ao-command-folder[data-set='true'] {
+  color: var(--accent-ink);
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+}
+
+.ao-topbar-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.ao-bell {
+  -webkit-app-region: no-drag;
+}
+
+.ao-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 26px;
+  box-sizing: border-box;
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  padding: 0 0.6rem;
+  white-space: nowrap;
+}
+
+.ao-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---------- simple pages ---------- */
+
+.ao-page-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 2rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.ao-page-narrow h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.ao-page-narrow p {
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+/* ---------- settings: category nav + content ---------- */
+
+.ao-settings-shell {
+  display: flex;
+  gap: var(--gap);
+  height: 100%;
+}
+
+.ao-settings-nav {
+  width: 172px;
+  flex-shrink: 0;
+  /* A column, so an info group (Settings: Releases / About) can sit at the
+     foot, like the app sidebar's own Settings item. */
+  display: flex;
+  flex-direction: column;
+  /* Top padding matches .ao-settings-content's, so the nav title and the
+     page title stay level — and at 15px both sit on the same line as the
+     Sessions / Team boards' panel title. */
+  /* Bottom inset puts this nav's version line at the foot of the window,
+     level with the app sidebar's own last row — measured, not eyeballed. */
+  padding: 0 0 6px;
+  overflow-y: auto;
+  /* A panel, like the Sessions / Team boards'. */
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+/* The nav panel's header row — the boards' .ao-panel-head height and
+   title inset. No rule under it: the categories follow straight on. */
+.ao-settings-nav-title {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 57px;
+  padding: 0 var(--pad-x);
+  /* Same as the Sessions / Team boards' panel title (.ao-panel-title). */
+  font-size: 0.86rem;
+  font-weight: 600;
+  /* The same line box as the content's h2 beside it (.ao-settings-header):
+     text centres in its line box, so equal boxes put both titles on one
+     line even though their sizes differ. */
+  line-height: 1.5rem;
+  color: var(--foreground);
+}
+
+/* Count after a nav item's label (Agents page: agents, skills). */
+.ao-nav-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--soft);
+}
+
+.ao-settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  /* No panel of its own: the category nav beside it is the framed part, and
+     the page's content sits on the window's background, its cards on
+     paper-2 like any card there. The 1px on top stands in for the nav
+     panel's top border, so the two title rows sit level. */
+  padding: 1px var(--bare-inset) var(--panel-inset);
+  /* Room under the last card for the floating assistant button. */
+  padding-bottom: calc(var(--panel-inset) + 72px);
+}
+
+/* Cards inside a framed panel step up to the card surface, as the boards'
+   cards do — on the panel's own paper-2 they'd vanish. Unframed, they keep
+   their paper-2. */
+.ao-panel:not(.ao-panel-bare) .ao-page-body .ao-status-card {
+  background: var(--card);
+}
+
+/* ---------- a plain page in a panel (Integrations) ---------- */
+
+.ao-page-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--panel-inset);
+}
+
+.ao-panel-bare .ao-page-body {
+  padding: var(--panel-inset) var(--bare-inset);
+}
+
+.ao-page-intro {
+  margin-bottom: 0.9rem;
+  /* On the same left line as the title above and the cards below. */
+  padding-top: 0.25rem;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.ao-page-body .ao-status-card p {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-bottom: 0.8rem;
+}
+
+/* Unframed pages fill the width they're given, as the framed boards do,
+   rather than stopping at a reading width and leaving the rest of a wide
+   window empty. Cards flow into as many columns as fit (one when narrow);
+   anything that isn't a card — the title row, About's hero, the Releases
+   list — spans the full width. Shared by Settings' content and the plain
+   pages' body (.ao-page-body-inner). */
+/* Wrapping flex, not grid: a grid's full-width rows would span — and so
+   keep — every column, leaving empty tracks beside two cards; here each row
+   of cards shares out its whole width. */
+.ao-settings-content-inner,
+.ao-page-body-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--gap);
+}
+
+.ao-settings-content-inner > .ao-status-card,
+.ao-page-body-inner > .ao-status-card {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
+.ao-settings-content-inner > :not(.ao-status-card),
+.ao-page-body-inner > :not(.ao-status-card) {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+/* The gap does the spacing — doubled selector to outrank the cards' own
+   margin (.ao-status-card, .ao-about-hero), declared later in this file. */
+.ao-settings-content-inner.ao-settings-content-inner > *,
+.ao-page-body-inner.ao-page-body-inner > * {
+  margin-bottom: 0;
+}
+
+/* …except under the title row, which keeps the boards' header-to-content
+   inset. */
+.ao-settings-content-inner.ao-settings-content-inner > .ao-settings-header {
+  margin-bottom: calc(var(--panel-inset) - var(--gap));
+}
+
+.ao-settings-nav-info {
+  margin-top: auto;
+  padding-top: 0.75rem;
+}
+
+.ao-settings-nav-version {
+  padding: 0.75rem 0.6rem 0;
+  font-size: 0.68rem;
+  color: var(--soft);
+}
+
+/* "Update available" marker after a nav label. */
+.ao-nav-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+/* ---------- About ---------- */
+
+.ao-about-hero {
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  /* A faint wash of the accent, like the reference's tinted identity card. */
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--accent-tint), transparent 60%),
+    var(--paper-2);
+}
+
+.ao-about-id {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 0.9rem;
+}
+
+.ao-about-logo {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.ao-about-id h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1.1rem;
+  font-weight: 650;
+  margin-bottom: 0.2rem;
+}
+
+.ao-about-id p {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.ao-about-version {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-line);
+}
+
+.ao-about-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+}
+
+.ao-about-row-flush {
+  padding: 0;
+}
+
+.ao-about-row-label {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.ao-about-details summary {
+  margin-top: 0.15rem;
+  font-size: 0.74rem;
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.ao-about-details p {
+  max-width: 520px;
+  margin: 0.4rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--soft);
+}
+
+.ao-about-platform {
+  font-size: 0.8rem;
+}
+
+.ao-status-card h3 svg {
+  color: var(--soft);
+}
+
+.ao-about-check {
+  margin-top: 0.2rem;
+}
+
+.ao-about-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.ao-about-status[data-tone='ok'] { color: var(--green); }
+.ao-about-status[data-tone='accent'] { color: var(--accent-ink); }
+.ao-about-status[data-tone='error'] { color: var(--red); overflow-wrap: anywhere; }
+
+.ao-about-progress {
+  position: relative;
+  margin-top: 0.75rem;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--background);
+  border: 1px solid var(--rule);
+  overflow: hidden;
+}
+
+.ao-about-progress > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent-tint);
+  border-right: 1px solid var(--accent-line);
+  transition: width 0.2s ease;
+}
+
+.ao-about-progress > em {
+  position: relative;
+  display: block;
+  padding: 0 0.6rem;
+  line-height: 20px;
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.ao-about-divider {
+  height: 1px;
+  margin: 1rem 0;
+  background: var(--rule);
+}
+
+.ao-about-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+}
+
+.ao-about-switch-row strong {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.ao-about-switch-note {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.76rem;
+  color: var(--soft);
+}
+
+/* A checkbox drawn as a switch — track plus sliding knob. */
+.ao-switch {
+  appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--rule-strong);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ao-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+
+.ao-switch:checked {
+  background: var(--accent);
+}
+
+.ao-switch:checked::after {
+  transform: translateX(16px);
+}
+
+.ao-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ao-about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.84rem;
+  color: var(--accent-ink);
+}
+
+.ao-about-link:hover {
+  color: var(--accent-hover);
+}
+
+.ao-about-report {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.ao-about-muted {
+  font-size: 0.82rem;
+  color: var(--soft);
+}
+
+/* ---------- Releases ---------- */
+
+.ao-releases-offline {
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--paper-2);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.ao-releases {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 1.2rem;
+  align-items: start;
+}
+
+.ao-releases-list {
+  list-style: none;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 1rem;
+  border-right: 1px solid var(--rule);
+}
+
+.ao-releases-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.ao-releases-item:hover {
+  background: rgb(var(--ink) / 0.04);
+}
+
+.ao-releases-item[data-active='true'] {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+}
+
+.ao-releases-version {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.ao-releases-current,
+.ao-releases-insider {
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 0.08rem 0.35rem;
+  border-radius: 5px;
+}
+
+.ao-releases-current {
+  color: var(--green);
+  background: rgba(63, 185, 80, 0.14);
+}
+
+.ao-releases-insider {
+  color: var(--violet);
+  background: rgba(167, 139, 250, 0.14);
+}
+
+.ao-releases-date {
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-releases-notes header {
+  margin-bottom: 0.9rem;
+}
+
+.ao-releases-notes h3 {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 650;
+}
+
+.ao-releases-notes header span {
+  font-size: 0.76rem;
+  color: var(--soft);
+}
+
+.ao-releases-body {
+  color: var(--foreground);
+}
+
+/* The chat's Markdown (board.css .ao-md*), sized up for reading as a page. */
+.ao-releases-body .ao-md {
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.ao-releases-body .ao-md > * + * {
+  margin-top: 0.7rem;
+}
+
+.ao-releases-body .ao-md-h {
+  font-size: 1rem;
+  margin-top: 1.3rem;
+}
+
+.ao-releases-body .ao-md-list {
+  gap: 0.45rem;
+}
+
+/* A page's title row: 57px like the boards' .ao-panel-head, so it sits
+   level with the nav's own title row beside it. Unframed like the content
+   under it, but inset as a framed header's title is (the content itself is
+   at --bare-inset, .ao-settings-content). The Agents page's
+   .ao-library-head is the same row with an action on the right
+   (agents.css). */
+.ao-settings-header,
+.ao-library-head {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 57px;
+  margin-bottom: var(--panel-inset);
+  padding: 0.45rem calc(var(--bare-title-inset) - var(--bare-inset));
+}
+
+/* The Agents page's action (Sync) lines up with the cards' right edge. */
+.ao-library-head {
+  padding-right: 0;
+}
+
+.ao-settings-header h2,
+.ao-library-head h2 {
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ao-settings-header p,
+.ao-library-head p {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--soft);
+}
+
+.ao-status-card {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.9rem;
+}
+
+.ao-status-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin-bottom: 0.45rem;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background: rgb(var(--ink) / 0.06);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.ao-setup-code {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+}
+
+.ao-setup-detail {
+  font-size: 0.8rem;
+  color: var(--soft);
+}
+
+.ao-setup-note {
+  font-size: 0.8rem;
+  color: var(--soft);
+  margin-top: 1rem;
+}
+
+.ao-badge {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--rule-strong);
+  color: var(--muted);
+}
+
+.ao-badge[data-tone='planned'] {
+  color: var(--accent-ink);
+  border-color: var(--accent-line);
+}
+
+.ao-badge[data-tone='active'] {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.32);
+}
+
+/* ---------- global search dialog ---------- */
+
+.ao-search-dialog {
+  width: min(560px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  color: var(--foreground);
+  box-shadow: 0 24px 64px rgb(var(--shade) / calc(0.55 * var(--shade-k)));
+  /* The global `* { margin: 0 }` reset overrides the UA's `margin: auto` on
+     <dialog>, which is what normally centres a modal — so it's restored here
+     explicitly rather than pinning to the top-left corner. */
+  margin: 12vh auto auto;
+}
+
+.ao-search-dialog::backdrop {
+  background: rgb(var(--shade) / calc(0.5 * var(--shade-k)));
+}
+
+/* Out of the top bar's drag region, so clicks reach it. */
+.ao-search-dialog {
+  -webkit-app-region: no-drag;
+}
+
+.ao-search-results {
+  list-style: none;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.ao-search-results ul {
+  list-style: none;
+}
+
+.ao-search-group {
+  padding: 0.55rem 0.6rem 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.ao-search-hit {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.ao-search-hit[aria-selected='true'] {
+  background: rgb(var(--ink) / 0.07);
+  color: var(--foreground);
+}
+
+.ao-search-hit-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-search-hit-hint {
+  flex-shrink: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-search-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.55rem 0.9rem 0.7rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+.ao-search-dialog-field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.8rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--soft);
+}
+
+.ao-search-dialog-input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 0.95rem;
+  color: var(--foreground);
+}
+
+.ao-search-dialog-input::placeholder {
+  color: var(--soft);
+}
+
+.ao-search-scopes {
+  list-style: none;
+  padding: 0.4rem;
+}
+
+.ao-search-scope {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.ao-search-scope-hint {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-search-note {
+  padding: 0.5rem 0.9rem 0.8rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--soft);
+}
+
+.ao-gitlab-share {
+  margin-top: 0.9rem;
+}
+
+.ao-gitlab-share-note {
+  margin: 0.35rem 0 0 calc(15px + 0.55rem);
+  font-size: 0.76rem;
+  color: var(--soft);
+}
+
+.ao-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.85rem;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.ao-toggle input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ao-toggle input:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* ---------- view toggle ----------
+   The app's one segmented switch — Board/List, Gallery/Table, Cards/List,
+   Preview/Source, Stable/Insider. Icon + label; the chosen one sits on the
+   accent's tint with its outline. Global (not board.css) since Settings
+   and every board page use it. */
+
+.ao-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--background);
+  border: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+
+.ao-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 24px;
+  padding: 0 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 0.76rem;
+  font-weight: 550;
+  color: var(--soft);
+  white-space: nowrap;
+  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.ao-view-btn:hover {
+  color: var(--foreground);
+  background: rgb(var(--ink) / 0.04);
+}
+
+.ao-view-btn[data-active='true'] {
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+}
+
+.ao-view-btn:disabled {
+  opacity: 0.5;
+}
+
+/* ---------- notification centre (NotificationBell.tsx) ---------- */
+
+.ao-notif {
+  position: relative;
+}
+
+.ao-bell[data-open='true'] {
+  background: var(--card-active);
+  color: var(--foreground);
+}
+
+.ao-notif-badge {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.ao-notif-menu {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(560px, 75vh);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  box-shadow: 0 18px 44px rgb(var(--shade) / calc(0.55 * var(--shade-k)));
+  -webkit-app-region: no-drag;
+}
+
+.ao-notif-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+
+.ao-notif-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.ao-notif-markall {
+  font-size: 0.72rem;
+  font-weight: 550;
+  color: var(--accent-ink);
+}
+
+.ao-notif-markall:disabled {
+  color: var(--soft);
+}
+
+.ao-notif-list {
+  list-style: none;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.ao-notif-note {
+  padding: 1rem;
+  font-size: 0.78rem;
+  color: var(--soft);
+  text-align: center;
+}
+
+.ao-notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  color: var(--muted);
+}
+
+.ao-notif-item:hover:not(:disabled) {
+  background: rgb(var(--ink) / 0.05);
+}
+
+.ao-notif-item:disabled {
+  cursor: default;
+}
+
+.ao-notif-item[data-unread='true'] {
+  color: var(--foreground);
+}
+
+.ao-notif-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted);
+}
+
+.ao-notif-item[data-kind='session_done'] .ao-notif-icon { color: var(--green); }
+.ao-notif-item[data-kind='session_failed'] .ao-notif-icon { color: var(--red); }
+.ao-notif-item[data-kind='check_passed'] .ao-notif-icon { color: var(--green); }
+.ao-notif-item[data-kind='check_failed'] .ao-notif-icon { color: var(--red); }
+.ao-notif-item[data-kind='session_stuck'] .ao-notif-icon { color: var(--amber-ink); }
+.ao-notif-item[data-kind='task_assigned'] .ao-notif-icon { color: var(--accent-ink); }
+.ao-notif-item[data-kind='task_comment'] .ao-notif-icon { color: var(--blue); }
+
+.ao-notif-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.ao-notif-item-title {
+  font-size: 0.8rem;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.ao-notif-body {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+.ao-notif-meta {
+  font-size: 0.66rem;
+  color: var(--soft);
+}
+
+.ao-notif-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 0.4rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.ao-notif-error {
+  padding: 0.5rem 0.8rem 0.65rem;
+  font-size: 0.7rem;
+  color: var(--red);
+  border-top: 1px solid var(--rule);
+}
+
+/* ---------- AI (components/AiCard.tsx, AiAssistant.tsx) ---------- */
+
+.ao-ai-card {
+  flex-shrink: 0;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+}
+
+.ao-ai-card > header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem 0;
+}
+
+.ao-ai-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.ao-ai-card-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--soft);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.ao-ai-card-link:hover {
+  color: var(--foreground);
+}
+
+.ao-ai-card-body {
+  padding: 0.35rem 0.85rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+/* An AI answer never scrolls its own edge away: in a height-capped slot
+   (Gantt, Calendar) or capped itself where it sits in a scrolling page
+   (Dashboard's briefing, Daily Standup's summary), the frame and header stay
+   put and only the text scrolls. */
+.ao-gantt-ai > .ao-ai-card,
+.ao-cal-ai > .ao-ai-card,
+.ao-dash .ao-ai-card,
+.ao-standup-summary {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+.ao-dash .ao-ai-card,
+.ao-standup-summary {
+  max-height: min(60vh, 560px);
+  flex-shrink: 0;
+}
+
+.ao-gantt-ai > .ao-ai-card > .ao-ai-card-body,
+.ao-cal-ai > .ao-ai-card > .ao-ai-card-body,
+.ao-dash .ao-ai-card > .ao-ai-card-body,
+.ao-standup-summary > .ao-standup-summary-text {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ao-ai-busy {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.ao-ai-spark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: ao-ai-breathe 1.1s ease-in-out infinite;
+}
+
+@keyframes ao-ai-breathe {
+  50% { opacity: 0.25; transform: scale(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-ai-spark { animation: none; }
+  .ao-assist,
+  .ao-assist-panel,
+  .ao-assist-panel[data-closing] {
+    animation: none;
+    transition: none;
+  }
+}
+
+.ao-ai-error {
+  font-size: 0.78rem;
+  color: var(--red);
+}
+
+/* A small AI action button (spark icon + label) on a page or card. */
+.ao-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+/* The assistant: a round button at the content's bottom-right, its panel
+   opening above it. */
+.ao-content {
+  position: relative;
+}
+
+.ao-assist {
+  /* Drops down under the top bar's "Ask AI" field, centred on the content. */
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.ao-assist > * {
+  pointer-events: auto;
+}
+
+/* ---------- Glass (the assistant's button and chat) ----------
+   Kept quiet: a clear, lightly blurred surface, one fine highlight on the top
+   edge, a soft shadow beneath. Presses use `scale` with a gentle spring. */
+/* Behind the open chat: the screen close around it, blurred, the blur
+   fading out over --assist-halo past its edge (AiAssistant's halo). */
+.ao-assist-halo {
+  --assist-halo: 56px;
+  position: absolute;
+  inset: calc(var(--assist-halo) * -1);
+  border-radius: calc(var(--radius-xl) + var(--assist-halo));
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  /* Solid in the middle, clear at the edges, on both axes. */
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 var(--assist-halo), #000 calc(100% - var(--assist-halo)), transparent),
+    linear-gradient(to bottom, transparent, #000 var(--assist-halo), #000 calc(100% - var(--assist-halo)), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 var(--assist-halo), #000 calc(100% - var(--assist-halo)), transparent),
+    linear-gradient(to bottom, transparent, #000 var(--assist-halo), #000 calc(100% - var(--assist-halo)), transparent);
+  mask-composite: intersect;
+  animation: ao-assist-halo-in 200ms ease;
+}
+
+/* Never in the way: a click beside the chat still closes it. */
+.ao-assist > .ao-assist-halo {
+  pointer-events: none;
+}
+
+.ao-assist-halo[data-closing] {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+@keyframes ao-assist-halo-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-assist-halo,
+  .ao-assist-halo[data-closing] {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* The chat: the same glass, a little denser so text reads over anything. */
+.ao-assist-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - 48px));
+  /* Grows with the conversation, up to most of the window. */
+  max-height: min(640px, calc(100vh - 110px));
+  border: none;
+  border-radius: var(--radius-xl);
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+  overflow: hidden;
+  transform-origin: top center;
+  animation: ao-assist-in 280ms var(--glass-spring);
+}
+
+@keyframes ao-assist-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+
+/* Closing: the rise in reverse; CHAT_CLOSE_MS in AiAssistant.tsx. */
+.ao-assist-panel[data-closing] {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.97);
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.ao-assist-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px 12px 16px;
+  border-bottom: 1px solid rgb(var(--ink) / 0.07);
+}
+
+.ao-assist-badge {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  background: rgba(225, 48, 108, 0.18);
+  color: var(--accent-text);
+}
+
+.ao-assist-heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ao-assist-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.ao-assist-sub {
+  font-size: 0.7rem;
+  color: rgb(var(--ink) / 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Small glass pills: New chat, the close button. */
+.ao-assist-new,
+.ao-assist-head .ao-icon-btn {
+  flex-shrink: 0;
+  border: none;
+  background: rgb(var(--ink) / 0.06);
+  transition: background 0.15s ease;
+}
+
+.ao-assist-new {
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  color: rgb(var(--ink) / 0.75);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.ao-assist-head .ao-icon-btn {
+  border-radius: 50%;
+}
+
+.ao-assist-new:hover,
+.ao-assist-head .ao-icon-btn:hover {
+  background: rgb(var(--ink) / 0.13);
+  color: var(--foreground);
+}
+
+.ao-assist-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.ao-assist-empty-title {
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.ao-assist-empty-sub {
+  margin-top: 2px;
+  font-size: 0.76rem;
+  color: rgb(var(--ink) / 0.55);
+}
+
+.ao-assist-empty ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.ao-assist-empty button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--ink) / 0.05);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ao-assist-empty button > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.ao-assist-empty button > svg {
+  flex-shrink: 0;
+  color: rgb(var(--ink) / 0.4);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.ao-assist-empty button:hover {
+  background: rgb(var(--ink) / 0.1);
+}
+
+.ao-assist-empty button:hover > svg {
+  color: var(--accent-text);
+  transform: translateX(2px);
+}
+
+.ao-assist-empty button:active {
+  scale: 0.98;
+}
+
+.ao-assist-turn {
+  max-width: 88%;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.ao-assist-turn[data-role='user'] {
+  align-self: flex-end;
+  border-bottom-right-radius: var(--radius-sm);
+  background: rgba(225, 48, 108, 0.26);
+  white-space: pre-wrap;
+}
+
+.ao-assist-turn[data-role='assistant'] {
+  align-self: flex-start;
+  max-width: 100%;
+  border-bottom-left-radius: var(--radius-sm);
+  background: rgb(var(--ink) / 0.05);
+}
+
+/* The composer: a pill of glass, the send button inside it. */
+.ao-assist-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 12px 12px;
+  padding: 0.65rem 0.65rem 0.55rem 0.9rem;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--ink) / 0.05);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink) / 0.07);
+  flex-shrink: 0;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ao-assist-composer:focus-within {
+  background: rgb(var(--ink) / 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 152, 0.35);
+}
+
+.ao-assist-composer textarea {
+  width: 100%;
+  min-width: 0;
+  max-height: 8rem;
+  overflow-y: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  resize: none;
+}
+
+.ao-assist-composer textarea:focus {
+  outline: none;
+}
+
+.ao-assist-composer textarea::placeholder {
+  color: rgb(var(--ink) / 0.4);
+}
+
+.ao-assist-composer-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ao-assist-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.66rem;
+  color: rgb(var(--ink) / 0.38);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-assist-send {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s ease, scale 200ms ease;
+}
+
+.ao-assist-send:hover:not(:disabled) {
+  scale: 1.05;
+}
+
+.ao-assist-send:active:not(:disabled) {
+  scale: 0.95;
+}
+
+.ao-assist-send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ao-assist-talking {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--accent-text);
+}
+
+.ao-assist-talking i {
+  display: inline-block;
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+  transform-origin: center;
+  animation: ao-friday-bar 0.9s ease-in-out infinite;
+}
+
+.ao-assist-talking i:nth-child(2) { animation-delay: -0.15s; }
+.ao-assist-talking i:nth-child(3) { animation-delay: -0.3s; }
+.ao-assist-talking i:nth-child(4) { animation-delay: -0.45s; }
+.ao-assist-talking i:nth-child(5) { animation-delay: -0.6s; margin-right: 6px; }
+
+/* With a measured voice, the bars stand as tall as it is loud — by
+   transform only, so the line never changes height (the chat stays still). */
+.ao-assist-talking {
+  height: 14px;
+}
+
+.ao-assist-talking i {
+  height: 12px;
+}
+
+.ao-assist-talking[data-metered] i {
+  animation: none;
+  transform: scaleY(calc(0.25 + var(--talk, 0) * 0.75));
+  transition: transform 80ms linear;
+}
+
+.ao-assist-talking[data-metered] i:nth-child(2),
+.ao-assist-talking[data-metered] i:nth-child(4) {
+  transform: scaleY(calc(0.2 + var(--talk, 0) * 0.6));
+}
+
+@keyframes ao-friday-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-assist-talking i {
+    animation: none !important;
+  }
+}
+
+/* The language spoken, beside the mic: a small pill that cycles. */
+.ao-assist-lang {
+  flex-shrink: 0;
+  height: 24px;
+  min-width: 36px;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 999px;
+  background: rgb(var(--ink) / 0.06);
+  color: rgb(var(--ink) / 0.7);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ao-assist-lang:hover:not(:disabled) {
+  background: rgb(var(--ink) / 0.12);
+  color: var(--foreground);
+}
+
+/* Talk: the mic beside Send, a ring that swells with the voice while it listens. */
+.ao-assist-mic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(var(--ink) / 0.08);
+  color: rgb(var(--ink) / 0.75);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ao-assist-mic:hover:not(:disabled) {
+  background: rgb(var(--ink) / 0.14);
+  color: var(--foreground);
+}
+
+.ao-assist-mic:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ao-assist-mic[data-listening] {
+  background: var(--fill-red);
+  color: #fff;
+}
+
+.ao-assist-mic[data-listening]::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--fill-red);
+  opacity: calc(0.35 + var(--level, 0) * 0.65);
+  transform: scale(calc(1 + var(--level, 0) * 0.45));
+  transition: transform 80ms linear, opacity 80ms linear;
+  pointer-events: none;
+}
+
+.ao-assist-head .ao-icon-btn[data-active] {
+  color: var(--accent-text);
+}
+
+.ao-assist-turn[data-role='user'] svg {
+  vertical-align: -2px;
+  opacity: 0.7;
+}
+
+/* GIS's next steps: numbered, each with its button; then questions to
+   ask next as chips (on the latest answer only). */
+.ao-assist-next {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(var(--ink) / 0.08);
+}
+
+.ao-assist-next-title {
+  margin-bottom: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.ao-assist-next ol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 1.1rem;
+}
+
+.ao-assist-next li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ao-assist-next li::marker {
+  color: var(--soft);
+}
+
+.ao-assist-next li[data-done] .ao-assist-next-text {
+  opacity: 0.6;
+}
+
+.ao-assist-next-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ao-assist-next li > .ao-btn-compact {
+  flex-shrink: 0;
+  max-width: 45%;
+  white-space: normal;
+  text-align: left;
+}
+
+.ao-assist-follow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.ao-assist-follow button {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgb(var(--ink) / 0.12);
+  border-radius: 999px;
+  background: rgb(var(--ink) / 0.04);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.ao-assist-follow button:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  background: rgb(var(--ink) / 0.08);
+}
+
+/* A #123 in GIS's answer: the card, one click away. */
+.ao-md-card {
+  display: inline;
+  padding: 0 0.15em;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ao-md-card:hover {
+  background: rgb(var(--ink) / 0.08);
+  text-decoration: underline;
+}
+
+/* What an answer offers to do: going somewhere, or a change to confirm. */
+.ao-assist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* GIS's voice: the Azure key, under the speech model. */
+.ao-assist-voice-sub {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(var(--ink) / 0.08);
+}
+
+.ao-assist-voice-ok {
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--green);
+}
+
+.ao-assist-voice-row,
+.ao-assist-voice-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ao-assist-voice-form .ao-task-input:first-child {
+  flex: 2;
+  min-width: 0;
+}
+
+.ao-assist-voice-form .ao-task-input:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.ao-assist-voice-tabs {
+  align-self: flex-start;
+}
+
+.ao-assist-voice-list {
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.ao-assist-voice-setup .ao-assist-voice-list li[data-active] {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* Voice, set up once: the speech models to pick from. */
+.ao-assist-voice-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--ink) / 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 152, 0.3);
+  font-size: 0.76rem;
+}
+
+.ao-assist-voice-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+  font-size: 0.84rem;
+}
+
+.ao-assist-voice-head > span {
+  flex: 1;
+}
+
+.ao-assist-voice-setup p {
+  color: rgb(var(--ink) / 0.6);
+  line-height: 1.5;
+}
+
+.ao-assist-voice-setup ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ao-assist-voice-setup li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--ink) / 0.04);
+}
+
+.ao-assist-voice-model {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ao-assist-voice-model em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--accent-text);
+}
+
+.ao-assist-voice-model > span {
+  color: rgb(var(--ink) / 0.55);
+  font-size: 0.7rem;
+}
+
+.ao-assist-voice-bar {
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: rgb(var(--ink) / 0.1);
+  overflow: hidden;
+}
+
+.ao-assist-voice-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+/* ---------- Glass ----------
+   One surface for everything that floats over the page — the assistant's
+   look (above), shared: clear, lightly blurred, one fine highlight on the
+   top edge, a soft shadow. `:root` lifts these over each layer's own rule
+   (board.css, the pages' css) without !important; they keep their layout. */
+:root
+  :is(
+    .ao-picker-menu,
+    .ao-context-menu,
+    .ao-user-menu,
+    .ao-notif-menu,
+    .ao-branch-menu,
+    .ao-share-menu,
+    .ao-pipe-menu,
+    .ao-gantt-tip,
+    .ao-search-dialog,
+    .ao-pipe-modal
+  ) {
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+}
+
+/* Menus open with a short rise. `scale` and `translate` — not `transform`,
+   which some of them use for placement. */
+:root
+  :is(
+    .ao-picker-menu,
+    .ao-context-menu,
+    .ao-user-menu,
+    .ao-notif-menu,
+    .ao-branch-menu,
+    .ao-share-menu,
+    .ao-pipe-menu
+  ) {
+  animation: ao-glass-in 200ms var(--glass-spring);
+}
+
+/* Dialogs: rounder, as sheets are. */
+:root :is(.ao-search-dialog, .ao-pipe-modal) {
+  border-radius: var(--radius-xl);
+  animation: ao-glass-in 260ms var(--glass-spring);
+}
+
+@keyframes ao-glass-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+    translate: 0 -4px;
+  }
+}
+
+/* Buttons: the glass's top-edge highlight, and a press that gives a little
+   and springs back. */
+:root :is(.ao-btn-primary, .ao-btn-danger, .ao-btn-done) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+:root :is(.ao-btn-secondary, .ao-btn-ghost) {
+  border-color: transparent;
+  background-color: rgb(var(--ink) / 0.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgb(var(--ink) / 0.1);
+}
+
+:root :is(.ao-btn-secondary, .ao-btn-ghost):hover:not(:disabled) {
+  background-color: rgb(var(--ink) / 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgb(var(--ink) / 0.16);
+}
+
+:root :is(.ao-btn-primary, .ao-btn-secondary, .ao-btn-ghost, .ao-btn-danger, .ao-btn-done, button.ao-icon-btn) {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    scale 300ms var(--glass-spring);
+}
+
+:root :is(.ao-btn-primary, .ao-btn-secondary, .ao-btn-ghost, .ao-btn-danger, .ao-btn-done, button.ao-icon-btn):active:not(:disabled) {
+  scale: 0.96;
+  transition-duration: 0.15s, 0.15s, 0.15s, 0.15s, 0.15s, 100ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root :is(.ao-picker-menu, .ao-context-menu, .ao-user-menu, .ao-notif-menu, .ao-branch-menu, .ao-share-menu, .ao-pipe-menu, .ao-search-dialog, .ao-pipe-modal) {
+    animation: none;
+  }
+  :root :is(.ao-btn-primary, .ao-btn-secondary, .ao-btn-ghost, .ao-btn-danger, .ao-btn-done, button.ao-icon-btn):active:not(:disabled) {
+    scale: none;
+  }
+}
+
+
+/* ---------- Glass: the screen itself (trial) ----------
+   1. Cards keep their solid fill (content stays content) and gain only the
+      glass's fine top-edge highlight — no blur, so a board of hundreds stays
+      fast.
+   2. The sidebar, navigation like iOS's bars, is glass over a faint warm
+      light pooled behind the app — something for the glass to show. */
+:root
+  :is(
+    .ao-card,
+    .ao-pipe-card,
+    .ao-dash-kpi,
+    .ao-dash-card,
+    .ao-leave-card,
+    .ao-standup-card,
+    .ao-agent-card,
+    .ao-art-card,
+    .ao-status-card,
+    .ao-dash-member
+  ) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.ao-shell-root {
+  background:
+    /* A soft mesh, after a blurred colour field: the app's red-pink and blue
+       anchor opposite corners, with a rose, a violet and a teal blending
+       between — kept dim so the content, not the backdrop, leads. */
+    radial-gradient(70% 75% at 0% 0%, rgba(246, 65, 58, 0.16), transparent 75%),
+    radial-gradient(60% 70% at 40% 0%, rgba(214, 72, 140, 0.12), transparent 75%),
+    radial-gradient(65% 70% at 100% 0%, rgba(124, 96, 240, 0.15), transparent 75%),
+    radial-gradient(75% 70% at 65% 55%, rgba(60, 130, 240, 0.12), transparent 75%),
+    radial-gradient(70% 65% at 100% 100%, rgba(50, 190, 210, 0.12), transparent 75%),
+    radial-gradient(75% 65% at 0% 100%, rgba(131, 58, 180, 0.14), transparent 75%),
+    var(--background);
+}
+
+:root :is(.ao-sidebar, .ao-settings-nav) {
+  border-color: transparent;
+  background: var(--glass-nav);
+  box-shadow: var(--glass-edge), 0 12px 32px -12px rgb(var(--shade) / calc(0.5 * var(--shade-k)));
+}
+
+/* ---------- Glass: the screen, everywhere ----------
+   No backdrop blur on the big surfaces (the sidebar, the page panels, the
+   dashboard's tiles): what's behind them is the app's still gradient, which
+   a blur barely changes, and redoing a blur over most of a large Retina
+   window on every scroll made the busy pages (Gantt, calendar) stutter.
+   Popups and menus, small and over content, keep theirs. */
+/* ----------
+   The main panels become the sidebar's glass over the app's light; what sits
+   inside them (board columns, search fields, toggles) turns from solid black
+   wells into a darker glass of their own. Side panels (.ao-task-panel, the
+   Sessions conversation) are left as they are. */
+:root .ao-panel:not(.ao-task-panel):not(.ao-detail):not(.ao-panel-bare) {
+  border-color: transparent;
+  background: var(--glass-panel);
+  box-shadow: var(--glass-edge), 0 12px 32px -12px rgb(var(--shade) / calc(0.5 * var(--shade-k)));
+}
+
+/* Board columns: a recessed well of glass. */
+:root .ao-column {
+  border-color: transparent;
+  background: var(--recess);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink) / 0.05);
+}
+
+:root .ao-column-head {
+  border-bottom-color: rgb(var(--ink) / 0.06);
+}
+
+/* Fields and toggles: small glass, with the focus ring kept. */
+:root :is(.ao-search-field, .ao-view-toggle) {
+  border-color: rgb(var(--ink) / 0.08);
+  background: rgb(var(--ink) / 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root .ao-search-field:focus-within {
+  border-color: var(--accent-line);
+}
+
+/* The top bar: its search and status pills as glass over the app's light. */
+:root :is(.ao-command, .ao-status-pill) {
+  border-color: rgb(var(--ink) / 0.09);
+  background: rgb(var(--ink) / 0.045);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+:root .ao-command:hover {
+  border-color: rgb(var(--ink) / 0.16);
+  background: rgb(var(--ink) / 0.07);
+}
+
+/* ---------- Glass: details ---------- */
+
+/* The Sessions composer: the assistant's — one soft box, a ring on focus. */
+:root .ao-composer {
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--ink) / 0.045);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgb(var(--ink) / 0.08);
+}
+
+:root .ao-composer:focus-within {
+  border-color: transparent;
+  background: rgb(var(--ink) / 0.065);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 0 1px rgba(255, 107, 152, 0.35);
+}
+
+/* The page you're on, in the sidebar: a tinted pill of the same glass. */
+:root .ao-nav-item[data-active='true'] {
+  background: rgba(225, 48, 108, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(225, 48, 108, 0.2);
+}
+
+/* Pages with no frame of their own (Dashboard, Agents, Settings,
+   Integrations): their tiles are the glass. */
+:root
+  :is(
+    .ao-dash-kpi,
+    .ao-dash-card,
+    .ao-status-card,
+    .ao-agent-card,
+    .ao-library-banner,
+    .ao-library-default
+  ) {
+  border-color: transparent;
+  background: var(--glass-panel);
+  box-shadow: var(--glass-edge), 0 12px 32px -14px rgb(var(--shade) / calc(0.45 * var(--shade-k)));
+}
+
+/* The Team strip: people as small glass chips; me and the filtered one keep
+   their accent. */
+:root .ao-team-member {
+  background: rgb(var(--ink) / 0.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgb(var(--ink) / 0.06);
+}
+
+:root .ao-team-member:hover {
+  background: rgb(var(--ink) / 0.07);
+}
+
+:root .ao-team-member[data-me='true'] {
+  background: rgba(225, 48, 108, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(225, 48, 108, 0.28);
+}
+
+:root .ao-team-member[data-active='true'] {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px var(--accent);
+}
+
+/* Changing page: the new one fades in, briefly. */
+.ao-content > main {
+  animation: ao-page-in 160ms ease-out;
+}
+
+@keyframes ao-page-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-content > main {
+    animation: none;
+  }
+}
+
+/* Recessed wells inside a page — the board columns' glass: the Standup's
+   summary / blockers / not-posted boxes, the Gantt chart's scroll area. The
+   summary keeps its accent ring. */
+:root :is(.ao-standup-summary, .ao-standup-blockers, .ao-standup-missing, .ao-gantt-scroll) {
+  border-color: transparent;
+  background: rgb(var(--shade) / calc(0.22 * var(--shade-k)));
+  box-shadow: inset 0 0 0 1px rgb(var(--ink) / 0.05);
+}
+
+:root .ao-standup-summary {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* A glass button that's switched on (Blockers, Closed, Done…). */
+:root :is(.ao-btn-secondary, .ao-btn-ghost)[aria-pressed='true'] {
+  color: var(--foreground);
+  background-color: rgb(var(--ink) / 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgb(var(--ink) / 0.2);
+}
+
+/* ---------- Glass: wells, tables and corners ----------
+   Inside the main panels, the old black wells (`--background`: board
+   columns, tables, calendars, the Gantt grid, fields) become a faint lift of
+   the glass, and dividers soften — one token, so every page follows. Side
+   panels keep the originals. */
+.ao-content {
+  --background: var(--well);
+  --rule: var(--grid-line);
+}
+
+:root :is(.ao-task-panel, .ao-detail) {
+  --background: var(--side-ground);
+  --rule: rgb(var(--ink) / 0.07);
+}
+
+/* The wells themselves: no hard edge, a hairline of light instead. */
+:root :is(.ao-column, .ao-gantt-scroll, .ao-cal-scroll, .ao-leave-table-wrap, .ao-standup-summary, .ao-standup-blockers, .ao-standup-missing) {
+  border-color: transparent;
+  border-radius: var(--radius);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink) / 0.055);
+}
+
+:root .ao-standup-summary {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* What sticks while the rest scrolls must stay opaque, or rows show
+   through: the same tone, solid. */
+:root :is(.ao-gantt-label, .ao-cal-person) {
+  background: var(--well-solid);
+}
+
+:root :is(.ao-leave-table thead th, .ao-gantt-group-head) {
+  background: var(--well-head);
+}
+
+/* Table rows: hairline dividers (the grid line), a soft hover. */
+:root .ao-leave-table :is(th, td) {
+  border-bottom-color: var(--grid-line);
+}
+
+:root .ao-leave-table tbody tr:hover > * {
+  background: rgb(var(--ink) / 0.025);
+}
+
+/* Avatar rings cut against the tone behind them — solid, so they still do. */
+:root .ao-cal-person .ao-presence-dot {
+  box-shadow: 0 0 0 2px var(--well-solid);
+}
+
+/* Corners on the one scale (globals.css): panels and the sidebar are the
+   large outer frame; cards, columns and wells sit inside at the middle step;
+   controls take the small one. */
+:root :is(.ao-panel:not(.ao-task-panel):not(.ao-detail), .ao-sidebar, .ao-settings-nav) {
+  border-radius: var(--radius-lg);
+}
+
+:root :is(.ao-card, .ao-team-card, .ao-pipe-card, .ao-leave-card, .ao-standup-card, .ao-agent-card, .ao-art-card, .ao-status-card, .ao-dash-kpi, .ao-dash-card, .ao-library-banner, .ao-library-default, .ao-dash-member) {
+  border-radius: var(--radius);
+}
+
+:root :is(.ao-btn-compact, .ao-search-field, .ao-command, .ao-status-pill, .ao-picker-trigger, .ao-team-member) {
+  border-radius: var(--radius-sm);
+}
+
+/* A segmented toggle: its buttons on the small step, the frame around them
+   that plus its 3px padding — concentric. */
+:root .ao-view-toggle {
+  border-radius: calc(var(--radius-sm) + 3px);
+}
+
+:root .ao-view-btn {
+  border-radius: var(--radius-sm);
+}
+
+/* Leave: its groups (This year, Away soon, My requests) are wells like the
+   board's columns — cards sit on them; the empty state is plain, not dashed. */
+:root .ao-leave-box {
+  padding: 0.25rem 0.5rem 0.5rem;
+  border-radius: var(--radius);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink) / 0.055);
+}
+
+:root .ao-leave-blank {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.5rem 0.4rem;
+}
+
+/* ---------- Tables and wells: one edge ----------
+   Every well and table — board columns, the Leave log, the Calendar, the
+   Gantt chart, Artifacts' table, the Standup and Leave groups — has the same
+   outer edge: a real 1px border (an inset shadow sat under sticky headers and
+   showed on two sides only), the middle corner, and grid lines inside. */
+:root
+  :is(
+    .ao-column,
+    .ao-gantt-scroll,
+    .ao-cal-scroll,
+    .ao-leave-table-wrap,
+    .ao-standup-summary,
+    .ao-standup-blockers,
+    .ao-standup-missing,
+    .ao-leave-box
+  ) {
+  border: 1px solid var(--well-line);
+  border-radius: var(--radius);
+  background: var(--well);
+  box-shadow: none;
+}
+
+:root .ao-standup-summary {
+  border-color: var(--accent-line);
+}
+
+/* Header rows and sticky header cells: one tone. */
+:root
+  :is(
+    .ao-leave-table thead th,
+    .ao-cal-team thead th,
+    .ao-gantt-head,
+    .ao-gantt-corner,
+    .ao-gantt-group-head,
+    .ao-art-table thead th
+  ) {
+  background: var(--well-head);
+}
+
+/* Artifacts' table sat bare on the panel: now a well like the others. */
+:root .ao-art-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--well-line);
+  border-radius: var(--radius);
+  background: var(--well);
+  overflow: hidden;
+}
+
+:root .ao-art-table th {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--grid-line);
+}
+
+:root .ao-art-table tbody tr:first-child td {
+  border-top: none;
+}
+
+:root .ao-art-table td {
+  border-top-color: var(--grid-line);
+}
+
+:root .ao-art-table tbody tr:hover td {
+  background: rgb(var(--ink) / 0.025);
+}
+
+/* The Dashboard's Projects table lives inside a tile: just its grid lines. */
+:root .ao-dash-table td {
+  border-top-color: var(--grid-line);
+}
+
+/* Text inputs on a page (the GitLab token, branch names): the search
+   field's small glass, so every field reads as one kind of thing. */
+:root .ao-content :is(.ao-gitlab-input, .ao-branch-input) {
+  border-color: rgb(var(--ink) / 0.08);
+  background: rgb(var(--ink) / 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root .ao-content :is(.ao-gitlab-input, .ao-branch-input):focus {
+  border-color: var(--accent-line);
+}
+
+/* ---------- Spacing: one scale (globals.css) ---------- */
+
+/* Compact cards in a dense list. */
+:root :is(.ao-card, .ao-team-card, .ao-standup-card, .ao-leave-card-open) {
+  padding: var(--card-pad-sm);
+}
+
+:root .ao-leave-card-actions {
+  padding: 0 var(--card-pad-sm) var(--card-pad-sm);
+}
+
+/* Tiles. */
+:root :is(.ao-dash-kpi, .ao-dash-card, .ao-dash-member, .ao-agent-card, .ao-status-card, .ao-library-banner) {
+  padding: var(--card-pad);
+}
+
+/* A one-line setting row: tile sides, compact height. */
+:root .ao-library-default {
+  padding: var(--card-pad-sm) var(--card-pad);
+}
+
+/* Between cards: dense lists… */
+:root :is(.ao-columns, .ao-team-members, .ao-card-list, .ao-leave-cards, .ao-leave-overview, .ao-standup-grid, .ao-standup-body, .ao-leave-body) {
+  gap: var(--gap-dense);
+}
+
+:root .ao-card-list {
+  padding: var(--gap-dense);
+}
+
+/* …and grids of tiles. */
+:root :is(.ao-dash-inner, .ao-dash-kpis, .ao-dash-members, .ao-art-grid, .ao-library-grid) {
+  gap: var(--gap-tiles);
+}
+
+/* Artifacts' panel: its toolbar wraps when the panel is narrow, rather
+   than cutting off Share. */
+:root .ao-art-toolbar {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+/* ---------- Popups: the assistant's sheet, everywhere ----------
+   Larger popups — notifications, the account menu, Share, the date picker,
+   the Agents Board's settings and Add session, search, dialogs — take the
+   assistant's corner; list menus (pickers, right-click) the step below.
+   Inside, rows and segmented controls are the same soft glass. */
+:root
+  :is(
+    .ao-notif-menu,
+    .ao-user-menu,
+    .ao-share-menu,
+    .ao-pipe-menu,
+    .ao-date-menu,
+    .ao-search-dialog,
+    .ao-pipe-modal
+  ) {
+  border-radius: var(--radius-xl);
+}
+
+:root :is(.ao-picker-menu:not(.ao-date-menu), .ao-context-menu, .ao-branch-menu) {
+  border-radius: var(--radius-lg);
+}
+
+/* Room for the larger corner. */
+:root :is(.ao-user-menu, .ao-share-menu, .ao-date-menu) {
+  padding: 6px;
+}
+
+:root .ao-pipe-menu {
+  padding: 14px;
+}
+
+/* The account menu's Online / Offline: a glass segmented control. */
+:root .ao-presence-switch {
+  border-color: rgb(var(--ink) / 0.08);
+  border-radius: calc(var(--radius-sm) + 3px);
+  background: rgb(var(--ink) / 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root .ao-presence-switch button {
+  border-radius: var(--radius-sm);
+}
+
+:root .ao-presence-switch button[aria-checked='true'] {
+  border-color: transparent;
+  background: rgb(var(--ink) / 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgb(var(--ink) / 0.12);
+}
+
+/* Agents Board settings: its pickers are fields, full width. */
+:root .ao-pipe-setting .ao-picker {
+  width: 100%;
+}
+
+:root .ao-pipe-setting .ao-picker-trigger {
+  width: 100%;
+  height: 32px;
+  justify-content: space-between;
+  padding: 0 0.6rem;
+  border: 1px solid rgb(var(--ink) / 0.08);
+  background: rgb(var(--ink) / 0.035);
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* Share, opened from its left edge when the toolbar has wrapped it. */
+:root .ao-share-menu[data-align='start'] {
+  left: 0;
+  right: auto;
+}
+
+/* The account menu opens inside the sidebar, itself glass — and Chromium
+   won't blur through a blurred parent — so it's nearly solid instead,
+   rather than showing the nav behind it sharp. */
+:root .ao-user-menu {
+  background: var(--glass-solid);
+}
+
+/* Cards in a board column: a step lighter than the column well, a fine edge
+   and a soft drop, so each card reads as its own piece. Hover and the open
+   card keep their own looks. */
+:root .ao-column .ao-card {
+  border-color: rgb(var(--ink) / 0.07);
+  background: var(--lift);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 1px 3px rgb(var(--shade) / calc(0.35 * var(--shade-k)));
+}
+
+:root .ao-column .ao-card:hover {
+  border-color: rgb(var(--ink) / 0.11);
+  background: var(--lift-hover);
+}
+
+:root .ao-column .ao-card[data-active='true'] {
+  border-color: var(--accent-line);
+  background: var(--card-active);
+}
+
+/* The same card on the other pages that list them — Leave, Daily Standup,
+   Artifacts, Workload — so a card reads alike everywhere. Each keeps its
+   own hover, open and "me" looks. */
+:root :is(.ao-leave-card, .ao-standup-card, .ao-art-card, .ao-dash-member) {
+  border-color: rgb(var(--ink) / 0.07);
+  background-color: var(--lift);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 1px 3px rgb(var(--shade) / calc(0.35 * var(--shade-k)));
+}
+
+:root :is(.ao-leave-card, .ao-standup-card, .ao-art-card, .ao-dash-member):hover {
+  border-color: rgb(var(--ink) / 0.11);
+  background-color: var(--lift-hover);
+}
+
+:root :is(.ao-leave-card, .ao-standup-card)[data-active] {
+  border-color: var(--accent-line);
+  background-color: var(--card-active);
+}
+
+:root .ao-art-card[data-active='true'] {
+  border-color: var(--accent);
+}
+
+:root .ao-dash-member[data-me='true'] {
+  border-color: var(--accent-line);
+}
+
+:root .ao-dash-member[data-active='true'] {
+  border-color: var(--accent);
+}
+
+/* The Agents Board settings' picker menu sits inside an uppercase label. */
+:root .ao-pipe-setting .ao-picker-menu {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+}
+
+.ao-lang-toggle {
+  margin-top: 0.7rem;
+}
+
+/* Thai: the wide tracking set for small English capitals pulls Thai letters
+   apart — normal spacing in Thai. */
+html:lang(th) body * {
+  letter-spacing: normal !important;
+}
+
+/* The Leave log's Team totals: stuck to the table's foot, opaque. */
+:root .ao-leave-table tfoot :is(th, td) {
+  background: var(--well-head);
+}
+
+/* Header rows: a line under them. A border on a sticky cell in a collapsed
+   table stays behind when the cell sticks (the border belongs to the
+   table), so the line is drawn inside the cell instead — it moves with it.
+   Same for the Leave log's pinned Team row, above it. */
+:root :is(.ao-leave-table thead th, .ao-cal-team thead th, .ao-art-table thead th) {
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -1px 0 var(--well-line);
+}
+
+:root .ao-gantt-head {
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -1px 0 var(--well-line);
+}
+
+:root .ao-leave-table tfoot :is(th, td) {
+  border-top-color: transparent;
+  box-shadow: inset 0 1px 0 var(--well-line);
+}
+
+/* Another item opened in a side panel that's already open: it swaps in
+   place, no slide-in (lib/use-panel-swap.ts). */
+.ao-board[data-panel-swap] > .ao-task-panel:not([data-closing]) {
+  animation: none;
+}
+
+/* The announcement board's top-bar button: its badge sits on it, as the bell's does. */
+.ao-announce-btn {
+  position: relative;
+}
+
+/* ---------- loading skeletons ----------
+   Three primitives, all sharing one shimmer:
+   - .ao-skel       a plain block (avatars) — shape from the real class.
+   - .ao-skel-fill  a real chip/count/pill with its text hidden, so its box
+                    is the real one to the pixel.
+   - .ao-skel-line  exactly one line of the surrounding text style (1lh),
+                    with the bar drawn in its middle — the same height a
+                    real line of that text takes. */
+
+.ao-skel,
+.ao-skel-fill,
+.ao-skel-line::before {
+  background: rgb(var(--ink) / 0.06)
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(var(--ink) / 0.07) 50%,
+      transparent 100%
+    )
+    no-repeat;
+  background-size: 200% 100%;
+  animation: ao-skel-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes ao-skel-sweep {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-skel,
+  .ao-skel-fill,
+  .ao-skel-line::before {
+    animation: none;
+    background-image: none;
+  }
+}
+
+.ao-skel-fill {
+  color: transparent !important;
+  border-color: transparent !important;
+  user-select: none;
+}
+
+.ao-skel-line {
+  display: block;
+  position: relative;
+  height: 1lh;
+  max-width: 100%;
+}
+
+.ao-skel-line::before {
+  content: '';
+  position: absolute;
+  inset: 0.22lh 0;
+  border-radius: 4px;
+}
+
+/* Shared skeleton shapes (components/Skeleton.tsx). */
+.ao-skel-rows {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.ao-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ao-skel-row .ao-skel-avatar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+
+.ao-skel-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ao-skel-cards {
+  list-style: none;
+  display: grid;
+  gap: var(--gap-dense);
+}
+
+.ao-skel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--card-pad);
+  border: 1px solid rgb(var(--ink) / 0.07);
+  border-radius: var(--radius);
+  background: var(--lift);
+}
+
+.ao-skel-table {
+  width: 100%;
+  border: 1px solid var(--well-line);
+  border-radius: var(--radius);
+  background: var(--well);
+  overflow: hidden;
+}
+
+.ao-skel-table-row {
+  display: grid;
+  gap: 16px;
+  align-items: center;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--grid-line);
+}
+
+.ao-skel-table-row:first-child {
+  background: var(--well-head);
+}
+
+.ao-skel-table-row:last-child {
+  border-bottom: none;
+}
+
+.ao-skel-small {
+  font-size: 0.72rem;
+}
+
+
+.ao-skel-inline {
+  display: inline-block;
+  height: 0.8em;
+  vertical-align: -0.05em;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgb(var(--ink) / 0.05) 0%, rgb(var(--ink) / 0.12) 50%, rgb(var(--ink) / 0.05) 100%) 0 0 / 200% 100%;
+  animation: ao-skel-sweep 1.4s ease-in-out infinite;
+}
+
+/* ---------- collapse (components/Collapse.tsx, and every <details>) ----------
+   Opening and closing slide the height rather than popping. Clipped, not
+   overflow-hidden, so sticky cells inside still stick to the real scroller. */
+:root {
+  --collapse-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --collapse-ms: 320ms;
+  interpolate-size: allow-keywords;
+}
+
+.ao-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--collapse-ms) var(--collapse-ease),
+    opacity calc(var(--collapse-ms) * 0.7) ease;
+}
+
+.ao-collapse[data-open] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+@starting-style {
+  .ao-collapse[data-open]:not([data-static]) {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+
+.ao-collapse-inner {
+  min-height: 0;
+  overflow: clip;
+}
+
+details::details-content {
+  block-size: 0;
+  overflow-y: clip;
+  opacity: 0;
+  transition:
+    block-size var(--collapse-ms) var(--collapse-ease),
+    opacity calc(var(--collapse-ms) * 0.7) ease,
+    content-visibility var(--collapse-ms) allow-discrete;
+}
+
+details[open]::details-content {
+  block-size: auto;
+  opacity: 1;
+}
+
+/* Near-instant rather than none, so a closing Collapse still ends. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --collapse-ms: 1ms;
+  }
+}
+
+/* ---------- lightbox (components/Lightbox.tsx) ---------- */
+.ao-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 8, 12, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-app-region: no-drag;
+  animation: ao-lightbox-in 0.2s ease;
+}
+
+.ao-lightbox[data-closing] {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+@keyframes ao-lightbox-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.ao-lightbox-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px 0;
+}
+
+.ao-lightbox-count {
+  padding-bottom: 10px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ao-lightbox-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(30, 30, 38, 0.7);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ao-lightbox-btn:hover {
+  background: rgba(60, 60, 72, 0.85);
+}
+
+.ao-lightbox-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 72px;
+}
+
+.ao-lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: ao-lightbox-img-in 0.28s var(--collapse-ease);
+}
+
+@keyframes ao-lightbox-img-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.ao-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+}
+
+.ao-lightbox-nav[data-side='prev'] {
+  left: 18px;
+}
+
+.ao-lightbox-nav[data-side='next'] {
+  right: 18px;
+}
+
+.ao-lightbox-thumbs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px 18px;
+  overflow-x: auto;
+}
+
+.ao-lightbox-thumb {
+  flex-shrink: 0;
+  width: 64px;
+  height: 48px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: none;
+  opacity: 0.55;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.ao-lightbox-thumb:hover {
+  opacity: 0.85;
+}
+
+.ao-lightbox-thumb[data-active] {
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.ao-lightbox-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---------- Light theme: one edge ----------
+   Glass keeps a 1px transparent border, and its edge ring is drawn inside
+   that border — so on light glass the border's 1px of see-through ground
+   shows as a pale band between the outer edge and the ring: two lines. On
+   dark the band is too dark to see. Light draws the edge on the border
+   instead and drops the ring (for these and anything inside them). */
+:root[data-theme='light']
+  :is(
+    .ao-sidebar,
+    .ao-settings-nav,
+    .ao-panel:not(.ao-task-panel):not(.ao-detail):not(.ao-panel-bare),
+    .ao-dash-kpi,
+    .ao-dash-card,
+    .ao-status-card,
+    .ao-agent-card,
+    .ao-library-banner,
+    .ao-library-default,
+    .ao-picker-menu,
+    .ao-context-menu,
+    .ao-user-menu,
+    .ao-notif-menu,
+    .ao-branch-menu,
+    .ao-share-menu,
+    .ao-pipe-menu,
+    .ao-gantt-tip,
+    .ao-search-dialog,
+    .ao-pipe-modal
+  ) {
+  --glass-edge: 0 0 transparent;
+  border-color: rgba(24, 24, 40, 0.1);
+}
+
+/* ---------- Popups above the page ----------
+   Dropdowns live in <body> (lib/popup-layer.ts). The menus that stay inside
+   their panel lift that panel over its neighbours while open — a glass panel
+   is its own stacking context, so a menu's z-index alone counts only within
+   it. (Panels are flex items, so z-index applies without positioning.) */
+:is(.ao-panel, .ao-task-panel, .ao-detail, .ao-topbar, .ao-sidebar):has(
+    :is(.ao-branch-menu, .ao-share-menu, .ao-pipe-menu, .ao-context-menu, .ao-gantt-tip, .ao-user-menu, .ao-notif-menu)
+  ) {
+  z-index: 40;
+}
+
+/* ---------- Sidebar: collapse to icons (Sidebar.tsx) ----------
+   One smooth motion: the width eases in, everything past it is clipped
+   (the sidebar is overflow: hidden, its rows nowrap), labels fade, and the
+   icons slide to the middle — no element changes layout or height, so
+   nothing jumps. The logo already sits where a 64px column centres it. */
+:root {
+  --sidebar-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --sidebar-ms: 280ms;
+}
+
+.ao-sidebar {
+  transition: width var(--sidebar-ms) var(--sidebar-ease);
+}
+
+.ao-sidebar[data-collapsed] {
+  width: 64px;
+}
+
+.ao-sidebar-header {
+  position: relative;
+}
+
+.ao-sidebar-brand,
+.ao-nav-item > span,
+.ao-sidebar-user-text {
+  transition: opacity calc(var(--sidebar-ms) * 0.6) ease;
+}
+
+.ao-sidebar[data-collapsed] .ao-sidebar-brand,
+.ao-sidebar[data-collapsed] .ao-nav-item > span,
+.ao-sidebar[data-collapsed] .ao-sidebar-user-text {
+  opacity: 0;
+}
+
+/* Icons ease to the column's centre with the width. */
+.ao-nav-item {
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    padding var(--sidebar-ms) var(--sidebar-ease);
+}
+
+.ao-sidebar[data-collapsed] .ao-nav-item {
+  padding-left: 0.9rem;
+}
+
+/* A group heading fades into a hairline, keeping its height. */
+.ao-nav-group-label {
+  position: relative;
+  white-space: nowrap;
+  transition: color calc(var(--sidebar-ms) * 0.6) ease;
+}
+
+.ao-nav-group-label::after {
+  content: '';
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: 0.55rem;
+  height: 1px;
+  background: var(--rule);
+  opacity: 0;
+  transition: opacity var(--sidebar-ms) ease;
+}
+
+.ao-sidebar[data-collapsed] .ao-nav-group-label {
+  color: transparent;
+}
+
+.ao-sidebar[data-collapsed] .ao-nav-group-label::after {
+  opacity: 1;
+}
+
+/* The toggle: at the header's right when open; collapsed, it waits over the
+   logo and takes its place on hover. */
+.ao-sidebar-toggle {
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  color: var(--soft);
+  transition:
+    opacity 0.15s ease,
+    color 0.12s ease;
+}
+
+.ao-sidebar-toggle:hover {
+  color: var(--foreground);
+}
+
+.ao-logo-tile {
+  transition: opacity 0.15s ease;
+}
+
+.ao-sidebar[data-collapsed] .ao-sidebar-toggle {
+  position: absolute;
+  left: 1.1rem;
+  top: 50%;
+  translate: 0 -50%;
+  margin: 0;
+  opacity: 0;
+}
+
+.ao-sidebar[data-collapsed] .ao-sidebar-header:hover .ao-sidebar-toggle,
+.ao-sidebar[data-collapsed] .ao-sidebar-toggle:focus-visible {
+  opacity: 1;
+}
+
+.ao-sidebar[data-collapsed] .ao-sidebar-header:hover .ao-logo-tile {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sidebar-ms: 1ms;
+  }
+}
+
+/* The account menu beside a collapsed sidebar: in <body>, anchored at the
+   chip's bottom, opening up and to the right. */
+.ao-user-menu-float {
+  position: fixed;
+  z-index: 1100;
+  width: 248px;
+  height: 0;
+}
+
+.ao-user-menu-float .ao-user-menu {
+  left: 0;
+  right: 0;
+}
+
+/* Only macOS draws its window buttons over the top bar's left end; the
+   system frame elsewhere (Windows) has them in its own title bar. */
+html:not([data-platform='darwin']) .ao-topbar {
+  padding-left: var(--gap);
+}
+
+/* ---------- form fields ----------
+   The app's one text input and textarea — Team, Time Off, Users, Agents,
+   Report a bug. Global (it was in team.css), so a page that doesn't load
+   team.css still gets it instead of the browser's own box. */
+
+.ao-task-input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 0.65rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.84rem;
+  transition: border-color 0.12s ease;
+}
+
+.ao-task-input:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.ao-task-input::placeholder {
+  color: var(--soft);
+}
+
+.ao-task-textarea {
+  height: auto;
+  min-height: 7.5rem;
+  padding: 0.6rem 0.65rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+
+/* Google's / Microsoft's mark (components/ProviderLogo.tsx). */
+.ao-provider-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ao-provider-logo svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- the AI's edge ----------
+   Every AI answer (AiCard, the standup summary) wears a gradient edge; while
+   Claude is working on it the gradient turns and the edge glows, and both
+   stop once the answer is in. The assistant's panel glows while it answers.
+   Last in the file so it holds over the themes' frame rules. */
+
+@property --ai-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+:root :is(.ao-ai-card, .ao-standup-summary, .ao-task-ai-note) {
+  position: relative;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* The edge itself: a gradient ring over the frame, cut out in the middle, so
+   the card's own (glass) background is left as it is. */
+:root :is(.ao-ai-card, .ao-standup-summary, .ao-task-ai-note)::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--ai-angle),
+    rgba(225, 48, 108, 0.9),
+    rgba(245, 184, 74, 0.75),
+    rgba(255, 95, 138, 0.65),
+    rgba(167, 123, 255, 0.65),
+    rgba(225, 48, 108, 0.9)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* A box AI is writing into (a standup draft, a commit message): the AI edge
+   only while it writes, turning, then plain again. */
+:root .ao-ai-glow {
+  position: relative;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+/* The box fills the edge exactly: no inline gap under it. */
+:root .ao-ai-glow > :is(textarea, input) {
+  display: block;
+  width: 100%;
+}
+
+:root .ao-ai-glow[aria-busy='true']::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--ai-angle),
+    rgba(225, 48, 108, 0.9),
+    rgba(245, 184, 74, 0.75),
+    rgba(255, 95, 138, 0.65),
+    rgba(167, 123, 255, 0.65),
+    rgba(225, 48, 108, 0.9)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: ao-ai-turn 2.4s linear infinite;
+}
+
+:root .ao-ai-glow[aria-busy='true'] {
+  animation: ao-ai-glow 1.6s ease-in-out infinite alternate;
+}
+
+:root :is(.ao-ai-card, .ao-standup-summary, .ao-task-ai-note)[aria-busy='true']::before {
+  animation: ao-ai-turn 2.4s linear infinite;
+}
+
+:root :is(.ao-ai-card, .ao-standup-summary, .ao-task-ai-note)[aria-busy='true'] {
+  animation: ao-ai-glow 1.6s ease-in-out infinite alternate;
+}
+
+/* The AI Assistant wears the same edge as every other AI box (turning while
+   it answers); the top bar's "Ask AI" field only while the chat is open. */
+:root .ao-assist-panel,
+:root .ao-command[data-ai] {
+  position: relative;
+}
+
+:root .ao-command[data-ai][aria-expanded='true'] {
+  border-color: transparent;
+}
+
+/* The field wears it only while the chat is open — the two read as one. */
+:root :is(.ao-assist-panel, .ao-command[data-ai][aria-expanded='true'])::before {
+  content: '';
+  position: absolute;
+  /* Inside the frame: the panel clips what overflows it. */
+  inset: 0;
+  z-index: 1;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--ai-angle),
+    rgba(225, 48, 108, 0.9),
+    rgba(245, 184, 74, 0.75),
+    rgba(255, 95, 138, 0.65),
+    rgba(167, 123, 255, 0.65),
+    rgba(225, 48, 108, 0.9)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+:root .ao-assist-panel[data-busy]::before {
+  animation: ao-ai-turn 2.4s linear infinite;
+}
+
+/* While it answers, its title and spark come alive, as an AI card's do. */
+:root .ao-assist-panel[data-busy] .ao-assist-title {
+  background: linear-gradient(90deg, #e1306c, #f6413a, #ff5f8a, #a77bff, #e1306c) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ao-ai-shimmer 2.2s linear infinite;
+}
+
+:root .ao-assist-panel[data-busy] .ao-assist-badge svg {
+  color: #f6413a;
+  animation: ao-ai-twinkle 1.1s ease-in-out infinite alternate;
+}
+
+/* The panel keeps its opening rise as the first animation (same name, same
+   place, so it doesn't replay when the glow goes) and its glass shadow. */
+:root .ao-assist-panel[data-busy] {
+  animation:
+    ao-assist-in 280ms var(--glass-spring),
+    ao-assist-glow 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes ao-assist-glow {
+  from {
+    box-shadow:
+      var(--glass-edge),
+      var(--glass-shadow),
+      0 0 0 1px rgba(225, 48, 108, 0.25),
+      0 0 12px 0 rgba(225, 48, 108, 0.2);
+  }
+  to {
+    box-shadow:
+      var(--glass-edge),
+      var(--glass-shadow),
+      0 0 0 1px rgba(245, 184, 74, 0.45),
+      0 0 24px 3px rgba(255, 95, 138, 0.3);
+  }
+}
+
+/* While it works, the title and its spark come alive too; the waiting line
+   gets a soft shimmer. All back to plain once the answer is in. */
+:root :is(.ao-ai-card, .ao-standup-summary)[aria-busy='true'] .ao-ai-card-title,
+:root .ao-task-ai-note[aria-busy='true'] .ao-task-panel-label {
+  background: linear-gradient(90deg, #e1306c, #f6413a, #ff5f8a, #a77bff, #e1306c) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ao-ai-shimmer 2.2s linear infinite;
+}
+
+:root :is(.ao-ai-card, .ao-standup-summary)[aria-busy='true'] .ao-ai-card-title svg,
+:root .ao-task-ai-note[aria-busy='true'] .ao-task-panel-label svg {
+  color: #f6413a;
+  animation: ao-ai-twinkle 1.1s ease-in-out infinite alternate;
+}
+
+:root .ao-ai-busy {
+  background: linear-gradient(
+      90deg,
+      var(--muted) 0%,
+      var(--muted) 35%,
+      var(--foreground) 50%,
+      var(--muted) 65%,
+      var(--muted) 100%
+    )
+    0 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ao-ai-shimmer 2.4s linear infinite reverse;
+}
+
+@keyframes ao-ai-shimmer {
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* An AI suggestion that matters, marked by the edge's own colours instead
+   of a spark icon. :root so a component's own text colour can't win. */
+:root .ao-ai-text {
+  background: linear-gradient(90deg, #e1306c, #f6413a 35%, #ff5f8a 70%, #a77bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-theme='light'] .ao-ai-text {
+  background-image: linear-gradient(90deg, #c45a00, #c98a12 35%, #e0306a 70%, #7c4ddb);
+}
+
+@keyframes ao-ai-twinkle {
+  from {
+    transform: scale(0.9) rotate(-8deg);
+    color: #f6413a;
+    filter: drop-shadow(0 0 1px rgba(245, 184, 74, 0.4));
+  }
+  to {
+    transform: scale(1.15) rotate(10deg);
+    color: #ff5f8a;
+    filter: drop-shadow(0 0 5px rgba(255, 95, 138, 0.75));
+  }
+}
+
+@keyframes ao-ai-turn {
+  to {
+    --ai-angle: 360deg;
+  }
+}
+
+@keyframes ao-ai-glow {
+  from {
+    box-shadow:
+      0 0 0 1px rgba(225, 48, 108, 0.25),
+      0 0 10px 0 rgba(225, 48, 108, 0.18);
+  }
+  to {
+    box-shadow:
+      0 0 0 1px rgba(245, 184, 74, 0.45),
+      0 0 22px 3px rgba(255, 95, 138, 0.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .ao-assist-panel[data-busy]::before,
+  :root .ao-assist-panel[data-busy] .ao-assist-title,
+  :root .ao-assist-panel[data-busy] .ao-assist-badge svg {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .ao-ai-glow[aria-busy='true'],
+  :root .ao-ai-glow[aria-busy='true']::before,
+  :root :is(.ao-ai-card, .ao-standup-summary, .ao-task-ai-note)[aria-busy='true'],
+  :root :is(.ao-ai-card, .ao-standup-summary, .ao-task-ai-note)[aria-busy='true']::before,
+  :root .ao-assist-panel[data-busy] {
+    animation: none;
+    box-shadow:
+      var(--glass-edge),
+      var(--glass-shadow),
+      0 0 16px 2px rgba(225, 48, 108, 0.3);
+  }
+
+  :root :is(.ao-ai-card, .ao-standup-summary)[aria-busy='true'] .ao-ai-card-title,
+  :root :is(.ao-ai-card, .ao-standup-summary)[aria-busy='true'] .ao-ai-card-title svg,
+  :root .ao-task-ai-note[aria-busy='true'] .ao-task-panel-label,
+  :root .ao-task-ai-note[aria-busy='true'] .ao-task-panel-label svg,
+  :root .ao-ai-busy {
+    animation: none;
+  }
+}
+
+/* ---------- page toolbars: one size on every page ----------
+   Daily Standup's toolbar is the measure: text buttons, search fields and
+   pickers 32px high, 0.78rem text; a search field up to 300px, giving way
+   first. A page's header and its toolbar row both follow it. */
+:root :is(.ao-panel-head, .ao-standup-toolbar, .ao-cal-toolbar, .ao-gantt-toolbar, .ao-art-filters, .ao-users-toolbar)
+  :is(.ao-btn-primary, .ao-btn-secondary, .ao-btn-danger) {
+  height: 32px;
+  padding: 0 0.8rem;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+:root :is(.ao-panel-head, .ao-standup-toolbar, .ao-cal-toolbar, .ao-gantt-toolbar, .ao-art-filters, .ao-users-toolbar)
+  .ao-search-field {
+  flex: 0 1 300px;
+  min-width: 120px;
+  height: 32px;
+}
+
+:root :is(.ao-panel-head, .ao-standup-toolbar, .ao-cal-toolbar, .ao-gantt-toolbar, .ao-art-filters, .ao-users-toolbar)
+  .ao-search-field .ao-icon-btn {
+  width: 22px;
+  height: 22px;
+}
+
+:root :is(.ao-panel-head, .ao-standup-toolbar, .ao-cal-toolbar, .ao-gantt-toolbar, .ao-art-filters, .ao-users-toolbar)
+  .ao-picker-trigger {
+  height: 32px;
+  padding: 0 0.7rem;
+  gap: 0.45rem;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.78rem;
+}
+
+/* ---------- one look for the small pieces, on every page ----------
+   Found by measuring every page: the same kind of thing had several sizes. */
+
+/* Icon buttons in a page header (Earlier / Later, the board's side-panel
+   toggles…): 28px, as Daily Standup's — not the clear (×) in a search field. */
+:root .ao-panel-head .ao-icon-btn:not(.ao-search-field .ao-icon-btn) {
+  width: 28px;
+  height: 28px;
+}
+
+/* Pickers in a toolbar: the buttons' corner and padding. */
+:root :is(.ao-panel-head, .ao-standup-toolbar, .ao-cal-toolbar, .ao-gantt-toolbar, .ao-art-filters, .ao-users-toolbar, .ao-library-default)
+  .ao-picker-trigger {
+  height: 32px;
+  padding: 0 0.8rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+
+/* Search fields: one inner padding. */
+:root .ao-search-field {
+  padding-right: 0.4rem;
+}
+
+/* Tags — a project, a kind, a type, a check, a session's chips: one small
+   rounded label. */
+:root :is(.ao-team-tag, .ao-art-kind, .ao-announce-tag, .ao-pipe-check-tag, .ao-agent-badge) {
+  padding: 0.12rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.6rem;
+  line-height: 1.4;
+}
+
+/* Status pills — a state, a verdict, a severity, on/off: one round pill. */
+:root :is(.ao-pipe-state, .ao-pipe-verdict, .ao-bugs-sev-tag, .ao-badge) {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+/* Card titles: one size (Settings', Sync Setting's, the Dashboard's). */
+:root .ao-dash-card-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+/* Side panels (a card, a request, a new meeting…): the same 32px for the
+   footer's buttons and the form's fields as the page toolbars — a primary
+   and a secondary beside each other were 31 and 33px, a field 32 or 34. The
+   card editor's big title field keeps its own size. */
+:root .ao-task-panel-foot :is(.ao-btn-primary, .ao-btn-secondary, .ao-btn-danger) {
+  height: 32px;
+  padding: 0 0.8rem;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+:root .ao-task-panel-body :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, .ao-picker-trigger):not(.ao-task-editor-title):not(.ao-search-field *) {
+  height: 32px;
+  font-size: 0.84rem;
+}
+
+/* A toolbar's pickers and buttons keep their words; the search field is
+   what gives way when the row gets narrow (a side panel open). */
+:root :is(.ao-panel-head, .ao-standup-toolbar, .ao-cal-toolbar, .ao-gantt-toolbar, .ao-art-filters, .ao-users-toolbar, .ao-team-filters)
+  > :is(.ao-picker, .ao-view-toggle, button) {
+  flex-shrink: 0;
+}
+
+/* ---------- light theme: text on coloured fills ----------
+   The Gantt's bars wear their own light, lively tones in the light theme
+   (gantt.css), so the names on them are near-black — 6.4:1 at the least. */
+:root[data-theme='light'] .ao-gantt-bar-label {
+  color: #16161f;
+}
+
+/* Weekend dates in the Calendar's header: quieter than weekdays, still legible. */
+:root .ao-cal-team th[data-weekend] :is(.ao-cal-dom, .ao-cal-dow) {
+  color: var(--soft);
+  opacity: 0.75;
+}
+
+/* Library agent avatar (components/AgentTile.tsx): the Agents page and the
+   session's role picker. */
+.ao-agent-tile {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--tile-fg);
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-line);
+}
+
+.ao-agent-tile[data-tone='amber'] { --tile-fg: var(--amber-ink); --tile-bg: rgba(224, 169, 46, 0.14); --tile-line: rgba(224, 169, 46, 0.3); }
+.ao-agent-tile[data-tone='blue'] { --tile-fg: var(--fill-blue); --tile-bg: rgba(76, 154, 255, 0.14); --tile-line: rgba(76, 154, 255, 0.3); }
+.ao-agent-tile[data-tone='violet'] { --tile-fg: var(--fill-violet); --tile-bg: rgba(167, 139, 250, 0.14); --tile-line: rgba(167, 139, 250, 0.3); }
+.ao-agent-tile[data-tone='green'] { --tile-fg: var(--fill-green); --tile-bg: rgba(63, 185, 80, 0.14); --tile-line: rgba(63, 185, 80, 0.3); }
+.ao-agent-tile[data-tone='red'] { --tile-fg: var(--fill-red); --tile-bg: rgba(240, 97, 109, 0.14); --tile-line: rgba(240, 97, 109, 0.3); }
+.ao-agent-tile[data-tone='accent'] { --tile-fg: var(--accent-ink); --tile-bg: var(--accent-tint); --tile-line: var(--accent-line); }
+.ao-agent-tile[data-tone='teal'] { --tile-fg: var(--fill-teal); --tile-bg: rgba(79, 209, 197, 0.13); --tile-line: rgba(79, 209, 197, 0.3); }
+
+
+/* ---------- Pop-up notes (components/Toaster.tsx, lib/notify.ts) ----------
+   Top-right, under the top bar: clear of the session composer and its Send
+   button at the bottom. Glass like the other popups, its tone in a tinted
+   icon disc and a soft wash from the left, with a bar for the time left. */
+.ao-toasts {
+  position: fixed;
+  top: 60px;
+  right: var(--gap, 16px);
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  width: min(372px, calc(100vw - 32px));
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+
+.ao-toast {
+  --tone: var(--fill-blue);
+  position: relative;
+  pointer-events: auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px 12px 12px;
+  overflow: hidden;
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tone) 12%, transparent), transparent 55%),
+    color-mix(in srgb, var(--glass-solid) 90%, transparent);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+  color: var(--foreground);
+  animation: ao-toast-in 0.42s var(--glass-spring);
+  transform-origin: top right;
+}
+
+.ao-toast[data-tone='success'] { --tone: var(--fill-green); }
+.ao-toast[data-tone='error'] { --tone: var(--fill-red); }
+.ao-toast[data-tone='info'] { --tone: var(--fill-blue); }
+
+/* A two-line note (title + why) reads from the top. */
+.ao-toast:has(.ao-toast-detail) {
+  align-items: flex-start;
+}
+
+.ao-toast[data-leaving] {
+  animation: ao-toast-out 0.2s ease-in forwards;
+}
+
+@keyframes ao-toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ao-toast-out {
+  to { opacity: 0; transform: translateX(16px) scale(0.98); }
+}
+
+.ao-toast-icon {
+  flex-shrink: 0;
+  margin: 0 2px;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--tone);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--tone) 16%, transparent),
+    0 4px 12px -2px color-mix(in srgb, var(--tone) 45%, transparent);
+}
+
+.ao-toast-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ao-toast:has(.ao-toast-detail) .ao-toast-text {
+  padding-top: 1px;
+}
+
+.ao-toast-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+}
+
+.ao-toast-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: 1px;
+  color: color-mix(in srgb, var(--tone) var(--st-ink), var(--foreground));
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+}
+
+.ao-toast-detail {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ao-toast-action {
+  flex-shrink: 0;
+  align-self: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.ao-toast-action:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.ao-toast-close {
+  flex-shrink: 0;
+  align-self: flex-start;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: var(--soft);
+  opacity: 0.7;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.ao-toast:hover .ao-toast-close {
+  opacity: 1;
+}
+
+.ao-toast-close:hover {
+  background: rgb(var(--ink) / 0.08);
+  color: var(--foreground);
+}
+
+/* Time left: drains along the bottom edge, held while hovered. */
+.ao-toast-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--tone);
+  opacity: 0.55;
+  transform-origin: left;
+  animation: ao-toast-bar linear forwards;
+}
+
+.ao-toast[data-held] .ao-toast-bar {
+  animation-play-state: paused;
+}
+
+@keyframes ao-toast-bar {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-toast,
+  .ao-toast[data-leaving] {
+    animation-duration: 0.01s;
+  }
+  .ao-toast-bar {
+    display: none;
+  }
+}
+
+/* A disabled button doesn't react to the pointer: no hover, no hand. */
+:root button:disabled {
+  cursor: default;
+}
+
+/* ---------- GIS, smoother (2.4.29) ---------- */
+
+/* Bigger, for a long talk. */
+.ao-assist-panel {
+  transition: width 0.28s var(--glass-spring), max-height 0.28s var(--glass-spring);
+}
+
+.ao-assist-panel[data-wide] {
+  width: min(800px, calc(100vw - 48px));
+  max-height: calc(100vh - 90px);
+}
+
+.ao-assist-wide span {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* Each new message slides in; an answer's parts follow one after another. */
+.ao-assist-turn {
+  position: relative;
+  animation: ao-turn-in 260ms var(--glass-spring) both;
+}
+
+@keyframes ao-turn-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+
+.ao-assist-turn[data-fresh] .ao-md > *,
+.ao-assist-turn[data-fresh] > p,
+.ao-assist-turn[data-fresh] .ao-assist-next li,
+.ao-assist-turn[data-fresh] .ao-assist-ask,
+.ao-assist-turn[data-fresh] .ao-assist-follow button {
+  animation: ao-part-in 320ms ease both;
+}
+
+.ao-assist-turn[data-fresh] .ao-md > *:nth-child(2) { animation-delay: 40ms; }
+.ao-assist-turn[data-fresh] .ao-md > *:nth-child(3) { animation-delay: 80ms; }
+.ao-assist-turn[data-fresh] .ao-md > *:nth-child(4) { animation-delay: 120ms; }
+.ao-assist-turn[data-fresh] .ao-md > *:nth-child(n + 5) { animation-delay: 160ms; }
+.ao-assist-turn[data-fresh] .ao-assist-next li:nth-child(1) { animation-delay: 180ms; }
+.ao-assist-turn[data-fresh] .ao-assist-next li:nth-child(2) { animation-delay: 240ms; }
+.ao-assist-turn[data-fresh] .ao-assist-next li:nth-child(3) { animation-delay: 300ms; }
+.ao-assist-turn[data-fresh] .ao-assist-ask { animation-delay: 260ms; }
+.ao-assist-turn[data-fresh] .ao-assist-follow button:nth-child(1) { animation-delay: 340ms; }
+.ao-assist-turn[data-fresh] .ao-assist-follow button:nth-child(2) { animation-delay: 380ms; }
+.ao-assist-turn[data-fresh] .ao-assist-follow button:nth-child(3) { animation-delay: 420ms; }
+
+@keyframes ao-part-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.ao-assist-list {
+  scroll-behavior: smooth;
+}
+
+/* Copy an answer: on hover, top right. */
+.ao-assist-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgb(var(--ink) / 0.06);
+  color: rgb(var(--ink) / 0.55);
+  font-size: 0.75rem;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.ao-assist-turn:hover .ao-assist-copy,
+.ao-assist-copy:focus-visible {
+  opacity: 1;
+}
+
+/* Thinking: three dots, a shimmer over the words, the time it's taking, Cancel. */
+.ao-assist-thinking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ao-assist-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.ao-assist-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-text);
+  animation: ao-dot 1s ease-in-out infinite;
+}
+
+.ao-assist-dots i:nth-child(2) { animation-delay: 0.15s; }
+.ao-assist-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes ao-dot {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+
+.ao-assist-shimmer {
+  flex: 1;
+  background: linear-gradient(90deg, rgb(var(--ink) / 0.45) 0%, rgb(var(--ink) / 0.95) 50%, rgb(var(--ink) / 0.45) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ao-shimmer 1.6s linear infinite;
+}
+
+@keyframes ao-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.ao-assist-cancel {
+  background: rgb(var(--ink) / 0.18) !important;
+  color: var(--foreground) !important;
+}
+
+.ao-assist-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ao-assist-error .ao-ai-error {
+  flex: 1;
+}
+
+/* GIS asking back: the question, and replies to tap. */
+.ao-assist-ask {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgba(225, 48, 108, 0.1);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.ao-assist-ask[data-answered] {
+  opacity: 0.65;
+}
+
+.ao-assist-ask-q {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.ao-assist-ask-q svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent-text);
+}
+
+.ao-assist-ask-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ao-assist-voice-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(var(--ink) / 0.08);
+  color: rgb(var(--ink) / 0.7);
+  cursor: pointer;
+}
+
+.ao-assist-voice-check input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.ao-assist-state {
+  color: var(--accent-text);
+}
+
+/* The whole panel breathes its state along its edge. */
+.ao-assist-panel[data-state='listening'] {
+  box-shadow: var(--glass-edge), var(--glass-shadow), 0 0 0 1px rgba(229, 72, 77, 0.45);
+}
+
+.ao-assist-panel[data-state='thinking'] {
+  box-shadow: var(--glass-edge), var(--glass-shadow), 0 0 0 1px rgba(255, 170, 90, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-assist-turn,
+  .ao-assist-turn[data-fresh] *,
+  .ao-assist-dots i,
+  .ao-assist-shimmer {
+    animation: none !important;
+  }
+}
+
+/* ---------- GIS's orb ----------
+   Round, as an assistant's presence: a slowly turning swirl of the AI colours
+   (orange, gold, pink, violet) under a soft sheen, the spark on top. Idle it
+   barely moves; thinking it turns fast and breathes, with a halo; listening
+   it warms to red and swells with your voice; speaking it glows with hers. */
+@property --orb-turn {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+:root .ao-assist-panel .ao-assist-badge {
+  position: relative;
+  isolation: isolate;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: none;
+  box-shadow: none;
+  color: #fff;
+  overflow: visible;
+}
+
+/* The swirl: two conic layers turning against each other, blurred into one. */
+:root .ao-assist-panel .ao-assist-badge::before,
+:root .ao-assist-panel .ao-assist-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+:root .ao-assist-panel .ao-assist-badge::before {
+  z-index: 0;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55), transparent 42%),
+    conic-gradient(from var(--orb-turn), #e1306c, #f6413a, #ff5f8a, #a77bff, #5b8cff, #e1306c);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), inset 0 -4px 8px rgba(0, 0, 0, 0.25);
+  animation: ao-orb-turn 9s linear infinite;
+}
+
+/* The halo around it: the same colours, blurred, faint until it's busy. */
+:root .ao-assist-panel .ao-assist-badge::after {
+  z-index: -1;
+  inset: -6px;
+  background: conic-gradient(from var(--orb-turn), #e1306c, #f6413a, #ff5f8a, #a77bff, #5b8cff, #e1306c);
+  filter: blur(9px);
+  opacity: 0.25;
+  transform: scale(0.85);
+  animation: ao-orb-turn 9s linear infinite reverse;
+  transition: opacity 0.35s ease, transform 0.25s ease;
+}
+
+:root .ao-assist-panel .ao-assist-badge > svg {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  animation: none;
+}
+
+:root .ao-assist-panel .ao-assist-orb {
+  display: none;
+}
+
+@keyframes ao-orb-turn {
+  to {
+    --orb-turn: 360deg;
+  }
+}
+
+/* Thinking: it spins up and breathes, the halo full. */
+:root .ao-assist-panel .ao-assist-badge[data-state='thinking']::before {
+  animation: ao-orb-turn 1.6s linear infinite, ao-orb-breathe 1.6s ease-in-out infinite;
+}
+
+:root .ao-assist-panel .ao-assist-badge[data-state='thinking']::after {
+  opacity: 0.85;
+  transform: scale(1.05);
+  animation: ao-orb-turn 1.6s linear infinite reverse, ao-orb-halo 1.6s ease-in-out infinite;
+}
+
+@keyframes ao-orb-breathe {
+  50% { transform: scale(1.07); }
+}
+
+@keyframes ao-orb-halo {
+  50% { transform: scale(1.25); opacity: 1; }
+}
+
+/* Listening: warm red, the halo as big as your voice is loud. */
+:root .ao-assist-panel .ao-assist-badge[data-state='listening']::before {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.5), transparent 42%),
+    conic-gradient(from var(--orb-turn), #ff4d5e, #ff8a5c, #ff5f8a, #e8344a, #ff4d5e);
+  animation: ao-orb-turn 3s linear infinite;
+}
+
+:root .ao-assist-panel .ao-assist-badge[data-state='listening']::after {
+  background: radial-gradient(circle, rgba(255, 77, 94, 0.95), rgba(255, 95, 138, 0.35) 65%, transparent);
+  opacity: calc(0.5 + var(--talk, 0) * 0.5);
+  transform: scale(calc(1 + var(--talk, 0) * 0.55));
+  transition: opacity 80ms linear, transform 80ms linear;
+  animation: none;
+}
+
+/* Speaking: her own glow, pulsing with her voice (or breathing, when the
+   system voice can't be measured). */
+:root .ao-assist-panel .ao-assist-badge[data-state='speaking']::before {
+  animation: ao-orb-turn 4s linear infinite;
+}
+
+:root .ao-assist-panel .ao-assist-badge[data-state='speaking']::after {
+  opacity: calc(0.45 + var(--talk, 0) * 0.55);
+  transform: scale(calc(1 + var(--talk, 0) * 0.45));
+  transition: opacity 80ms linear, transform 80ms linear;
+  animation: ao-orb-turn 4s linear infinite reverse;
+}
+
+:root .ao-assist-panel .ao-assist-badge[data-state='speaking']:not([data-metered])::after {
+  animation: ao-orb-turn 4s linear infinite reverse, ao-orb-halo 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .ao-assist-panel .ao-assist-badge::before,
+  :root .ao-assist-panel .ao-assist-badge::after {
+    animation: none !important;
+  }
+}
+
+/* The swirl, softer: colour blobs that turn — no hard seams. */
+:root .ao-assist-panel .ao-assist-badge::before {
+  background:
+    radial-gradient(circle at 28% 30%, #ff5f8a 0, transparent 52%),
+    radial-gradient(circle at 74% 34%, #5b8cff 0, transparent 50%),
+    radial-gradient(circle at 52% 78%, #f6413a 0, transparent 56%),
+    radial-gradient(circle at 50% 50%, #e1306c 0, transparent 70%),
+    #a77bff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 -5px 10px rgba(0, 0, 0, 0.28), inset 0 4px 8px rgba(255, 255, 255, 0.18);
+  animation: ao-orb-spin 9s linear infinite;
+}
+
+:root .ao-assist-panel .ao-assist-badge[data-state='thinking']::before {
+  animation: ao-orb-spin 1.8s linear infinite, ao-orb-breathe 1.8s ease-in-out infinite;
+}
+
+:root .ao-assist-panel .ao-assist-badge[data-state='speaking']::before {
+  animation: ao-orb-spin 4s linear infinite;
+}
+
+:root .ao-assist-panel .ao-assist-badge[data-state='listening']::before {
+  background:
+    radial-gradient(circle at 30% 30%, #ff8a5c 0, transparent 52%),
+    radial-gradient(circle at 72% 40%, #ff5f8a 0, transparent 50%),
+    radial-gradient(circle at 50% 78%, #ff4d5e 0, transparent 56%),
+    #e8344a;
+  animation: ao-orb-spin 3s linear infinite;
+}
+
+@keyframes ao-orb-spin {
+  to { rotate: 1turn; }
+}
+
+/* While she thinks, the spark stays white and only twinkles — the shared
+   busy style would turn it orange, lost in the orb. */
+:root .ao-assist-panel[data-busy] .ao-assist-badge > svg,
+:root .ao-assist-panel .ao-assist-badge > svg {
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+:root .ao-assist-panel .ao-assist-badge[data-state='thinking'] > svg {
+  animation: ao-spark-twinkle 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes ao-spark-twinkle {
+  from { transform: scale(0.88) rotate(-8deg); }
+  to { transform: scale(1.12) rotate(10deg); }
+}

@@ -2,11 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AddIcon, AgentsIcon, ConnectionsIcon, ProjectIcon, SkillsIcon } from '@/components/icons';
-import { ProjectContextView } from './ProjectContextView';
+import { AgentTile } from '@/components/AgentTile';
+import { Picker } from '@/components/Picker';
+import { AgentsIcon, BookIcon, ClaudeIcon, CloseIcon, ConnectionsIcon, EditIcon, FileIcon, FolderIcon, GridIcon, ListIcon, PlusIcon, ProjectIcon, SearchIcon, ToolIcon, TrashIcon } from '@/components/icons';
 import { call, type Library, type LibraryAgent, type Settings } from '@/lib/bridge';
 import { NEW_TASK_AGENT_KEY } from '@/lib/models';
 import { useLibrary } from '@/lib/use-library';
+import { ProjectContextView } from './ProjectContextView';
 
 type View = 'agents' | 'skills' | 'projects' | 'source';
 
@@ -14,64 +16,72 @@ const titleCase = (s: string) => s.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) =
 const sizeLabel = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
 /**
- * Agents & skills, laid out as AI Office's Agent Capabilities: a menu of its
- * own (Agents, Skills, Import), agents as cards, skills as a list with each
- * one's files. Everything here is the app's own copy — imported once, edited
- * in place.
+ * Agents & skills, as AI Office's Agent Capabilities (agents/AgentLibrary.tsx):
+ * the settings shell — a nav panel of its own (Agents, Skills, Project
+ * context, Import & create) beside the content; agents as cards or a list,
+ * skills as a list beside each one's files. Everything here is the app's own
+ * copy — imported once, edited in place.
  */
 export default function AgentsPage() {
   const { library, reload } = useLibrary();
   const [view, setView] = useState<View>('agents');
 
-  const nav: { group: string; items: { id: View; label: string; icon: ReactNode; count?: number }[] }[] = [
+  const nav: { label: string; views: { id: View; label: string; icon: ReactNode; count?: number }[] }[] = [
     {
-      group: 'Library',
-      items: [
+      label: 'Library',
+      views: [
         { id: 'agents', label: 'Agents', icon: <AgentsIcon size={16} />, count: library?.agents.length },
-        { id: 'skills', label: 'Skills', icon: <SkillsIcon size={16} />, count: library?.skills.length },
+        { id: 'skills', label: 'Skills', icon: <BookIcon size={16} />, count: library?.skills.length },
       ],
     },
     {
-      group: 'Setup',
-      items: [
+      label: 'Setup',
+      views: [
         { id: 'projects', label: 'Project context', icon: <ProjectIcon size={16} /> },
         { id: 'source', label: 'Import & create', icon: <ConnectionsIcon size={16} /> },
       ],
     },
   ];
 
+  const importButton = (
+    <button type="button" className="ao-btn-primary ao-library-sync" onClick={() => setView('source')}>
+      <PlusIcon size={14} /> Import &amp; create
+    </button>
+  );
+
   return (
-    <div className="aw-caps">
-      <nav className="aw-caps-nav" aria-label="Agent capabilities">
-        <h1 className="aw-caps-title">Agent Capabilities</h1>
+    <div className="ao-settings-shell">
+      <nav className="ao-settings-nav" aria-label="Agent capabilities">
+        <h1 className="ao-settings-nav-title">Agent Capabilities</h1>
         {nav.map((g) => (
-          <div key={g.group} className="aw-nav-group">
-            <div className="aw-nav-label">{g.group}</div>
-            {g.items.map((i) => (
-              <button key={i.id} type="button" className="aw-nav-item" aria-current={view === i.id ? 'page' : undefined} onClick={() => setView(i.id)}>
-                {i.icon}
-                {i.label}
-                {i.count != null && <span className="aw-count aw-nav-count">{i.count}</span>}
+          <div key={g.label} className="ao-nav-group">
+            <p className="ao-nav-group-label">{g.label}</p>
+            {g.views.map((v) => (
+              <button key={v.id} type="button" className="ao-nav-item" data-active={view === v.id} onClick={() => setView(v.id)}>
+                {v.icon}
+                {v.label}
+                {v.count != null && <span className="ao-nav-count">{v.count}</span>}
               </button>
             ))}
           </div>
         ))}
       </nav>
-      <section className="aw-caps-content">
-        <div className="aw-caps-inner">
-          {view === 'agents' && <AgentsView library={library} reload={reload} onImport={() => setView('source')} />}
-          {view === 'skills' && <SkillsView library={library} reload={reload} onImport={() => setView('source')} />}
+
+      <div className="ao-settings-content">
+        <div className="ao-library-inner">
+          {view === 'agents' && <AgentsView library={library} reload={reload} action={importButton} />}
+          {view === 'skills' && <SkillsView library={library} reload={reload} action={importButton} />}
           {view === 'projects' && <ProjectContextView />}
           {view === 'source' && <SourceView library={library} reload={reload} />}
         </div>
-      </section>
+      </div>
     </div>
   );
 }
 
 function ViewHeader({ title, sub, action }: { title: ReactNode; sub: string; action?: ReactNode }) {
   return (
-    <header className="aw-caps-head">
+    <header className="ao-library-head">
       <div>
         <h2>{title}</h2>
         <p>{sub}</p>
@@ -81,35 +91,34 @@ function ViewHeader({ title, sub, action }: { title: ReactNode; sub: string; act
   );
 }
 
-function Empty({ what, onImport }: { what: string; onImport: () => void }) {
+/** Shown in place of a view's content while the library is empty. */
+function Empty({ what, action }: { what: string; action: ReactNode }) {
   return (
-    <div className="aw-caps-banner">
+    <div className="ao-library-banner">
       <AgentsIcon size={16} />
       <span>No {what} yet — import AI Office&apos;s library or a folder, or write one.</span>
-      <button type="button" className="aw-btn aw-compact" data-primary onClick={onImport}>Import & create</button>
+      {action}
     </div>
   );
 }
 
 function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
-  return <input className="aw-input aw-compact aw-caps-search" type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
-}
-
-/** An agent's tile: its initials on the brand gradient, the hue turned by its name. */
-function AgentTile({ name }: { name: string }) {
-  const letters = name.split(/[-_\s]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('');
-  let h = 0;
-  for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360;
   return (
-    <span className="aw-agent-tile" style={{ filter: `hue-rotate(${(h % 70) - 35}deg)` }} aria-hidden="true">
-      {letters}
-    </span>
+    <div className="ao-search-field ao-library-search">
+      <SearchIcon size={14} />
+      <input className="ao-search-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
+      {value && (
+        <button type="button" className="ao-icon-btn" onClick={() => onChange('')} aria-label="Clear search">
+          <CloseIcon size={13} />
+        </button>
+      )}
+    </div>
   );
 }
 
 /* ---------- Agents ---------- */
 
-function AgentsView({ library, reload, onImport }: { library: Library | null; reload: () => void; onImport: () => void }) {
+function AgentsView({ library, reload, action }: { library: Library | null; reload: () => void; action: ReactNode }) {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [layout, setLayout] = useState<'cards' | 'list'>('cards');
@@ -139,66 +148,76 @@ function AgentsView({ library, reload, onImport }: { library: Library | null; re
 
   return (
     <>
-      <ViewHeader
-        title="Agents"
-        sub="Roles a task can run as — the agent's instructions lead its conversation; the task keeps its folder, model and safety rules"
-        action={
-          <button type="button" className="aw-btn" onClick={onImport}>
-            <AddIcon size={15} /> Import & create
-          </button>
-        }
-      />
+      <ViewHeader title="Agents" sub="Roles a task can run as — the agent's instructions lead its conversation; the task keeps its folder, model and safety rules" action={action} />
       {library && library.agents.length === 0 ? (
-        <Empty what="agents" onImport={onImport} />
+        <Empty what="agents" action={action} />
       ) : (
         <>
-          <div className="aw-caps-banner">
+          <div className="ao-library-banner">
             <AgentsIcon size={16} />
-            <span>
-              Pick an agent per task (the task&apos;s header), or per workflow step on the Workflow page. Every skill is there for any agent to use.
-            </span>
+            <span>Pick an agent per task (its status line, under the message box), or per workflow step in the Workflow page&apos;s Step settings. Every skill is there for any agent to use.</span>
           </div>
+
           {settings && (
-            <div className="aw-caps-default">
-              <span>New tasks use</span>
-              <select className="aw-input aw-select aw-compact" value={settings.defaultAgent ?? ''} onChange={(e) => void setDefault(e.target.value)} aria-label="Default agent for new tasks">
-                <option value="">No agent — Claude Code</option>
-                {(library?.agents ?? []).map((a) => (
-                  <option key={a.name} value={a.name}>{a.name}</option>
-                ))}
-              </select>
+            <div className="ao-library-default">
+              <span className="ao-library-default-label">New tasks use</span>
+              <Picker<string>
+                value={settings.defaultAgent ?? ''}
+                onChange={(v) => void setDefault(v)}
+                options={[{ value: '', label: 'No agent', hint: 'Plain Claude Code' }, ...(library?.agents ?? []).map((a) => ({ value: a.name, label: a.name }))]}
+                icon={AgentsIcon}
+                placement="down-start"
+                ariaLabel="Default agent for new tasks"
+              />
             </div>
           )}
-          <div className="aw-caps-toolbar">
-            <div className="aw-segmented" role="tablist" aria-label="Layout">
-              <button type="button" role="tab" aria-selected={layout === 'cards'} onClick={() => setLayout('cards')}>Cards</button>
-              <button type="button" role="tab" aria-selected={layout === 'list'} onClick={() => setLayout('list')}>List</button>
+
+          <div className="ao-library-toolbar">
+            <div className="ao-view-toggle" role="tablist" aria-label="Layout">
+              <button type="button" className="ao-view-btn" data-active={layout === 'cards'} onClick={() => setLayout('cards')}>
+                <GridIcon size={13} />
+                Cards
+              </button>
+              <button type="button" className="ao-view-btn" data-active={layout === 'list'} onClick={() => setLayout('list')}>
+                <ListIcon size={13} />
+                List
+              </button>
             </div>
-            <span style={{ flex: 1 }} />
+            <span className="ao-spacer" />
             <SearchBox value={query} onChange={setQuery} placeholder="Filter agents…" />
           </div>
+
           {agents.length === 0 ? (
-            <p className="aw-muted">{query.trim() ? `No agents match “${query}”.` : 'Loading…'}</p>
+            <p className="ao-library-hint">{query.trim() ? `No agents match “${query}”.` : 'Loading…'}</p>
           ) : layout === 'cards' ? (
-            <ul className="aw-agent-grid">
+            <ul className="ao-library-grid">
               {agents.map((a) => (
                 <AgentCard key={a.name} agent={a} isDefault={settings?.defaultAgent === a.name} onStart={() => startWith(a.name)} onEdit={() => setEditing(a.name)} />
               ))}
             </ul>
           ) : (
-            <ul className="aw-agent-rows">
+            <ul className="ao-library-rows">
               {agents.map((a) => (
-                <li key={a.name} className="aw-agent-row">
+                <li key={a.name} className="ao-library-row">
                   <AgentTile name={a.name} />
-                  <span className="aw-agent-row-text">
-                    <span className="aw-agent-name">
+                  <span className="ao-library-row-text">
+                    <span className="ao-agent-name">
                       {a.name}
-                      {settings?.defaultAgent === a.name && <span className="aw-agent-badge" data-kind="default">default</span>}
+                      {settings?.defaultAgent === a.name && (
+                        <span className="ao-agent-badge" data-kind="default">
+                          default
+                        </span>
+                      )}
                     </span>
-                    <span className="aw-agent-desc">{a.description}</span>
+                    <span className="ao-agent-desc">{a.description}</span>
                   </span>
-                  <button type="button" className="aw-btn aw-compact" onClick={() => setEditing(a.name)}>Edit</button>
-                  <button type="button" className="aw-btn aw-compact" onClick={() => startWith(a.name)}>Start a task</button>
+                  <span className="ao-library-row-tools">{a.tools?.length ? a.tools.join(', ') : 'All'}</span>
+                  <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => setEditing(a.name)}>
+                    <EditIcon size={13} /> Edit
+                  </button>
+                  <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => startWith(a.name)}>
+                    <PlusIcon size={13} /> Start a task
+                  </button>
                 </li>
               ))}
             </ul>
@@ -221,31 +240,40 @@ function AgentsView({ library, reload, onImport }: { library: Library | null; re
 
 function AgentCard({ agent, isDefault, onStart, onEdit }: { agent: LibraryAgent; isDefault: boolean; onStart: () => void; onEdit: () => void }) {
   return (
-    <li className="aw-agent-card">
-      <div className="aw-agent-card-top">
+    <li className="ao-agent-card">
+      <div className="ao-agent-card-top">
         <AgentTile name={agent.name} />
-        <div className="aw-agent-card-heading">
-          <span className="aw-agent-name">
+        <div className="ao-agent-card-heading">
+          <span className="ao-agent-name">
             {agent.name}
-            <span className="aw-agent-badge" data-kind={isDefault ? 'default' : undefined}>{isDefault ? 'default' : 'library'}</span>
+            <span className="ao-agent-badge" data-kind={isDefault ? 'default' : undefined}>
+              {isDefault ? 'default' : 'library'}
+            </span>
           </span>
-          <p className="aw-agent-desc">{agent.description}</p>
+          <p className="ao-agent-desc">{agent.description}</p>
         </div>
       </div>
-      <dl className="aw-agent-meta">
+
+      <dl className="ao-agent-meta">
         <div>
+          <ToolIcon size={15} />
           <dt>Tools</dt>
-          <dd>{agent.tools?.length ? agent.tools.join(', ') : <em>All the step&apos;s tools</em>}</dd>
+          <dd className="ao-agent-meta-wrap">{agent.tools?.length ? agent.tools.join(', ') : <em>All the step&apos;s tools</em>}</dd>
         </div>
         <div>
+          <ClaudeIcon size={15} />
           <dt>Model</dt>
           <dd>{agent.model && agent.model !== 'inherit' ? <code>{agent.model}</code> : <em>Inherited</em>}</dd>
         </div>
       </dl>
-      <div className="aw-agent-card-foot">
-        <button type="button" className="aw-btn aw-compact" onClick={onEdit}>Edit</button>
-        <button type="button" className="aw-btn aw-compact" onClick={onStart}>
-          <AddIcon size={13} /> Start a task
+
+      <div className="ao-agent-card-foot">
+        <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={onEdit}>
+          <EditIcon size={13} /> Edit
+        </button>
+        <span className="ao-spacer" />
+        <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={onStart} title={`A new task with ${agent.name} as its agent`}>
+          <PlusIcon size={13} /> Start a task
         </button>
       </div>
     </li>
@@ -254,7 +282,7 @@ function AgentCard({ agent, isDefault, onStart, onEdit }: { agent: LibraryAgent;
 
 /* ---------- Skills ---------- */
 
-function SkillsView({ library, reload, onImport }: { library: Library | null; reload: () => void; onImport: () => void }) {
+function SkillsView({ library, reload, action }: { library: Library | null; reload: () => void; action: ReactNode }) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const skills = useMemo(() => {
@@ -270,27 +298,30 @@ function SkillsView({ library, reload, onImport }: { library: Library | null; re
       <ViewHeader
         title={
           <>
-            Skills {library && <span className="aw-count">{library.skills.length}</span>}
+            Skills {library && <span className="ao-count ao-library-title-count">{library.skills.length}</span>}
           </>
         }
         sub="Instructions Claude loads when a task needs them — or name one in a message: /skill-name"
+        action={action}
       />
       {library && library.skills.length === 0 ? (
-        <Empty what="skills" onImport={onImport} />
+        <Empty what="skills" action={action} />
       ) : (
-        <div className="aw-skills-panel">
+        <div className="ao-skills-panel">
           <SearchBox value={query} onChange={setQuery} placeholder="Filter skills…" />
-          <div className="aw-skills-split">
-            <ul className="aw-skills-list" aria-label="Skills">
+          <div className="ao-skills-split">
+            <ul className="ao-skills-list" aria-label="Skills">
               {skills.map((s) => (
                 <li key={s.name}>
-                  <button type="button" className="aw-skills-item" aria-current={current?.name === s.name || undefined} onClick={() => setSelected(s.name)}>
-                    <span className="aw-skills-item-title">{titleCase(s.name)}</span>
-                    <code className="aw-skills-item-slug">{s.name}</code>
+                  <button type="button" className="ao-skills-item" data-active={current?.name === s.name} onClick={() => setSelected(s.name)}>
+                    <span className="ao-skills-item-text">
+                      <span className="ao-skills-item-title">{titleCase(s.name)}</span>
+                      <code className="ao-skills-item-slug">{s.name}</code>
+                    </span>
                   </button>
                 </li>
               ))}
-              {skills.length === 0 && <li className="aw-muted aw-pad">{query.trim() ? `No skills match “${query}”.` : 'Loading…'}</li>}
+              {skills.length === 0 && <li className="ao-library-hint ao-skills-empty">{query.trim() ? `No skills match “${query}”.` : 'Loading…'}</li>}
             </ul>
             {current && <SkillDetail key={current.name} name={current.name} description={current.description} onChanged={reload} />}
           </div>
@@ -305,10 +336,13 @@ function SkillDetail({ name, description, onChanged }: { name: string; descripti
   const [openPath, setOpenPath] = useState('SKILL.md');
   const [preview, setPreview] = useState<{ path: string; text: string; truncated: boolean } | null>(null);
   const [editing, setEditing] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   useEffect(() => {
     let live = true;
-    call('librarySkillFiles', name).then((f) => live && setFiles(f)).catch(() => live && setFiles([]));
+    call('librarySkillFiles', name)
+      .then((f) => live && setFiles(f))
+      .catch(() => live && setFiles([]));
     return () => {
       live = false;
     };
@@ -328,48 +362,61 @@ function SkillDetail({ name, description, onChanged }: { name: string; descripti
   const loading = preview?.path !== openPath;
 
   return (
-    <section className="aw-skill-detail" aria-label={name}>
-      <header className="aw-skill-detail-head">
+    <section className="ao-skill-detail" aria-label={name}>
+      <header className="ao-skill-detail-head">
         <div>
           <h3>{titleCase(name)}</h3>
           <code>/{name}</code>
         </div>
-        <div className="aw-row">
-          <button type="button" className="aw-btn aw-compact" onClick={() => setEditing(true)}>Edit SKILL.md</button>
-          <button type="button" className="aw-btn aw-compact" onClick={() => void call('libraryReveal', 'skill', name)}>Show in Finder</button>
+        <div className="ao-skill-actions">
+          <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => setEditing(true)}>
+            <EditIcon size={13} /> Edit SKILL.md
+          </button>
+          <button type="button" className="ao-icon-btn" onClick={() => void call('libraryReveal', 'skill', name)} aria-label="Show in Finder" title="Show in Finder">
+            <FolderIcon size={14} />
+          </button>
           <button
             type="button"
-            className="aw-btn aw-compact"
-            data-danger
-            onClick={() => window.confirm(`Remove the skill ${name}?`) && void call('libraryRemove', 'skill', name).then(onChanged)}
+            className={`${confirmRemove ? 'ao-btn-danger' : 'ao-btn-secondary'} ao-btn-compact`}
+            onBlur={() => setConfirmRemove(false)}
+            onClick={() => (confirmRemove ? void call('libraryRemove', 'skill', name).then(onChanged) : setConfirmRemove(true))}
           >
-            Remove
+            <TrashIcon size={13} /> {confirmRemove ? 'Remove?' : 'Remove'}
           </button>
         </div>
       </header>
-      <div className="aw-skill-detail-about">
+      <div className="ao-skill-detail-about">
         <p>{description}</p>
         {files && (
-          <span className="aw-muted aw-small">
+          <span className="ao-skill-detail-stats">
             {files.length} file{files.length === 1 ? '' : 's'} · {sizeLabel(total)}
           </span>
         )}
       </div>
-      <div className="aw-skill-detail-split">
-        <ul className="aw-skill-files" aria-label="Files">
+      <div className="ao-skill-detail-split">
+        <ul className="ao-skill-files" aria-label="Files">
           {(files ?? []).map((f) => (
             <li key={f.path}>
-              <button type="button" className="aw-skill-file" aria-current={f.path === openPath || undefined} onClick={() => setOpenPath(f.path)} title={f.path} style={{ paddingLeft: `${0.55 + (f.path.split('/').length - 1) * 0.9}rem` }}>
-                <span className="aw-skill-file-name">{f.path.split('/').pop()}</span>
-                <span className="aw-skill-file-size">{sizeLabel(f.bytes)}</span>
+              <button
+                type="button"
+                className="ao-skill-file"
+                data-active={f.path === openPath}
+                onClick={() => setOpenPath(f.path)}
+                title={f.path}
+                style={{ paddingLeft: `${0.55 + (f.path.split('/').length - 1) * 0.9}rem` }}
+              >
+                <FileIcon size={13} />
+                <span className="ao-skill-file-name">{f.path.split('/').pop()}</span>
+                <span className="ao-skill-file-size">{sizeLabel(f.bytes)}</span>
               </button>
             </li>
           ))}
         </ul>
-        <div className="aw-skill-preview" aria-busy={loading}>
-          <div className="aw-skill-preview-head">
+        <div className="ao-skill-preview" aria-busy={loading}>
+          <div className="ao-skill-preview-head">
+            <FileIcon size={13} />
             {openPath}
-            {preview?.truncated && !loading && <span className="aw-muted"> · truncated</span>}
+            {preview?.truncated && !loading && <span className="ao-agent-meta-note">truncated</span>}
           </div>
           <pre>{loading ? '' : preview?.text}</pre>
         </div>
@@ -388,7 +435,7 @@ function SkillDetail({ name, description, onChanged }: { name: string; descripti
   );
 }
 
-/* ---------- Editor (a sheet over the page) ---------- */
+/* ---------- Editor: AI Office's dialog (the Agents Board's confirm), sized for a file ---------- */
 
 function Editor({ kind, name, onClose }: { kind: 'agent' | 'skill'; name: string; onClose: (changed: boolean) => void }) {
   const [orig, setOrig] = useState<string | null>(null);
@@ -420,21 +467,32 @@ function Editor({ kind, name, onClose }: { kind: 'agent' | 'skill'; name: string
   const dirty = orig != null && text !== orig;
 
   return (
-    <div className="aw-sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !dirty && onClose(false)}>
-      <div className="aw-sheet" role="dialog" aria-label={`Edit ${name}`}>
-        <header className="aw-sheet-head">
-          <span className="aw-agent-badge">{kind}</span>
-          <h3 className="aw-mono">{kind === 'skill' ? `${name}/SKILL.md` : `${name}.md`}</h3>
-          <span style={{ flex: 1 }} />
-          <button type="button" className="aw-btn aw-compact" onClick={() => void call('libraryReveal', kind, name)}>Show in Finder</button>
-          {kind === 'agent' && <button type="button" className="aw-btn aw-compact" data-danger onClick={() => void remove()}>Remove</button>}
-        </header>
-        <textarea className="aw-textarea aw-sheet-editor" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} disabled={orig == null} />
-        <footer className="aw-row">
-          <button type="button" className="aw-btn" data-primary disabled={!dirty} onClick={() => void save()}>Save</button>
-          <button type="button" className="aw-btn" onClick={() => (!dirty || window.confirm('Discard your changes?')) && onClose(false)}>{dirty ? 'Cancel' : 'Close'}</button>
-          {error && <span className="aw-error">{error}</span>}
-        </footer>
+    <div className="ao-pipe-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !dirty && onClose(false)}>
+      <div className="ao-pipe-modal ao-sheet" role="dialog" aria-modal="true" aria-label={`Edit ${name}`}>
+        <h3 className="ao-sheet-head">
+          <span className="ao-agent-badge">{kind}</span>
+          <code>{kind === 'skill' ? `${name}/SKILL.md` : `${name}.md`}</code>
+          <span className="ao-spacer" />
+          <button type="button" className="ao-icon-btn" onClick={() => void call('libraryReveal', kind, name)} aria-label="Show in Finder" title="Show in Finder">
+            <FolderIcon size={14} />
+          </button>
+        </h3>
+        <textarea className="ao-task-input ao-task-textarea ao-sheet-editor" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} disabled={orig == null} />
+        {error && <p className="ao-task-panel-error">{error}</p>}
+        <div className="ao-pipe-modal-actions">
+          {kind === 'agent' && (
+            <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => void remove()}>
+              <TrashIcon size={13} /> Remove
+            </button>
+          )}
+          <span className="ao-spacer" />
+          <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => (!dirty || window.confirm('Discard your changes?')) && onClose(false)}>
+            {dirty ? 'Cancel' : 'Close'}
+          </button>
+          <button type="button" className="ao-btn-primary ao-btn-compact" disabled={!dirty} onClick={() => void save()}>
+            Save
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -479,39 +537,52 @@ function SourceView({ library, reload }: { library: Library | null; reload: () =
   return (
     <>
       <ViewHeader title="Import & create" sub="Where the library comes from — a one-off copy, so nothing here depends on AI Office or its repo" />
-      {note && <p className="aw-ok">{note}</p>}
-      {error && <p className="aw-error">{error}</p>}
-      <section className="aw-card">
-        <div className="aw-card-head"><h2>Import</h2></div>
-        <p className="aw-muted">
+      {note && <p className="ao-library-ok">{note}</p>}
+      {error && <p className="ao-library-error">{error}</p>}
+      <div className="ao-status-card">
+        <h3>
+          Import
+          <span className="ao-badge" data-tone={library?.aiOfficeLibrary ? 'active' : undefined}>
+            {library?.aiOfficeLibrary ? 'AI Office found' : 'AI Office not found'}
+          </span>
+        </h3>
+        <p className="ao-status-text">
           Copies <code>.claude/agents</code> and <code>.claude/skills</code> into FJ AI Worker&apos;s own Claude folder. Importing again replaces those of the same name; your other edits stay.
         </p>
-        <div className="aw-row">
-          <button type="button" className="aw-btn" data-primary disabled={!library?.aiOfficeLibrary} onClick={() => void doImport('aiOffice')}>
+        {library?.aiOfficeLibrary ? <code className="ao-library-url">{library.aiOfficeLibrary}</code> : <p className="ao-status-text">AI Office&apos;s library isn&apos;t on this computer — pick a folder instead.</p>}
+        <div className="ao-status-actions">
+          <button type="button" className="ao-btn-primary" disabled={!library?.aiOfficeLibrary} onClick={() => void doImport('aiOffice')}>
             Import from AI Office
           </button>
-          <button type="button" className="aw-btn" onClick={() => void doImport('pick')}>Import a folder…</button>
+          <button type="button" className="ao-btn-secondary" onClick={() => void doImport('pick')}>
+            <FolderIcon size={14} /> Import a folder…
+          </button>
         </div>
-        <span className="aw-muted aw-small">{library?.aiOfficeLibrary ? `AI Office’s library: ${library.aiOfficeLibrary}` : 'AI Office’s library isn’t on this computer — pick a folder instead.'}</span>
-      </section>
-      <section className="aw-card">
-        <div className="aw-card-head"><h2>Create</h2></div>
-        <div className="aw-segmented" role="tablist">
-          <button type="button" role="tab" aria-selected={kind === 'agent'} onClick={() => setKind('agent')}>Agent</button>
-          <button type="button" role="tab" aria-selected={kind === 'skill'} onClick={() => setKind('skill')}>Skill</button>
+      </div>
+      <div className="ao-status-card">
+        <h3>Create</h3>
+        <div className="ao-view-toggle" role="tablist">
+          <button type="button" className="ao-view-btn" data-active={kind === 'agent'} onClick={() => setKind('agent')}>
+            <AgentsIcon size={13} /> Agent
+          </button>
+          <button type="button" className="ao-view-btn" data-active={kind === 'skill'} onClick={() => setKind('skill')}>
+            <BookIcon size={13} /> Skill
+          </button>
         </div>
-        <label className="aw-field">
-          <span>Name</span>
-          <input className="aw-input aw-mono" value={name} onChange={(e) => setName(e.target.value)} placeholder={kind === 'agent' ? 'bug-fixer' : 'run-e2e-tests'} />
+        <label className="ao-task-panel-field">
+          <span className="ao-task-panel-label">Name</span>
+          <input className="ao-task-input ao-mono-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={kind === 'agent' ? 'bug-fixer' : 'run-e2e-tests'} />
         </label>
-        <label className="aw-field">
-          <span>Description</span>
-          <textarea className="aw-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What it is for, and when Claude should use it" />
+        <label className="ao-task-panel-field">
+          <span className="ao-task-panel-label">Description</span>
+          <textarea className="ao-task-input ao-task-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What it is for, and when Claude should use it" />
         </label>
-        <div className="aw-row">
-          <button type="button" className="aw-btn" data-primary disabled={!name.trim()} onClick={() => void create()}>Create {kind}</button>
+        <div className="ao-status-actions">
+          <button type="button" className="ao-btn-primary" disabled={!name.trim()} onClick={() => void create()}>
+            Create {kind}
+          </button>
         </div>
-      </section>
+      </div>
     </>
   );
 }

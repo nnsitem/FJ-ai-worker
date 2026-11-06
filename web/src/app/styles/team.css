@@ -1,0 +1,1320 @@
+/* /team — read-only view of the org's staff and in-flight tasks. Builds on
+   board.css's panel/column/card classes; only what's specific to this page
+   lives here. */
+
+.ao-team-filters {
+  margin-left: auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Buttons and the project picker keep their width; the search field is
+   what shrinks. */
+.ao-team-filters > button,
+.ao-team-filters > .ao-picker {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* The Sessions board's search field, sized down to sit in the header row. */
+.ao-team-search {
+  width: 240px;
+  /* Gives way first when the task panel narrows the board, so New task
+     stays whole. */
+  min-width: 120px;
+  flex-shrink: 1;
+  height: 28px;
+  padding-right: 0.25rem;
+}
+
+.ao-team-search .ao-icon-btn {
+  width: 22px;
+  height: 22px;
+}
+
+/* Members strip — one scrolling row above the columns. */
+.ao-team-members {
+  list-style: none;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 8px 0;
+  flex-shrink: 0;
+}
+
+.ao-team-members > li {
+  flex-shrink: 0;
+}
+
+/* Each person is a filter button: click to show only their tasks. */
+.ao-team-member {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.6rem 0.35rem 0.35rem;
+  background: var(--card);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.ao-team-member:hover {
+  background: var(--card-hover);
+}
+
+/* "Everyone" — first in the strip: on with nobody picked, else it clears.
+   A fixed width, so its changing line never shifts the people after it. */
+.ao-team-member-all {
+  width: 170px;
+  flex-shrink: 0;
+}
+
+.ao-team-member-all .ao-team-member-text {
+  min-width: 0;
+}
+
+.ao-team-member-all .ao-team-member-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-team-member-all-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgb(var(--ink) / 0.06);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.ao-team-member-all[data-active='true'] .ao-team-member-all-icon {
+  color: var(--accent-ink);
+}
+
+/* The signed-in user — first in the strip, on the accent tint so it's the
+   one you find without reading names. */
+.ao-team-member[data-me='true'] {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+}
+
+.ao-team-member[data-me='true']:hover {
+  background: rgba(225, 48, 108, 0.2);
+}
+
+/* The person currently filtered on. */
+.ao-team-member[data-active='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.ao-team-you {
+  font-weight: 450;
+  color: var(--accent-ink);
+}
+
+.ao-team-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card-active);
+}
+
+.ao-team-member-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.ao-team-member-name {
+  font-size: 0.74rem;
+  font-weight: 550;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.ao-team-member-sub {
+  font-size: 0.64rem;
+  color: var(--soft);
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+/* The task states this page has that the session board doesn't. Rejected
+   and Done reuse board.css's cancelled/done tones; review takes the accent
+   so it doesn't read as Done's blue. */
+.ao-column-dot[data-status='review'] { background: var(--st-review); }
+.ao-column-dot[data-status='deploy'] { background: var(--st-deploy); }
+.ao-column-dot[data-status='hold'] { background: var(--st-hold); }
+.ao-column-dot[data-status='cancelled'] { background: var(--st-cancelled); }
+.ao-card[data-status='review']::before { background: var(--st-review); }
+.ao-card[data-status='deploy']::before { background: var(--st-deploy); }
+.ao-card[data-status='hold']::before { background: var(--st-hold); }
+
+/* Six columns at a readable width — wider than the session board's, which
+   has only three — so the track scrolls sideways rather than squeezing. */
+.ao-team-columns > .ao-column {
+  flex: 0 0 330px;
+  min-width: 330px;
+  max-width: none;
+}
+
+/* Cards open the task dialog — keyboard focus gets the same accent ring as
+   the app's other focusable surfaces. */
+.ao-team-card:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+/* ---------- task card, after the org app's own ---------- */
+
+.ao-team-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.6rem 0.7rem;
+}
+
+.ao-team-card-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+}
+
+/* Uppercase label chips — type, priority, project. Tinted rather than solid
+   so they sit on the dark card the way the status chips do. */
+.ao-team-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 0.25rem 0.4rem;
+  /* 6px, like .ao-chip on the session cards — the app's radius for a chip
+     sitting inside a 7px card. */
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgb(var(--ink) / 0.06);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-team-tag[data-kind='type'] { color: var(--blue); background: rgba(76, 154, 255, 0.14); }
+.ao-team-tag[data-kind='project'] { color: var(--teal); background: rgba(79, 209, 197, 0.13); }
+.ao-team-tag[data-priority='low'] { color: var(--green); background: rgba(63, 185, 80, 0.14); }
+.ao-team-tag[data-priority='medium'] { color: var(--accent-ink); background: var(--accent-tint); }
+.ao-team-tag[data-priority='high'] { color: var(--red); background: rgba(240, 97, 109, 0.15); }
+.ao-team-tag[data-priority='urgent'] { color: #fff; background: #c0303f; }
+
+/* Story points — the outlined violet pill on the card's top-right. */
+.ao-team-points {
+  margin-left: auto;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--fill-violet);
+  border-radius: 999px;
+  color: var(--violet);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 600;
+}
+
+.ao-team-card-title {
+  /* The card lays its rows out with align-items: flex-start, so each row
+     sizes to its content — an unbroken URL in a title or description would
+     widen the card past its column. Cap at the card and let it break. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--foreground);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ao-team-card-desc {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ao-team-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.15rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+.ao-team-card-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-right: auto;
+  font-size: 0.68rem;
+  color: var(--soft);
+}
+
+.ao-team-card-dates b {
+  font-weight: 650;
+}
+
+.ao-team-card-dates [data-overdue='true'] {
+  color: var(--red);
+}
+
+.ao-team-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Overlapping stack; each avatar rings itself in the card colour so the
+   overlap reads as separate faces. */
+.ao-team-avatars {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ao-team-avatars .ao-team-avatar {
+  width: 22px;
+  height: 22px;
+  box-shadow: 0 0 0 2px var(--card);
+}
+
+.ao-team-avatars .ao-team-avatar + .ao-team-avatar {
+  margin-left: -6px;
+}
+
+/* Skeleton member chip — the real chip's box, not clickable. */
+.ao-team-member-skel {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* No status stripe until there's a status to show. */
+.ao-team-card-skel::before {
+  display: none;
+}
+
+/* ---------- task panel ----------
+   The Sessions board's conversation panel, for a task: the same frameless
+   .ao-detail surface beside the board with the same draggable divider
+   (.ao-resizer, board.css). Labels are the column-head style — small caps in
+   --soft — and values reuse the board's own chips. */
+
+.ao-task-panel {
+  min-width: 0;
+  /* Fixed basis from the page (the divider drags it); never grows to fill,
+     so the board keeps the rest of the row. */
+  flex-grow: 0;
+  /* Always exactly its basis, so the fixed-width inner never gets clipped —
+     the board gives way instead, and the page clamps the basis to the
+     window (the Sessions board's 30% rule). */
+  flex-shrink: 0;
+  /* Clips the fixed-width inner while the basis animates. */
+  overflow: hidden;
+  /* Opening: grows from nothing to its basis while the board gives way —
+     the Sessions panel's collapse curve — with the content fading up. A
+     `from`-only keyframe animates to the inline basis, whatever it is. */
+  animation: ao-task-panel-in 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes ao-task-panel-in {
+  from {
+    flex-basis: 0;
+    opacity: 0;
+  }
+}
+
+/* Closing: the reverse. The transition is declared only here so dragging
+   the divider (which sets the basis every mousemove) stays instant. Keep the
+   duration in step with PANEL_CLOSE_MS in page.tsx. */
+.ao-task-panel[data-closing] {
+  flex-basis: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    flex-basis 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 180ms ease;
+}
+
+.ao-task-panel-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-task-panel,
+  .ao-task-panel[data-closing] {
+    animation: none;
+    transition: none;
+  }
+}
+
+.ao-task-panel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: var(--pad-y) var(--pad-x);
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+
+.ao-task-panel-heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ao-task-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ao-task-panel-id {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--soft);
+}
+
+.ao-task-panel-title {
+  font-size: 1.02rem;
+  font-weight: 650;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ao-task-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: var(--pad-y) var(--pad-x) var(--pad-x);
+}
+
+.ao-task-panel-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.ao-task-panel-desc {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--foreground);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ao-task-panel-desc[data-empty='true'] {
+  color: var(--soft);
+}
+
+.ao-task-panel-grid {
+  display: grid;
+  /* Three across when there's room, fewer as the panel is dragged narrow. */
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 0.9rem;
+}
+
+.ao-task-panel-value {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  font-size: 0.84rem;
+  color: var(--foreground);
+}
+
+.ao-task-panel-value [data-overdue='true'] {
+  color: var(--red);
+}
+
+.ao-task-panel-value [data-done='true'] {
+  color: var(--green);
+}
+
+.ao-task-panel-strong {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.ao-task-panel-status {
+  font-size: 0.7rem;
+}
+
+/* The team board's other statuses, on board.css's status chip. */
+.ao-chip-status[data-status='review'] { --chip: var(--st-review); }
+.ao-chip-status[data-status='deploy'] { --chip: var(--st-deploy); }
+.ao-chip-status[data-status='hold'] { --chip: var(--st-hold); }
+
+.ao-task-panel-muted {
+  font-size: 0.8rem;
+  color: var(--soft);
+}
+
+.ao-task-panel-error {
+  font-size: 0.8rem;
+  color: var(--red);
+}
+
+.ao-task-panel-people {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* A member chip, pill-shaped: the strip's avatar + name, no subtitle. */
+.ao-task-panel-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 3px 0.7rem 3px 3px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  font-size: 0.78rem;
+  font-weight: 550;
+}
+
+.ao-task-panel-comments {
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.ao-task-panel-comment-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.ao-task-panel-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.ao-task-panel-comment-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ao-task-panel-comment-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.ao-task-panel-comment-author {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.ao-task-panel-comment-time {
+  font-size: 0.68rem;
+  color: var(--soft);
+}
+
+.ao-task-panel-comment-body {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ao-task-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.ao-task-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem var(--pad-x);
+  border-top: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+
+/* ---------- card editor ----------
+   TaskEditor.tsx: the task panel's shell with fields in place of values.
+   Inputs sit on the panel's --background inset, like the description box. */
+
+/* .ao-task-input / .ao-task-textarea live in shell.css — every page's form field. */
+
+/* Pairs, not the detail view's auto-fill: four fields in a 3 + 1 wrap
+   looked unfinished. */
+.ao-task-panel-grid[data-cols='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* The title field reads as the panel's heading, as the task name does. */
+.ao-task-editor-title {
+  height: 36px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ao-task-editor-kicker {
+  margin-bottom: 0;
+}
+
+/* A field's picker fills the field and takes the inputs' box, so the form's
+   columns line up whatever the choice's length. */
+.ao-task-panel-field .ao-picker {
+  width: 100%;
+}
+
+.ao-task-panel-field .ao-picker-trigger {
+  width: 100%;
+  height: 32px;
+  padding: 0 0.65rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.84rem;
+}
+
+.ao-task-panel-field .ao-picker-trigger:hover,
+.ao-task-panel-field .ao-picker-trigger[data-open='true'] {
+  background: var(--background);
+  border-color: var(--accent-line);
+}
+
+.ao-task-panel-field .ao-picker-menu {
+  min-width: 100%;
+}
+
+.ao-task-panel-field .ao-task-panel-value {
+  min-height: 0;
+}
+
+/* Assignee chips toggle: quiet when off, the accent's tint when on. */
+.ao-task-editor-person {
+  color: var(--muted);
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.ao-task-editor-person:hover {
+  color: var(--foreground);
+  border-color: var(--rule-strong);
+}
+
+.ao-task-editor-person[data-selected='true'] {
+  color: var(--foreground);
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+}
+
+.ao-task-editor-person .ao-team-you {
+  margin-left: -0.2rem;
+}
+
+.ao-task-editor-note {
+  margin-top: 0.55rem;
+  font-size: 0.76rem;
+  color: var(--soft);
+}
+
+.ao-task-editor-delete:hover {
+  color: var(--red);
+  border-color: rgba(240, 97, 109, 0.5);
+}
+
+.ao-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--fill-red);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+
+.ao-btn-danger:hover {
+  background: #e24c59;
+}
+
+.ao-btn-danger:disabled {
+  opacity: 0.5;
+}
+
+/* Header: Done column toggle, between the search field and New task. */
+.ao-team-done-toggle[aria-pressed='true'] {
+  color: var(--foreground);
+  border-color: var(--soft);
+}
+
+/* ---------- drag between columns ---------- */
+
+.ao-team-card[draggable='true'] {
+  cursor: grab;
+}
+
+/* The card being dragged stays in place, faded — the browser draws the
+   moving copy under the pointer. */
+.ao-team-card[data-dragging] {
+  opacity: 0.4;
+}
+
+/* The column a dragged card would land in. */
+.ao-team-columns .ao-column[data-drop='true'] {
+  border-color: var(--accent-line);
+  background: rgba(225, 48, 108, 0.05);
+}
+
+.ao-team-move-error {
+  margin: 8px 8px 0;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(240, 97, 109, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(240, 97, 109, 0.08);
+  color: var(--red);
+  font-size: 0.78rem;
+}
+
+/* ---------- Done, set apart from the status picker ---------- */
+
+/* Complete: the green of a done date, as a secondary button. */
+.ao-btn-done {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.4);
+}
+
+.ao-btn-done:hover {
+  color: #fff;
+  background: rgba(63, 185, 80, 0.18);
+  border-color: var(--fill-green);
+}
+
+.ao-task-editor-done {
+  gap: 0.6rem;
+  height: 32px;
+}
+
+.ao-task-editor-reopen {
+  font-size: 0.78rem;
+  font-weight: 550;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ao-task-editor-reopen:hover {
+  color: var(--foreground);
+}
+
+/* ---------- comments: posting and deleting one's own ---------- */
+
+.ao-task-comment-box {
+  margin-top: 0.8rem;
+}
+
+.ao-task-comment-input {
+  min-height: 3.6rem;
+}
+
+.ao-task-comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.ao-task-comment-actions .ao-task-panel-muted {
+  font-size: 0.7rem;
+}
+
+.ao-task-comment-actions .ao-btn-compact {
+  flex-shrink: 0;
+  height: 26px;
+}
+
+.ao-task-comment-delete {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 0.3rem;
+  border-radius: 5px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--soft);
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.ao-task-panel-comment:hover .ao-task-comment-delete,
+.ao-task-comment-delete:focus-visible,
+.ao-task-comment-delete[data-confirm='true'] {
+  opacity: 1;
+}
+
+.ao-task-comment-delete:hover,
+.ao-task-comment-delete[data-confirm='true'] {
+  color: var(--red);
+}
+
+/* ---------- AI: a new card from a note (TaskEditor), Break down (TaskPanel) ---------- */
+
+.ao-task-ai-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+}
+
+.ao-task-ai-note .ao-task-textarea {
+  min-height: 0;
+  resize: none;
+}
+
+.ao-task-ai-note .ao-task-panel-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--accent-ink);
+}
+
+.ao-task-ai-note-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ao-task-ai-hint {
+  flex: 1;
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-task-ai-note-foot .ao-ai-error {
+  flex: 1;
+}
+
+.ao-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ao-breakdown-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ao-breakdown-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ao-breakdown-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  cursor: pointer;
+}
+
+.ao-breakdown-list input,
+.ao-breakdown-assign input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.ao-breakdown-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ao-breakdown-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.ao-breakdown-desc {
+  font-size: 0.74rem;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ao-breakdown-meta {
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+.ao-breakdown-meta:empty {
+  display: none;
+}
+
+.ao-breakdown-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ao-breakdown-assign {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.ao-breakdown-notify {
+  flex-basis: 100%;
+  font-size: 0.72rem;
+  color: var(--amber, var(--muted));
+}
+
+/* Assign Agent: where the session works (AssignAgent.tsx). */
+.ao-assign {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 var(--pad-x) 10px;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-tint);
+}
+
+.ao-assign-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.ao-assign-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ao-assign-modes label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.ao-assign-modes label[data-active] {
+  border-color: var(--accent-line);
+  background: var(--card);
+}
+
+.ao-assign-modes input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.ao-assign-modes span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+}
+
+.ao-assign-modes small {
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-assign-repo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ao-assign-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ao-assign-folder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.ao-assign-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ao-assign-summary {
+  font-size: 0.76rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ao-assign-summary code {
+  font-size: 0.72rem;
+}
+
+.ao-assign-commit {
+  color: var(--soft);
+}
+
+.ao-assign-warn {
+  font-size: 0.74rem;
+  color: var(--amber-ink);
+  overflow-wrap: anywhere;
+}
+
+/* Waits for (WaitsFor.tsx): the card's links on the Gantt. */
+.ao-waits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ao-waits-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ao-waits-head .ao-btn-compact {
+  margin-left: auto;
+}
+
+.ao-waits-list,
+.ao-waits-options {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+
+.ao-waits-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+}
+
+.ao-waits-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ao-waits-name:disabled {
+  cursor: default;
+}
+
+.ao-waits-add {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ao-waits-options button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ao-waits-options button:hover {
+  background: var(--card-hover);
+}
+
+.ao-waits-project {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--soft);
+}
+
+/* The linked card's status, in the Gantt's colours (WaitsFor sits outside it). */
+.ao-waits-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--soft);
+}
+.ao-waits-dot[data-status='todo'] { background: var(--st-todo); }
+.ao-waits-dot[data-status='in_progress'] { background: var(--st-progress); }
+.ao-waits-dot[data-status='review'] { background: var(--st-review); }
+.ao-waits-dot[data-status='deploy'] { background: var(--st-deploy); }
+.ao-waits-dot[data-status='hold'] { background: var(--st-hold); }
+.ao-waits-dot[data-status='cancelled'] { background: var(--st-cancelled); }
+.ao-waits-dot[data-status='done'] { background: var(--st-done); }
+
+/* A parent card's progress, from its subtasks (SubtaskOf). */
+.ao-subtask-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.ao-subtask-progress b {
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.ao-subtask-progress-bar {
+  flex: 1 1 auto;
+  max-width: 160px;
+  height: 6px;
+  border-radius: 99px;
+  background: rgb(var(--ink) / 0.12);
+  overflow: hidden;
+}
+
+.ao-subtask-progress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+/* A link's kind and lag (WaitsFor LinkTerms): its own line under the card's name. */
+.ao-waits-list li.ao-waits-link {
+  flex-wrap: wrap;
+}
+.ao-waits-link .ao-waits-name {
+  flex: 1 1 60%;
+}
+.ao-waits-terms {
+  order: 3;
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 2px 16px;
+}
+.ao-waits-terms .ao-picker-trigger {
+  height: 26px;
+  padding: 0 0.55rem;
+  font-size: 0.72rem;
+}
+.ao-waits-lag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.ao-waits-lag input {
+  width: 3.6rem;
+  height: 26px;
+  padding: 0 0.4rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--foreground);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The Subtasks header's two actions: Link task, Break down (SubtaskOf). */
+.ao-waits-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.ao-waits-actions .ao-btn-compact {
+  margin-left: 0;
+}
+
+/* Break down: say what to change, and Claude reworks the list. */
+.ao-breakdown-refine {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.ao-breakdown-refine-row {
+  display: flex;
+  gap: 6px;
+}
+.ao-breakdown-refine-row input {
+  flex: 1;
+  min-width: 0;
+}
+.ao-breakdown-asks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ao-breakdown-asks li {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+  font-size: 0.72rem;
+}
+
+/* The header: filters (project, Done) beside the search, then New task apart. */
+.ao-team-filters-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--rule-strong);
+}
+
+/* A card's people, small and overlapping (Avatar.tsx AvatarStack). */
+.ao-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.ao-avatar-stack .ao-team-avatar {
+  width: 18px;
+  height: 18px;
+  font-size: 0.5rem;
+  box-shadow: 0 0 0 1.5px var(--paper-2, var(--card));
+}
+.ao-avatar-stack .ao-team-avatar + .ao-team-avatar {
+  margin-left: -6px;
+}
+.ao-avatar-more {
+  font-size: 0.5rem;
+  color: var(--foreground);
+}
+
+/* A card type's own colour (the app's AI picked it — columns.ts typeStyle). */
+.ao-team-tag[data-kind='type'][style*='--type'] {
+  color: color-mix(in srgb, var(--type) 78%, var(--foreground));
+  background: color-mix(in srgb, var(--type) 16%, transparent);
+}
+
+/* A person's photo as a picker item's icon (Avatar.tsx avatarIcon). */
+.ao-picker-face {
+  display: inline-grid;
+  place-items: center;
+}
+.ao-picker-face .ao-team-avatar {
+  width: 100%;
+  height: 100%;
+  font-size: 0.5rem;
+}

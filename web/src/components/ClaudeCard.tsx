@@ -88,28 +88,28 @@ export function ClaudeCard() {
   const label = !account ? 'Checking…' : account.ok ? 'Company account' : wrongAccount ? 'Wrong account' : 'Not signed in';
 
   return (
-    <section className="aw-card">
-      <div className="aw-card-head">
-        <span className="aw-card-icon"><ClaudeIcon size={17} /></span>
-        <h2>Claude</h2>
-        <span className="aw-pill" data-tone={tone}>{label}</span>
-      </div>
-      <p className="aw-muted">
+    <section className="ao-status-card ao-conn-card">
+      <h3>
+          <span className="ao-conn-icon"><ClaudeIcon size={17} /></span>
+          Claude
+          <span className="ao-badge" data-tone={tone}>{label}</span>
+      </h3>
+      <p>
         FJ AI Worker&apos;s own Claude sign-in. Claude Code in your terminal, and any other app, keep their own account.
       </p>
 
       {account?.loggedIn && (
-        <div className="aw-who">
+        <div className="ao-who">
           <div>
             <strong>{account.email}</strong>
-            <span className="aw-muted">
+            <span className="ao-soft">
               {[account.orgName, account.subscriptionType && `Claude ${account.subscriptionType}`].filter(Boolean).join(' · ')}
             </span>
           </div>
         </div>
       )}
       {wrongAccount && (
-        <p className="aw-error">
+        <p className="ao-task-panel-error">
           This isn&apos;t the company account ({account.expectedEmail}). Sign out and sign in with it — runs won&apos;t start until then.
         </p>
       )}
@@ -119,38 +119,38 @@ export function ClaudeCard() {
           <>
             <p>Open the link in a browser signed in to the company Gmail, sign in, then paste the code the page shows.</p>
             <LinkOpener url={pending.url} />
-            <label className="aw-field">
-              <span>Code</span>
-              <input className="aw-input aw-mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Paste the code here" />
+            <label className="ao-task-panel-field">
+              <span className="ao-task-panel-label">Code</span>
+              <input className="ao-task-input ao-mono-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Paste the code here" />
             </label>
-            <div className="aw-row">
-              <button type="button" className="aw-btn" data-primary disabled={busy || !code.trim()} onClick={submit}>
+            <div className="ao-status-actions">
+              <button type="button" className="ao-btn-primary" disabled={busy || !code.trim()} onClick={submit}>
                 {busy ? 'Signing in…' : 'Sign in'}
               </button>
-              <button type="button" className="aw-btn" onClick={cancel}>Cancel</button>
+              <button type="button" className="ao-btn-secondary" onClick={cancel}>Cancel</button>
             </div>
           </>
         ) : (
-          <div className="aw-row">
-            <span className="aw-muted">Finish signing in in the Claude window…</span>
-            <button type="button" className="aw-link-btn" onClick={() => setPending({ ...pending, manual: true })}>Use another browser</button>
-            <button type="button" className="aw-btn" onClick={cancel}>Cancel</button>
+          <div className="ao-status-actions">
+            <span className="ao-soft">Finish signing in in the Claude window…</span>
+            <button type="button" className="ao-link-btn" onClick={() => setPending({ ...pending, manual: true })}>Use another browser</button>
+            <button type="button" className="ao-btn-secondary" onClick={cancel}>Cancel</button>
           </div>
         )
       ) : (
-        <div className="aw-row">
+        <div className="ao-status-actions">
           {!account?.loggedIn ? (
             <>
-              <button type="button" className="aw-btn" data-primary disabled={busy} onClick={() => start(true)}>Sign in to Claude</button>
-              <button type="button" className="aw-btn" disabled={busy} onClick={() => start(false)}>Sign in with a link</button>
+              <button type="button" className="ao-btn-primary" disabled={busy} onClick={() => start(true)}>Sign in to Claude</button>
+              <button type="button" className="ao-btn-secondary" disabled={busy} onClick={() => start(false)}>Sign in with a link</button>
             </>
           ) : (
-            <button type="button" className="aw-btn" data-danger onClick={signOut}>Sign out</button>
+            <button type="button" className="ao-btn-danger" onClick={signOut}>Sign out</button>
           )}
-          <button type="button" className="aw-btn" onClick={() => void load()}>Check again</button>
+          <button type="button" className="ao-btn-secondary" onClick={() => void load()}>Check again</button>
         </div>
       )}
-      {error && <p className="aw-error">{error}</p>}
+      {error && <p className="ao-task-panel-error">{error}</p>}
     </section>
   );
 }

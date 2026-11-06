@@ -1,15 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { EditIcon, EyeIcon, FolderIcon, PlusIcon, TrashIcon } from '@/components/icons';
 import { call, type ProjectContext } from '@/lib/bridge';
+import { Markdown } from '@/lib/markdown';
 
-const label = (p: string) => (p.startsWith('folder:') ? p.slice(7).split(/[\\/]/).filter(Boolean).pop() ?? p : p);
+const label = (p: string) => (p.startsWith('folder:') ? (p.slice(7).split(/[\\/]/).filter(Boolean).pop() ?? p) : (p.split('/').pop() ?? p));
+const group = (p: string) => (p.startsWith('folder:') ? p.slice(7) : p.split('/').slice(0, -1).join('/'));
 const updated = (iso: string | null) => (iso ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 
 /**
- * Agent Capabilities › Project context, as in AI Office: a note per project
- * (a GitHub repo, or a folder of its own) that every task about it is given —
- * its stack, conventions not to "fix", known pitfalls, what a review checks.
+ * Agent Capabilities › Project context, as AI Office's (agents/ProjectContextView):
+ * a note per project — a GitHub repo, or a folder of its own — that every
+ * task about it is given: its stack, conventions not to "fix", known
+ * pitfalls, what a review checks. The notes listed beside the editor.
  */
 export function ProjectContextView() {
   const [notes, setNotes] = useState<ProjectContext[] | null>(null);
@@ -20,6 +24,7 @@ export function ProjectContextView() {
   const [orig, setOrig] = useState('');
   const [adding, setAdding] = useState('');
   const [preview, setPreview] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,9 +43,8 @@ export function ProjectContextView() {
 
   const pick = (project: string, existing?: ProjectContext) => {
     if (text !== orig && !window.confirm('Discard the changes to this note?')) return;
-    const body = existing?.text ?? template.replace('<project>', label(project));
     setOpen(project);
-    setText(body);
+    setText(existing?.text ?? template.replace('<project>', label(project)));
     setOrig(existing?.text ?? '');
     setPreview(false);
     setNote(null);
@@ -61,7 +65,9 @@ export function ProjectContextView() {
   };
 
   const remove = async () => {
-    if (!open || !window.confirm(`Delete the note for ${label(open)}?`)) return;
+    if (!open) return;
+    if (!confirmDelete) return setConfirmDelete(true);
+    setConfirmDelete(false);
     await call('projectContextDelete', open);
     setOpen(null);
     setText('');
@@ -74,84 +80,147 @@ export function ProjectContextView() {
     if (f) pick(`folder:${f}`);
   };
 
-  const exists = !!notes?.some((n) => n.project === open);
+  const current = notes?.find((n) => n.project === open);
+  const exists = !!current;
   const dirty = text !== orig;
 
   return (
     <>
-      <header className="aw-caps-head">
-        <div>
-          <h2>Project context</h2>
-          <p>A note per project that every task about it is given — what Claude should know before it touches the code</p>
-        </div>
-      </header>
-      <div className="aw-caps-banner">
+      <div className="ao-settings-header">
+        <h2>Project context</h2>
+        <p>A note per project that every task about it is given — what Claude should know before it touches the code.</p>
+      </div>
+
+      <div className="ao-library-banner">
+        <FolderIcon size={16} />
         <span>
           A task&apos;s project is its repo — or, for a folder, the GitHub repo its <code>origin</code> points at, else the folder itself. The note goes into each of Claude&apos;s turns, and its path is{' '}
           <code>AI_PROJECT_CONTEXT</code> (the library&apos;s reviewer reads <code>AI_REVIEW_CONTEXT</code>).
         </span>
       </div>
-      <div className="aw-skills-split aw-pc-split">
-        <div className="aw-skills-list aw-pc-list">
-          <div className="aw-pc-add">
+
+      <div className="ao-status-card ao-pctx">
+        <aside className="ao-pctx-list">
+          <div className="ao-pctx-path-row">
             <input
-              className="aw-input aw-compact aw-mono"
+              className="ao-task-input ao-mono-input"
               value={adding}
               onChange={(e) => setAdding(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && adding.trim() && (pick(adding.trim()), setAdding(''))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && adding.trim()) {
+                  pick(adding.trim());
+                  setAdding('');
+                }
+              }}
               placeholder="owner/repo — Enter"
+              aria-label="A repo to write a note for"
             />
-            <button type="button" className="aw-btn aw-compact" onClick={() => void addFolder()}>Folder…</button>
           </div>
-          {notes?.length === 0 && suggestions.length === 0 && <p className="aw-muted aw-small aw-pad">No notes yet — name a repo above, or pick a folder.</p>}
-          {notes?.map((n) => (
-            <button key={n.project} type="button" className="aw-skills-item" aria-current={open === n.project || undefined} onClick={() => pick(n.project, n)}>
-              <span className="aw-skills-item-title aw-mono">{label(n.project)}</span>
-              <span className="aw-skills-item-slug">{n.project.startsWith('folder:') ? n.project.slice(7) : `Updated ${updated(n.updatedAt)}`}</span>
-            </button>
-          ))}
+          <button type="button" className="ao-btn-secondary ao-btn-compact ao-pctx-add" onClick={() => void addFolder()}>
+            <PlusIcon size={13} />
+            A folder…
+          </button>
+          <p className="ao-pctx-list-label">Notes ({notes?.length ?? 0})</p>
+          {notes?.length === 0 && <p className="ao-pctx-list-empty">No notes yet.</p>}
+          {notes?.map((n) => {
+            const unsaved = open === n.project && dirty;
+            return (
+              <button key={n.project} type="button" className="ao-pctx-item" data-active={open === n.project || undefined} onClick={() => pick(n.project, n)} title={n.project}>
+                <span className="ao-pctx-item-name">
+                  {label(n.project)}
+                  {unsaved && <span className="ao-pctx-dot" aria-label="Unsaved changes" />}
+                </span>
+                <span className="ao-pctx-item-group">{group(n.project) || `Updated ${updated(n.updatedAt)}`}</span>
+              </button>
+            );
+          })}
           {suggestions.length > 0 && (
             <>
-              <div className="aw-nav-label">Without a note</div>
+              <p className="ao-pctx-list-label">Without a note</p>
               {suggestions.map((p) => (
-                <button key={p} type="button" className="aw-skills-item aw-pc-suggest" aria-current={open === p || undefined} onClick={() => pick(p)}>
-                  <span className="aw-skills-item-title aw-mono">+ {label(p)}</span>
-                  {p.startsWith('folder:') && <span className="aw-skills-item-slug">{p.slice(7)}</span>}
+                <button key={p} type="button" className="ao-pctx-item" data-active={open === p || undefined} onClick={() => pick(p)} title={p}>
+                  <span className="ao-pctx-item-name">+ {label(p)}</span>
+                  <span className="ao-pctx-item-group">{group(p)}</span>
                 </button>
               ))}
             </>
           )}
-        </div>
-        {open ? (
-          <section className="aw-skill-detail">
-            <header className="aw-skill-detail-head">
-              <div>
-                <h3 className="aw-mono">{label(open)}</h3>
-                <code>{open}</code>
-              </div>
-              <div className="aw-row">
-                <div className="aw-segmented" role="tablist">
-                  <button type="button" role="tab" aria-selected={!preview} onClick={() => setPreview(false)}>Edit</button>
-                  <button type="button" role="tab" aria-selected={preview} onClick={() => setPreview(true)}>Preview</button>
-                </div>
-                {exists && <button type="button" className="aw-btn aw-compact" data-danger onClick={() => void remove()}>Delete</button>}
-              </div>
-            </header>
-            {preview ? (
-              <div className="aw-prose aw-pc-preview">{text}</div>
-            ) : (
-              <textarea className="aw-textarea aw-pc-editor" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
-            )}
-            <div className="aw-row">
-              <button type="button" className="aw-btn" data-primary disabled={!dirty && exists} onClick={() => void save()}>{exists ? 'Save' : 'Create note'}</button>
-              {dirty && exists && <button type="button" className="aw-btn" onClick={() => setText(orig)}>Discard changes</button>}
-              {note && <span className="aw-ok aw-small">{note}</span>}
-              {error && <span className="aw-error">{error}</span>}
+        </aside>
+
+        <div className="ao-pctx-editor">
+          {!open ? (
+            <div className="ao-pctx-new">
+              <h3>Pick a project</h3>
+              <p className="ao-pctx-new-sub">Name a repo at the left, pick a folder, or choose one of the projects your tasks work in to write its note.</p>
             </div>
-          </section>
-        ) : (
-          <section className="aw-skill-detail aw-empty">Pick a project, or name one, to write its note.</section>
-        )}
+          ) : (
+            <>
+              <header className="ao-pctx-head">
+                <div className="ao-pctx-head-text">
+                  <h3>{label(open)}</h3>
+                  <code>{open}</code>
+                </div>
+                <div className="ao-view-toggle" role="group" aria-label="View">
+                  <button type="button" className="ao-view-btn" data-active={!preview} onClick={() => setPreview(false)}>
+                    <EditIcon size={13} />
+                    Edit
+                  </button>
+                  <button type="button" className="ao-view-btn" data-active={preview} onClick={() => setPreview(true)}>
+                    <EyeIcon size={13} />
+                    Preview
+                  </button>
+                </div>
+              </header>
+
+              {preview ? (
+                <div className="ao-pctx-preview">{text.trim() ? <Markdown text={text} /> : <p className="ao-pctx-list-empty">Nothing written yet.</p>}</div>
+              ) : (
+                <textarea
+                  className="ao-task-input ao-task-textarea ao-pctx-text"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+                      e.preventDefault();
+                      void save();
+                    }
+                  }}
+                  spellCheck={false}
+                  aria-label={`Note for ${open}`}
+                />
+              )}
+
+              <div className="ao-pctx-actions">
+                <span className="ao-pctx-status">
+                  {error ? (
+                    <span className="ao-library-error">{error}</span>
+                  ) : note && !dirty ? (
+                    note
+                  ) : dirty ? (
+                    'Unsaved changes · ⌘S to save'
+                  ) : current?.updatedAt ? (
+                    `Last saved ${updated(current.updatedAt)}`
+                  ) : null}
+                </span>
+                <span className="ao-spacer" />
+                {dirty && exists && (
+                  <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => setText(orig)}>
+                    Discard
+                  </button>
+                )}
+                {exists && (
+                  <button type="button" className={`${confirmDelete ? 'ao-btn-danger' : 'ao-btn-secondary'} ao-btn-compact`} onClick={() => void remove()} onBlur={() => setConfirmDelete(false)}>
+                    <TrashIcon size={13} />
+                    {confirmDelete ? 'Delete?' : 'Delete'}
+                  </button>
+                )}
+                <button type="button" className="ao-btn-primary ao-btn-compact" onClick={() => void save()} disabled={!dirty && exists}>
+                  {exists ? 'Save' : 'Create note'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </>
   );

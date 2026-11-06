@@ -1,0 +1,685 @@
+/* /artifacts — documents agents wrote. The Team board's layout (a panel
+   with the list, .ao-task-panel beside it); only what's specific here. */
+
+.ao-art-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--panel-inset);
+  /* The table drops columns by its own width (a panel beside it narrows
+     it), not the window's. */
+  container-type: inline-size;
+}
+
+.ao-art-starred[aria-pressed='true'] {
+  color: var(--amber-ink);
+  border-color: rgba(224, 169, 46, 0.45);
+}
+
+.ao-art-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 420px;
+  margin: 12vh auto 0;
+  text-align: center;
+  color: var(--soft);
+}
+
+.ao-art-empty p {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ao-art-empty span {
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.ao-art-none,
+.ao-art-muted {
+  font-size: 0.78rem;
+  color: var(--soft);
+}
+
+/* ---------- gallery ---------- */
+
+.ao-art-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--gap);
+}
+
+.ao-art-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ao-art-card:hover {
+  background: var(--card-hover);
+  border-color: var(--rule-strong);
+}
+
+.ao-art-card:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.ao-art-card[data-active='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.ao-art-card-skel {
+  height: 232px;
+  cursor: default;
+}
+
+/* The top of the card: the file's first lines, faded out at the bottom, or
+   its extension for kinds with no text. */
+.ao-art-thumb {
+  position: relative;
+  height: 128px;
+  padding: 0.7rem 0.8rem;
+  background: var(--background);
+  border-bottom: 1px solid var(--rule);
+  overflow: hidden;
+}
+
+.ao-art-thumb::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 48px;
+  background: linear-gradient(transparent, var(--background));
+}
+
+.ao-art-thumb pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ao-art-thumb-ext {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--soft);
+}
+
+.ao-art-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.65rem 0.8rem 0.55rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.ao-art-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.ao-art-name {
+  display: block;
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-art-kind {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0.08rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--blue);
+  background: rgba(76, 154, 255, 0.13);
+}
+
+.ao-art-kind[data-kind='data'] { color: var(--green); background: rgba(63, 185, 80, 0.13); }
+.ao-art-kind[data-kind='web'] { color: var(--accent-ink); background: var(--accent-tint); }
+.ao-art-kind[data-kind='image'] { color: var(--violet); background: rgba(167, 139, 250, 0.14); }
+.ao-art-kind[data-kind='office'] { color: var(--amber-ink); background: rgba(224, 169, 46, 0.13); }
+
+.ao-art-session {
+  font-size: 0.74rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-art-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+.ao-art-star {
+  width: 24px;
+  height: 24px;
+  color: var(--soft);
+}
+
+.ao-art-star[data-on='true'] {
+  color: var(--amber-ink);
+}
+
+/* ---------- table ---------- */
+
+/* Fixed layout with set widths for the short columns: auto layout let a
+   squeezed Kind column run its tag into Session. Name and Session share
+   what's left and truncate. */
+.ao-art-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.ao-art-table th {
+  padding: 0 0.6rem 0.5rem;
+  text-align: left;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-art-table td {
+  padding: 0.45rem 0.6rem;
+  border-top: 1px solid var(--rule);
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.ao-art-col-star { width: 36px; }
+.ao-art-col-name { width: 45%; }
+.ao-art-col-kind { width: 104px; }
+.ao-art-col-session { width: 30%; }
+.ao-art-col-versions { width: 76px; }
+.ao-art-col-size { width: 76px; }
+.ao-art-col-updated { width: 96px; }
+
+.ao-art-table td:first-child,
+.ao-art-table th:first-child {
+  padding-right: 0;
+}
+
+/* Narrow (a panel open beside it): Size and Versions go first — the panel
+   shows both — then Kind. */
+@container (max-width: 720px) {
+  .ao-art-table .ao-art-col-size,
+  .ao-art-table .ao-art-col-versions {
+    display: none;
+  }
+}
+
+@container (max-width: 520px) {
+  .ao-art-table .ao-art-col-kind,
+  .ao-art-table .ao-art-col-updated {
+    display: none;
+  }
+}
+
+.ao-art-table tbody tr {
+  cursor: pointer;
+}
+
+.ao-art-table tbody tr:hover td {
+  background: var(--card);
+}
+
+.ao-art-table tbody tr[data-active='true'] td {
+  background: var(--accent-tint);
+}
+
+.ao-art-table .ao-art-kind {
+  margin-left: 0;
+}
+
+.ao-art-table .ao-art-muted {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ao-art-path {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- panel ---------- */
+
+.ao-art-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem var(--pad-x);
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+
+.ao-art-toolbar .ao-picker-trigger {
+  height: 26px;
+  padding: 0 0.55rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font-size: 0.78rem;
+}
+
+.ao-art-preview {
+  gap: 0.8rem;
+}
+
+.ao-art-preview-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ao-art-markdown .ao-md {
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.ao-art-markdown .ao-md > * + * {
+  margin-top: 0.7rem;
+}
+
+.ao-art-source {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ao-art-image {
+  max-width: 100%;
+  align-self: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--rule);
+  background:
+    repeating-conic-gradient(rgb(var(--ink) / 0.04) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+}
+
+/* The filter row under the header: search takes what's left. */
+.ao-art-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--panel-inset) var(--panel-inset) 0;
+  flex-shrink: 0;
+}
+
+.ao-art-filters .ao-art-search {
+  /* The row's free width, like the Sessions board's search. */
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.ao-art-filters .ao-picker-trigger {
+  height: 28px;
+  padding: 0 0.6rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font-size: 0.78rem;
+}
+
+.ao-art-filters .ao-art-starred {
+  height: 28px;
+  flex-shrink: 0;
+}
+
+/* In the panel's meta line the kind tag leads, not pushed right. */
+.ao-task-panel-meta .ao-art-kind {
+  margin-left: 0;
+}
+
+/* File names rarely have spaces to wrap at. */
+.ao-art-panel-title {
+  overflow-wrap: anywhere;
+}
+
+.ao-art-toolbar .ao-view-toggle,
+.ao-art-toolbar .ao-picker {
+  flex-shrink: 0;
+}
+
+/* ---------- Share menu (ShareMenu.tsx) ---------- */
+
+.ao-share {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ao-share-trigger {
+  height: 26px;
+}
+
+.ao-share-trigger[data-open='true'] {
+  color: var(--foreground);
+  border-color: var(--accent-line);
+}
+
+.ao-share-menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 280px;
+  max-width: calc(100vw - 24px);
+  padding: 4px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  box-shadow: 0 16px 40px rgb(var(--shade) / calc(0.5 * var(--shade-k)));
+}
+
+.ao-share-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0.42rem 0.55rem;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  color: var(--foreground);
+}
+
+.ao-share-item:hover:not(:disabled) {
+  background: rgb(var(--ink) / 0.06);
+}
+
+.ao-share-item:disabled {
+  opacity: 0.6;
+}
+
+.ao-share-item-label {
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-share-item-hint {
+  font-size: 0.66rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-share-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--rule);
+}
+
+.ao-share-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 2px 2px 4px;
+  padding: 0 0.55rem;
+  height: 30px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--soft);
+}
+
+.ao-share-search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--foreground);
+  font-size: 0.78rem;
+}
+
+.ao-share-cards {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.ao-share-note {
+  padding: 0.5rem;
+  font-size: 0.74rem;
+  color: var(--soft);
+}
+
+.ao-share-back {
+  width: 100%;
+  margin-top: 2px;
+  padding: 0.35rem 0.55rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: left;
+}
+
+.ao-share-confirm {
+  padding: 0.5rem 0.55rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.ao-share-confirm > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 0.5rem;
+}
+
+.ao-share-confirm .ao-btn-compact {
+  height: 26px;
+}
+
+.ao-art-note {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.4rem var(--pad-x);
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.72rem;
+  color: var(--green);
+  overflow-wrap: anywhere;
+}
+
+.ao-art-note[data-tone='error'] {
+  color: var(--red);
+}
+
+/* Back, with its arrow (BackIcon). */
+.ao-share-back {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ao-art-cleanup {
+  margin: var(--panel-inset) var(--panel-inset) 0;
+  flex-shrink: 0;
+}
+
+.ao-art-cleanup-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.ao-art-cleanup-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+
+.ao-art-cleanup-list label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0.2rem 0;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.ao-art-cleanup-list input {
+  accent-color: var(--accent);
+}
+
+.ao-art-cleanup-why {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--soft);
+  font-size: 0.72rem;
+}
+
+.ao-art-cleanup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Select mode: tick several, remove them together. */
+.ao-art-selbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: var(--panel-inset) var(--panel-inset) 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.ao-art-selcount {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.ao-art-selnote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--panel-inset) var(--panel-inset) 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.ao-art-tick {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--soft);
+  border-radius: 6px;
+  background: var(--card);
+}
+
+.ao-art-tick[data-on] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.ao-art-card[data-picked] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.ao-art-table tr[data-picked] td {
+  background: var(--accent-tint);
+}
+
+.ao-art-col-check {
+  width: 36px;
+}
+
+/* Header and rows centre the box the same way — th's own left alignment and
+   padding would otherwise put the header's a few pixels off. */
+.ao-art-table :is(th, td).ao-art-col-check {
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+}
+
+.ao-art-table th.ao-art-col-check input {
+  vertical-align: middle;
+}
+
+.ao-art-col-check input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Room for the tick at the preview's top-left. */
+.ao-art-body[data-selecting] .ao-art-thumb > pre,
+.ao-art-body[data-selecting] .ao-art-thumb > .ao-art-thumb-ext {
+  padding-left: 26px;
+}

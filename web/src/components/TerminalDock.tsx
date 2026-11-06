@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { bridge, call, type TerminalInfo } from '@/lib/bridge';
 import { DOCK_EVENT, type DockRequest } from '@/lib/terminal-dock';
 import { TerminalView } from './TerminalView';
-import { AddIcon, ChevronDownIcon, ChevronUpIcon, CloseIcon, TerminalIcon, TrashIcon, VpnIcon } from './icons';
+import { ChevronDown, ChevronUp, CloseIcon, PlusIcon, TerminalIcon, TrashIcon, VpnIcon } from './icons';
 
 const HEIGHT_PREF = 'aw.terminalHeight';
 const OPEN_PREF = 'aw.terminalOpen';
@@ -37,7 +37,7 @@ export function TerminalDock() {
   const [terms, setTerms] = useState<TerminalInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const dock = useRef<HTMLDivElement>(null);
+  const dock = useRef<HTMLElement>(null);
   const openNow = useRef(open);
   useEffect(() => {
     openNow.current = open;
@@ -136,46 +136,50 @@ export function TerminalDock() {
   const active = terms.find((t) => t.id === activeId) ?? null;
 
   return (
-    <div ref={dock} className="aw-dock" data-max={max || undefined} style={max ? undefined : { height }}>
-      <div className="aw-dock-grip" onPointerDown={drag} role="separator" aria-orientation="horizontal" aria-label="Resize the terminal" />
-      <div className="aw-dock-head">
-        <span className="aw-dock-title">Terminal</span>
-        {error && <span className="aw-error aw-dock-error">{error}</span>}
-        <span style={{ flex: 1 }} />
-        <button type="button" className="aw-dock-btn aw-dock-vpn" onClick={() => void start('vpn')} title="Run the VPN script">
-          <VpnIcon size={14} /> Connect VPN
+    <section ref={dock} className="ao-panel ao-dock" data-max={max || undefined} style={max ? undefined : { height }} aria-label="Terminal">
+      <div className="ao-dock-grip" onPointerDown={drag} role="separator" aria-orientation="horizontal" aria-label="Resize the terminal" />
+      <header className="ao-dock-head">
+        <span className="ao-changes-tab" data-active="true">
+          <TerminalIcon size={14} />
+          <span>Terminal</span>
+          {terms.some((t) => t.running) && <span className="ao-terminal-live-dot" aria-hidden="true" />}
+        </span>
+        {error && <span className="ao-dock-error">{error}</span>}
+        <span className="ao-spacer" />
+        <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => void start('vpn')} title="Run the VPN script">
+          <VpnIcon size={13} /> Connect VPN
         </button>
-        <button type="button" className="aw-dock-btn" onClick={() => void start('shell')} title="New terminal" aria-label="New terminal">
-          <AddIcon size={15} />
+        <button type="button" className="ao-icon-btn" onClick={() => void start('shell')} title="New terminal" aria-label="New terminal">
+          <PlusIcon size={15} />
         </button>
-        <button type="button" className="aw-dock-btn" onClick={kill} disabled={!active} title="Kill the terminal" aria-label="Kill the terminal">
+        <button type="button" className="ao-icon-btn" onClick={kill} disabled={!active} title="Kill the terminal" aria-label="Kill the terminal">
           <TrashIcon size={15} />
         </button>
-        <button type="button" className="aw-dock-btn" onClick={() => setMax((m) => !m)} title={max ? 'Restore panel size' : 'Maximise panel size'} aria-label={max ? 'Restore panel size' : 'Maximise panel size'}>
-          {max ? <ChevronDownIcon size={15} /> : <ChevronUpIcon size={15} />}
+        <button type="button" className="ao-icon-btn" onClick={() => setMax((m) => !m)} title={max ? 'Restore panel size' : 'Maximise panel size'} aria-label={max ? 'Restore panel size' : 'Maximise panel size'}>
+          {max ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
         </button>
-        <button type="button" className="aw-dock-btn" onClick={() => void show(false)} title="Hide the panel (Ctrl+`)" aria-label="Hide the panel">
+        <button type="button" className="ao-icon-btn" onClick={() => void show(false)} title="Hide the panel (Ctrl+`)" aria-label="Hide the panel">
           <CloseIcon size={15} />
         </button>
-      </div>
-      <div className="aw-dock-body">
-        <div className="aw-dock-terms">
+      </header>
+      <div className="ao-dock-body">
+        <div className="ao-dock-terms">
           {terms.map((t) => <TerminalView key={t.id} id={t.id} active={t.id === activeId} />)}
         </div>
         {terms.length > 1 && (
-          <ul className="aw-dock-list" aria-label="Terminals">
+          <ul className="ao-dock-list" aria-label="Terminals">
             {terms.map((t) => (
               <li key={t.id}>
-                <button type="button" aria-current={t.id === activeId || undefined} onClick={() => setActiveId(t.id)}>
+                <button type="button" className="ao-dock-term" data-active={t.id === activeId} onClick={() => setActiveId(t.id)}>
                   {t.kind === 'vpn' ? <VpnIcon size={14} /> : <TerminalIcon size={14} />}
                   <span>{t.kind === 'vpn' ? 'VPN' : 'zsh'}</span>
-                  {!t.running && <span className="aw-dock-ended">ended</span>}
+                  {!t.running && <span className="ao-dock-ended">ended</span>}
                 </button>
               </li>
             ))}
           </ul>
         )}
       </div>
-    </div>
+    </section>
   );
 }

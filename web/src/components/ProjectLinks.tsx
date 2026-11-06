@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PlusIcon, TrashIcon } from './icons';
 import { call, type JiraProject, type ProjectLink, type RepoSummary } from '@/lib/bridge';
 
 /**
@@ -20,39 +21,43 @@ export function ProjectLinks({ links, onChange }: { links: ProjectLink[]; onChan
   const set = (i: number, patch: Partial<ProjectLink>) => onChange(links.map((l, j) => (j === i ? { ...l, ...patch } : l)));
 
   return (
-    <div className="aw-links">
-      {links.length === 0 && <p className="aw-muted">No projects linked yet.</p>}
+    <div className="ao-links">
+      {links.length === 0 && <p className="ao-soft">No projects linked yet.</p>}
       {links.map((l, i) => (
-        <div key={i} className="aw-link-row">
+        <div key={i} className="ao-link-row">
           <input
-            className="aw-input aw-mono"
-            list="aw-jira-projects"
+            className="ao-task-input ao-mono-input"
+            list="ao-jira-projects"
             value={l.jiraKey}
             onChange={(e) => set(i, { jiraKey: e.target.value.toUpperCase() })}
             placeholder="Jira project, e.g. BF9"
             aria-label="Jira project key"
           />
-          <span className="aw-muted" aria-hidden="true">→</span>
+          <span className="ao-soft" aria-hidden="true">→</span>
           <input
-            className="aw-input aw-mono"
-            list="aw-github-repos"
+            className="ao-task-input ao-mono-input"
+            list="ao-github-repos"
             value={l.repo}
             onChange={(e) => set(i, { repo: e.target.value })}
             placeholder="owner/repo"
             aria-label="GitHub repo"
           />
-          <button type="button" className="aw-btn" onClick={() => onChange(links.filter((_, j) => j !== i))} aria-label="Remove">✕</button>
+          <button type="button" className="ao-icon-btn" onClick={() => onChange(links.filter((_, j) => j !== i))} aria-label="Remove" title="Remove">
+            <TrashIcon size={14} />
+          </button>
         </div>
       ))}
-      <div className="aw-row">
-        <button type="button" className="aw-btn" onClick={() => onChange([...links, { jiraKey: '', repo: '' }])}>Link a project</button>
+      <div className="ao-status-actions">
+        <button type="button" className="ao-btn-secondary" onClick={() => onChange([...links, { jiraKey: '', repo: '' }])}>
+          <PlusIcon size={13} /> Link a project
+        </button>
       </div>
-      <datalist id="aw-jira-projects">
+      <datalist id="ao-jira-projects">
         {projects.map((p) => (
           <option key={p.key} value={p.key}>{p.name}</option>
         ))}
       </datalist>
-      <datalist id="aw-github-repos">
+      <datalist id="ao-github-repos">
         {repos.map((r) => (
           <option key={r.fullName} value={r.fullName} />
         ))}

@@ -79,40 +79,40 @@ export function JiraCard({ vpnUp }: { vpnUp: boolean }) {
   const showForm = !connected || editing;
 
   return (
-    <section className="aw-card">
-      <div className="aw-card-head">
-        <span className="aw-card-icon"><JiraIcon size={17} /></span>
-        <h2>Jira</h2>
-        <span className="aw-pill" data-tone={!state ? undefined : connected ? 'ok' : error ? 'bad' : 'warn'}>
+    <section className="ao-status-card ao-conn-card">
+      <h3>
+          <span className="ao-conn-icon"><JiraIcon size={17} /></span>
+          Jira
+          <span className="ao-badge" data-tone={!state ? undefined : connected ? 'ok' : error ? 'bad' : 'warn'}>
           {!state ? 'Checking…' : connected ? 'Connected' : 'Not connected'}
         </span>
-      </div>
+      </h3>
 
       {state?.connected && !editing && (
-        <div className="aw-who">
+        <div className="ao-who">
           {/* eslint-disable-next-line @next/next/no-img-element -- a remote avatar in a static export */}
           {state.user.avatarUrl && <img src={state.user.avatarUrl} alt="" />}
           <div>
             <strong>{state.user.displayName}</strong>
-            <span className="aw-muted">{state.user.email ?? email} · {hostOf(state.site)}</span>
+            <span className="ao-soft">{state.user.email ?? email} · {hostOf(state.site)}</span>
           </div>
         </div>
       )}
 
       {showForm && (
         <>
-          <label className="aw-field">
-            <span>Site</span>
-            <input className="aw-input aw-mono" value={site} onChange={(e) => setSite(e.target.value)} placeholder="https://your-site.atlassian.net" />
+          <label className="ao-task-panel-field">
+            <span className="ao-task-panel-label">Site</span>
+            <input className="ao-task-input ao-mono-input" value={site} onChange={(e) => setSite(e.target.value)} placeholder="https://your-site.atlassian.net" />
           </label>
-          <label className="aw-field">
-            <span>Email</span>
-            <input className="aw-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" />
+          <label className="ao-task-panel-field">
+            <span className="ao-task-panel-label">Email</span>
+            <input className="ao-task-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" />
           </label>
-          <label className="aw-field">
-            <span>API token</span>
+          <label className="ao-task-panel-field">
+            <span className="ao-task-panel-label">API token</span>
             <input
-              className="aw-input aw-mono"
+              className="ao-task-input ao-mono-input"
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
@@ -122,27 +122,27 @@ export function JiraCard({ vpnUp }: { vpnUp: boolean }) {
         </>
       )}
 
-      <label className="aw-check">
+      <label className="ao-toggle">
         <input type="checkbox" checked={viaVpn} disabled={!host} onChange={(e) => void setViaVpn(e.target.checked)} />
-        <span>Through the VPN <span className="aw-muted">— when the site only lets company network addresses in{viaVpn && !vpnUp ? ' (the VPN is down)' : ''}</span></span>
+        <span>Through the VPN <span className="ao-soft">— when the site only lets company network addresses in{viaVpn && !vpnUp ? ' (the VPN is down)' : ''}</span></span>
       </label>
 
-      <div className="aw-row">
+      <div className="ao-status-actions">
         {showForm ? (
           <>
-            <button type="button" className="aw-btn" data-primary disabled={busy || !site.trim() || !email.trim() || (!connected && !token.trim())} onClick={connect}>
+            <button type="button" className="ao-btn-primary" disabled={busy || !site.trim() || !email.trim() || (!connected && !token.trim())} onClick={connect}>
               {busy ? 'Checking…' : connected ? 'Save' : 'Connect'}
             </button>
-            {editing && <button type="button" className="aw-btn" onClick={() => setEditing(false)}>Cancel</button>}
+            {editing && <button type="button" className="ao-btn-secondary" onClick={() => setEditing(false)}>Cancel</button>}
           </>
         ) : (
           <>
-            <button type="button" className="aw-btn" onClick={() => setEditing(true)}>Change</button>
-            <button type="button" className="aw-btn" data-danger onClick={disconnect}>Disconnect</button>
+            <button type="button" className="ao-btn-secondary" onClick={() => setEditing(true)}>Change</button>
+            <button type="button" className="ao-btn-danger" onClick={disconnect}>Disconnect</button>
           </>
         )}
       </div>
-      {error && <p className="aw-error">{error}</p>}
+      {error && <p className="ao-task-panel-error">{error}</p>}
     </section>
   );
 }

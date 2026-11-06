@@ -1,0 +1,2986 @@
+/* Two panels side by side filling the content area — the board scrolls its
+   columns horizontally, the detail panel scrolls its transcript. Nothing
+   below the top bar scrolls the page itself. */
+
+.ao-board {
+  display: flex;
+  gap: var(--gap);
+  height: 100%;
+  min-height: 0;
+}
+
+/* List view — one flat scrolling column of full cards. */
+.ao-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-dense);
+  /* The page inset, as every board's body: the cards' edges line up with
+     the header's search and title row. */
+  padding: var(--panel-inset);
+}
+
+.ao-list > li > .ao-card {
+  max-width: none;
+}
+
+/* Drag handle between the board and the detail panel. */
+/* The handle used to be a 6px flex item with a full gap on either side, so it
+   floated in the middle of a 30px void instead of marking the boundary. It now
+   takes no layout width and pulls back half a gap on each side, which lands its
+   zero-width box exactly on the seam and leaves the panels one gap apart like
+   everything else. The line is what you see; the wider pseudo-element is what
+   you actually have to hit. */
+.ao-resizer {
+  flex: 0 0 0;
+  position: relative;
+  z-index: 2;
+  /* Pulled the full gap so its zero-width box lands on the session panel's
+     right edge rather than floating in the middle of the gap; the right side
+     keeps no margin, which leaves the panels exactly one gap apart. */
+  margin: 0 0 0 calc(var(--gap) * -1);
+  cursor: col-resize;
+}
+
+/* grab area */
+.ao-resizer::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: -6px;
+  width: 13px;
+}
+
+/* the visible seam line */
+.ao-resizer::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: -1px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.ao-resizer:hover::before,
+.ao-resizer:active::before {
+  background: var(--accent-line);
+}
+
+/* Card right-click menu — same surface and item treatment as the Picker's
+   popover (see "picker popover" below), so every menu in the app reads as
+   one family. */
+.ao-context-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 200px;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 16px 40px rgb(var(--shade) / calc(0.5 * var(--shade-k)));
+}
+
+.ao-context-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 550;
+  color: var(--foreground);
+}
+
+.ao-context-item:hover {
+  background: rgb(var(--ink) / 0.06);
+}
+
+.ao-context-item[data-danger] {
+  color: var(--red);
+}
+
+.ao-context-item[data-danger]:hover {
+  background: rgba(240, 97, 109, 0.12);
+}
+
+.ao-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Collapsing animates `flex-grow` on both panels rather than a width: the two
+   interpolate against the same free space, so the board slides shut exactly as
+   the conversation opens out. `auto` can't be interpolated, hence the 0 basis.
+   Border width joins the transition or a 2px sliver survives at zero width. */
+.ao-sessions {
+  flex: 1 1 0;
+  min-width: 0;
+  transition: flex-grow 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    margin-right 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-width 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 170ms ease;
+}
+
+.ao-sessions[data-collapsed='true'] {
+  flex-grow: 0;
+  border-width: 0;
+  /* A zero-width panel still leaves the row gap behind it; this takes it back. */
+  margin-right: calc(var(--gap) * -1);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* No frame of its own: a conversation reads better as open space than as
+   another boxed panel, and its internal dividers already separate the header,
+   the file list and the composer. */
+.ao-detail {
+  flex-grow: 0;
+  flex-shrink: 1;
+  flex-basis: clamp(300px, 32%, 500px);
+  min-width: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  transition: flex-grow 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 1040px) {
+  .ao-detail {
+    flex-basis: 340px;
+  }
+}
+
+/* Opening and closing as the other pages' side panels do (team.css
+   .ao-task-panel): the basis grows from nothing while the board gives way,
+   the content fading up — held at its full width meanwhile and clipped, so
+   nothing reflows mid-slide. Durations match PANEL_OPEN_MS / PANEL_CLOSE_MS
+   in (shell)/page.tsx. */
+.ao-detail[data-anim] {
+  overflow: hidden;
+}
+
+.ao-detail[data-anim] > * {
+  min-width: var(--detail-w);
+}
+
+.ao-detail[data-anim='in'] {
+  animation: ao-detail-in 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes ao-detail-in {
+  from {
+    flex-basis: 0;
+    opacity: 0;
+  }
+}
+
+.ao-detail[data-anim='out'] {
+  flex-basis: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    flex-basis 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ao-detail[data-anim] {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ---------- panel chrome ---------- */
+
+/* Horizontal padding matches `.ao-columns`, so the title, the search field and
+   the first column all share one left edge. */
+.ao-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* One height for every page's panel header, whatever's in it — a view
+     toggle (Sessions, Artifacts) used to make it 4px taller than a bare
+     title and filters (Team, Workload). */
+  min-height: 57px;
+  padding: var(--pad-y) 8px;
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+
+/* A header that opens with its title rather than a collapse toggle (the Team
+   board, say) would otherwise sit that title on the bare 8px edge — the
+   toggle's own box is what insets it on Sessions. Give it the standard
+   horizontal padding instead. */
+.ao-panel-head:not(.ao-detail-head):not(:has(> .ao-panel-toggle)) {
+  padding-left: var(--pad-x);
+}
+
+.ao-panel-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  /* One line in any language — a longer Thai title broke onto two. */
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* A page that is only ever the one pane — no side panel opens beside it
+   (Dashboard, Integrations) — isn't framed: its header and content sit on
+   the window's background, the way Settings' and Agents' content does
+   beside their framed nav. The same 57px header keeps the title level with
+   every other page's; the 1px on top stands in for a frame's border. */
+.ao-panel.ao-panel-bare {
+  padding-top: 1px;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.ao-panel.ao-panel-bare > .ao-panel-head {
+  /* The title (and anything at the far end) sits where a framed page's
+     does: a frame's 1px border plus its header's padding in. */
+  padding-left: var(--bare-title-inset);
+  /* …while the controls at the far end line up with the cards' right edge,
+     as a framed page's do with its body (its 1px frame + the header's inset). */
+  padding-right: calc(var(--panel-inset) + 1px);
+  border-bottom: none;
+}
+
+.ao-detail-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.ao-detail-head {
+  gap: 0.4rem;
+  /* Left aligns with the message text. Right: the toggle is a 26px button with
+     its 15px glyph centred, so it carries ~5.5px of dead space on each side.
+     Trim the right padding by that much so the glyph's visual edge — not the
+     button box — lands on the composer's right edge (margin var(--pad-x)). */
+  padding-left: calc(var(--pad-x) + 1px + 0.65rem);
+  padding-right: calc(var(--pad-x) - 2px);
+}
+
+.ao-changes-toggle {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ao-changes-toggle[data-active='true'] {
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+}
+
+.ao-changes-count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  line-height: 1;
+}
+
+.ao-panel-toggle[data-collapsed='true'] {
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+}
+
+
+/* Points down when expanded, right when collapsed — the chevron glyph itself
+   is the same ChevronRight used for workspace files. */
+
+
+.ao-detail-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+
+
+/* A rounded field rather than a full-width rule, so it reads as a control
+   sitting above the list instead of another divider. */
+.ao-search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 32px;
+  padding: 0 0.4rem 0 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: var(--background);
+  color: var(--soft);
+  transition: border-color 0.12s ease;
+}
+
+.ao-search-field:focus-within {
+  border-color: var(--accent-line);
+}
+
+.ao-search-input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+}
+
+.ao-search-input::placeholder {
+  color: var(--soft);
+}
+
+/* ---------- columns ---------- */
+
+.ao-columns {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 6px;
+  padding: 8px;
+}
+
+.ao-column {
+  /* Grow to share the panel when there's room, scroll horizontally when
+     there isn't, rather than always clipping the last column. */
+  flex: 1 1 330px;
+  /* The Team Tasks board's column width (team.css) as the floor, so every
+     board's cards read alike; narrower than that and the track scrolls. */
+  min-width: 330px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--background);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+}
+
+.ao-column-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: var(--pad-y) var(--pad-x);
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+
+.ao-column-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ao-column-dot[data-status='todo'] { background: var(--st-todo); }
+.ao-column-dot[data-status='in_progress'] { background: var(--st-progress); }
+.ao-column-dot[data-status='done'] { background: var(--st-done); }
+
+.ao-column-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-column-head .ao-count {
+  margin-left: 0;
+}
+
+/* The per-column + focuses the new-card composer; kept quiet until the column
+   is hovered so the header stays clean at rest. */
+.ao-column-add {
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.ao-column:hover .ao-column-add,
+.ao-column-add:focus-visible {
+  opacity: 1;
+}
+
+.ao-card-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* A column scrolls one way only. Card text wraps to the card (see
+     .ao-card-title), so nothing should be wider — this is the backstop. */
+  overflow-x: hidden;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+}
+
+.ao-column-empty {
+  font-size: 0.76rem;
+  color: var(--soft);
+  padding: 0.6rem 0.4rem;
+}
+
+/* ---------- cards ---------- */
+
+.ao-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  position: relative;
+  cursor: pointer;
+  background: var(--card);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.6rem 0.5rem;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+/* The status mark runs down half the card's height, centred — a pseudo-element
+   rather than a border so it can be shorter than the edge it sits on, and so
+   the selected-card outline can't repaint it. */
+/* The status stripe: 80% of the card's height, centred — the same as the
+   Team board's cards, so both boards read alike. */
+.ao-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10%;
+  height: 80%;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--soft);
+}
+
+.ao-card[data-status='todo']::before { background: var(--st-todo); }
+.ao-card[data-status='in_progress']::before { background: var(--st-progress); }
+.ao-card[data-status='done']::before { background: var(--st-done); }
+.ao-card[data-status='cancelled']::before { background: var(--st-cancelled); }
+
+.ao-card:hover {
+  background: var(--card-hover);
+}
+
+.ao-card[data-active='true'] {
+  background: var(--card-active);
+  border-color: var(--accent-line);
+}
+
+.ao-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.ao-card-src {
+  /* Icon, dot and repo on one centre line (the icon box would otherwise sit on the text baseline). */
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.66rem;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.ao-card-src > * {
+  flex-shrink: 0;
+}
+
+.ao-card-src .ao-dot-sep {
+  padding: 0;
+}
+
+.ao-card-repo {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--soft);
+  font-weight: 500;
+}
+
+.ao-card-when {
+  margin-left: auto;
+  font-size: 0.66rem;
+  color: var(--soft);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ao-card-title {
+  /* Long unbroken strings (URLs, paths) would otherwise size the card past
+     its column. */
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+  font-weight: 550;
+  line-height: 1.35;
+  color: var(--foreground);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ao-card-title-input {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 550;
+  line-height: 1.35;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  margin: -0.1rem -0.3rem;
+}
+
+.ao-card-preview {
+  overflow-wrap: anywhere;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--muted);
+  margin-top: 0.22rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ao-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 0.5rem;
+}
+
+.ao-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  color: var(--muted);
+  background: rgb(var(--ink) / 0.05);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  padding: 0.12rem 0.4rem;
+}
+
+/* Status chip — coloured by the card's state (globals.css --st-*): the
+   status hue as text, a tint of it as fill and edge. */
+.ao-chip-status {
+  --chip: var(--st-todo);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: color-mix(in srgb, var(--chip) var(--st-ink), var(--foreground));
+  border-color: color-mix(in srgb, var(--chip) 34%, transparent);
+  background: color-mix(in srgb, var(--chip) 11%, transparent);
+}
+
+.ao-chip-status[data-status='in_progress'] { --chip: var(--st-progress); }
+.ao-chip-status[data-status='done'] { --chip: var(--st-done); }
+.ao-chip-status[data-status='cancelled'] { --chip: var(--st-cancelled); }
+
+/* Links a session back to the Team board task it was opened from — the
+   teal of that board's project chips, so the two read as related. */
+.ao-chip-source {
+  color: var(--teal);
+  border-color: rgba(79, 209, 197, 0.3);
+  background: rgba(79, 209, 197, 0.1);
+}
+
+.ao-chip-tool {
+  color: var(--accent-ink);
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+}
+
+.ao-chip-cost {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.3);
+  background: rgba(63, 185, 80, 0.1);
+}
+
+/* ---------- detail: transcript ---------- */
+
+/* With the board hidden the conversation is the whole view, so it takes over
+   the space the board gives up — as a grow change, so it animates. */
+.ao-detail[data-full='true'] {
+  flex-grow: 1;
+}
+
+.ao-detail-blank {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+}
+
+.ao-detail-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ao-chat-pane {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 260px;
+  min-height: 0;
+}
+
+.ao-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--rule-strong);
+  color: var(--muted);
+  font-size: 0.8rem;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ao-btn-ghost:hover:not(:disabled) {
+  background: rgb(var(--ink) / 0.05);
+  color: var(--foreground);
+}
+
+.ao-empty {
+  color: var(--soft);
+  font-size: 0.82rem;
+}
+
+/* Left edge lines up with the composer's TEXT (margin + 1px border + inner pad,
+   minus the ~0.1rem .ao-msg adds); right edge lines up with the composer BOX
+   edge (its margin only). */
+.ao-transcript-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Both sides inset to the composer's *text* (its pad-x margin + 1px border
+     + 0.65rem padding), not its box: with only the left inset, messages and
+     tool groups ran to the composer's outer edge on the right and looked to
+     overhang it. Now the conversation sits on the same lines as what you
+     type. */
+  padding: var(--pad-x) calc(var(--pad-x) + 1px + 0.65rem);
+}
+
+.ao-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ao-msg {
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.15rem 0.1rem;
+}
+
+/* Agent replies read as flowing text, not boxed bubbles — matching the
+   KiroCrew chat where only the human's turn is visually enclosed. */
+.ao-msg[data-kind='text'] {
+  background: none;
+  border: none;
+  padding: 0.15rem 0.1rem;
+}
+
+.ao-msg[data-kind='user'] {
+  position: relative;
+  align-self: flex-end;
+  max-width: 88%;
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px 12px 4px 12px;
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-line);
+}
+
+.ao-msg[data-kind='error'] {
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px solid var(--fill-red);
+}
+
+.ao-msg[data-kind='permission'] {
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px dashed var(--fill-red);
+}
+
+.ao-msg-role {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--soft);
+  margin-bottom: 0.2rem;
+}
+
+.ao-msg-text {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Tool calls are supporting detail, not conversation: quieter, full width,
+   and collapsed until asked for. Grouped under .ao-tool-group (below); these
+   classes now style each step's own nested <details>. */
+.ao-tool-name {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--accent-ink);
+  flex-shrink: 0;
+}
+
+.ao-tool-target {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-tool-detail {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 0.4rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.ao-run-meta {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--soft);
+  padding-top: 0.15rem;
+}
+
+.ao-spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid var(--rule);
+  border-top-color: var(--accent);
+  flex-shrink: 0;
+  animation: ao-spin 0.7s linear infinite;
+}
+
+@keyframes ao-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ao-thinking {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.1rem;
+  font-size: 0.78rem;
+  color: var(--soft);
+}
+
+/* One collapsed run of tool calls, replacing what used to be a separate
+   <details> per call — see ToolGroup in page.tsx. */
+.ao-tool-group {
+  background: var(--background);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+}
+
+.ao-tool-group-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--soft);
+}
+
+.ao-tool-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ao-tool-group-chevron {
+  display: inline-flex;
+  color: var(--soft);
+  transition: transform 0.15s ease;
+}
+
+.ao-tool-group[open] > .ao-tool-group-summary .ao-tool-group-chevron {
+  transform: rotate(90deg);
+}
+
+.ao-tool-group-label {
+  font-size: 0.72rem;
+}
+
+.ao-tool-group-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.4rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--rule);
+}
+
+.ao-tool-step {
+  padding: 0.15rem 0;
+}
+
+.ao-tool-step-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--soft);
+}
+
+.ao-tool-step-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* ---------- detail: file changes side panel ---------- */
+
+.ao-changes-panel {
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(12px);
+  background: transparent;
+  border-left: 0 solid var(--rule);
+  transition: flex-basis 180ms ease, width 180ms ease, opacity 140ms ease,
+    transform 180ms ease, border-width 180ms ease;
+  pointer-events: none;
+}
+
+.ao-detail[data-changes-open='true'] .ao-changes-panel {
+  flex-basis: clamp(280px, 38%, 360px);
+  width: clamp(280px, 38%, 360px);
+  opacity: 1;
+  transform: translateX(0);
+  border-left-width: 1px;
+  pointer-events: auto;
+}
+
+.ao-changes-head {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 30px;
+  min-width: 280px;
+  padding: 0 8px;
+}
+
+/* A tab button, not just the "Changes" label it used to be — same look when
+   active, greyed out otherwise so the Terminal tab reads as a real toggle. */
+.ao-changes-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 22px;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--soft);
+  font-size: 0.76rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.ao-changes-tab[data-active='true'] {
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+}
+
+.ao-changes-tab-count {
+  min-width: 17px;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--accent-tint);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-align: center;
+}
+
+.ao-changes-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.65rem 0.25rem;
+  color: var(--soft);
+  font-size: 0.68rem;
+}
+
+.ao-changes-empty {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 1.5rem;
+  color: var(--soft);
+  text-align: center;
+  font-size: 0.76rem;
+}
+
+.ao-workspace-list {
+  flex: 1;
+  min-width: 280px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 2px 6px 6px;
+}
+
+.ao-workspace-file {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.3rem 0.4rem;
+  border-radius: 5px;
+  color: var(--muted);
+}
+
+.ao-workspace-file:hover {
+  background: rgb(var(--ink) / 0.045);
+}
+
+.ao-workspace-file[data-open='true'] {
+  background: var(--accent-tint);
+  color: var(--foreground);
+}
+
+.ao-workspace-caret {
+  display: inline-flex;
+  color: var(--soft);
+  transition: transform 0.12s ease;
+}
+
+.ao-workspace-caret[data-open='true'] {
+  transform: rotate(90deg);
+}
+
+.ao-workspace-name {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-tag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  color: var(--soft);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  flex-shrink: 0;
+}
+
+.ao-workspace-size {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--soft);
+  flex-shrink: 0;
+  min-width: 52px;
+  text-align: right;
+}
+
+.ao-workspace-preview {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.55;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--background);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 0.5rem 0.6rem;
+  margin: 0.25rem 0.4rem 0.4rem;
+  max-height: 20rem;
+  overflow: auto;
+}
+
+/* ---------- detail: changes tab, git ---------- */
+
+.ao-changes-note {
+  padding: 0 0.85rem 0.4rem;
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+.ao-diff-add { color: var(--green); }
+.ao-diff-del { color: var(--red); }
+
+/* `git status --short`'s letter, in its colour. */
+.ao-git-status {
+  width: 14px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ao-git-status[data-status='modified'] { color: var(--amber-ink); }
+.ao-git-status[data-status='added'],
+.ao-git-status[data-status='untracked'] { color: var(--green); }
+.ao-git-status[data-status='deleted'],
+.ao-git-status[data-status='conflicted'] { color: var(--red); }
+.ao-git-status[data-status='renamed'] { color: var(--blue); }
+
+/* The folder after the file name, dimmer — the name is what you scan for. */
+.ao-git-dir {
+  color: var(--soft);
+}
+
+.ao-git-counts {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+
+.ao-git-binary {
+  color: var(--soft);
+}
+
+.ao-diff {
+  white-space: pre;
+  word-break: normal;
+  padding: 0.35rem 0;
+}
+
+.ao-diff-line {
+  display: block;
+  padding: 0 0.6rem;
+  min-width: max-content;
+}
+
+.ao-diff-line[data-kind='add'] {
+  color: var(--green);
+  background: rgba(63, 185, 80, 0.1);
+}
+
+.ao-diff-line[data-kind='del'] {
+  color: var(--red);
+  background: rgba(240, 97, 109, 0.1);
+}
+
+.ao-diff-line[data-kind='hunk'] {
+  color: var(--blue);
+  margin-top: 0.3rem;
+}
+
+/* ---------- detail: terminal tab ---------- */
+
+.ao-terminal-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fill-green);
+  box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.16);
+  animation: ao-pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.ao-terminal-pane {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ao-terminal-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ao-chip[data-running='true'] {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.32);
+  background: rgba(63, 185, 80, 0.1);
+}
+
+.ao-terminal-command {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-terminal-output {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ao-terminal-pre {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0.6rem 0.65rem;
+}
+
+/* ---------- detail: composer + status bar ---------- */
+
+.ao-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 var(--pad-x);
+  padding: 0.7rem 0.75rem 0.55rem;
+  border: 1px solid var(--rule);
+  background: var(--card);
+  border-radius: 12px;
+  flex-shrink: 0;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+/* Controls sit under the text rather than beside it, so a long message grows
+   upward without squeezing them. */
+/* Every item that can lose width does, so the send button stays inside the box
+   however narrow the panel is dragged. Without this the folder chip pushed the
+   row past the composer's right edge. */
+.ao-composer-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 28px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ao-composer-bar > .ao-icon-btn,
+.ao-composer-bar > .ao-send {
+  flex-shrink: 0;
+}
+
+
+/* These are flex containers, so `text-overflow` has to be applied to the text
+   node's own box — on the button itself it would do nothing and the label would
+   simply be cut off mid-letter. */
+
+.ao-composer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 45%;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+  font-size: 0.7rem;
+  color: var(--soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-composer-chip[data-real='true'] {
+  color: var(--muted);
+  border-color: var(--rule-strong);
+}
+
+.ao-composer:focus-within {
+  border-color: var(--accent-line);
+  background: var(--card-hover);
+}
+
+/* Height is set from JS as the message grows; the cap is here so a very long
+   one scrolls inside the box instead of pushing the transcript off screen. */
+.ao-composer-input {
+  width: 100%;
+  min-width: 0;
+  resize: none;
+  max-height: 12rem;
+  overflow-y: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  outline: none;
+}
+
+.ao-composer-input::placeholder {
+  color: var(--soft);
+}
+
+.ao-composer-input:disabled {
+  opacity: 0.65;
+}
+
+/* Informational chip showing which folder this card operates in — a real
+   folder wears the amber "live disk" tint, the sandbox stays quiet. It is not
+   a picker: a card's folder is fixed at creation. */
+.ao-composer-folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: center;
+  flex-shrink: 0;
+  max-width: 130px;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--soft);
+  background: rgb(var(--ink) / 0.04);
+  border: 1px solid var(--rule);
+}
+
+.ao-composer-folder span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-composer-folder[data-real='true'] {
+  color: var(--amber-ink);
+  border-color: rgba(224, 169, 46, 0.32);
+  background: rgba(224, 169, 46, 0.1);
+}
+
+/* Draft config bar — agent picker + folder picker, shown above the composer
+   only while a card is still a draft (before its first message). */
+
+
+
+
+
+
+
+
+
+.ao-chip-status[data-status='draft'] {
+  --chip: var(--st-todo);
+  border-style: dashed;
+}
+
+.ao-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  flex-shrink: 0;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+
+.ao-send:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.ao-send:disabled {
+  background: var(--card-active);
+  color: var(--soft);
+}
+
+.ao-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 22px;
+  margin-top: 0.55rem;
+  padding: 0 var(--pad-x);
+  background: transparent;
+  font-size: 0.68rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* Respect the system setting: collapse becomes instant rather than animated. */
+@media (prefers-reduced-motion: reduce) {
+  .ao-sessions,
+  .ao-detail {
+    transition: none;
+  }
+}
+
+/* ---------- markdown in agent replies ---------- */
+
+.ao-md {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.ao-md > * + * {
+  margin-top: 0.5rem;
+}
+
+.ao-md-p {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ao-md-h {
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+.ao-md-h[data-level='1'] {
+  font-size: 0.95rem;
+}
+
+.ao-md-list {
+  padding-left: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ao-md-list li::marker {
+  color: var(--soft);
+}
+
+.ao-md-quote {
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--rule-strong);
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.ao-md-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+.ao-md-pre {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: var(--muted);
+  background: var(--background);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ao-md-link {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The conversation reads as one continuous surface; the changes panel owns
+   the only divider inside the detail view. */
+.ao-detail > .ao-panel-head {
+  border-bottom-color: transparent;
+}
+
+/* The draft pickers live in the composer's toolbar, so they sit flush with the
+   other controls instead of forming a strip of their own. */
+
+
+
+/* ---------- composer attachments ---------- */
+
+.ao-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ao-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.15rem 0.3rem 0.15rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--rule-strong);
+  background: var(--background);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.ao-attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-attachment-drop {
+  display: inline-flex;
+  align-items: center;
+  color: var(--soft);
+  border-radius: 3px;
+  padding: 1px;
+}
+
+.ao-attachment-drop:hover {
+  color: var(--red);
+}
+
+.ao-attach-error {
+  font-size: 0.72rem;
+  color: var(--red);
+}
+
+.ao-attach-btn {
+  width: 24px;
+  height: 24px;
+}
+
+/* The workspace name can be long; the status line truncates it rather than
+   pushing the session id off the end. */
+.ao-status-repo {
+  max-width: 38%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- status line controls ---------- */
+
+
+
+
+.ao-status-folder[data-set='true'] {
+  color: var(--foreground);
+}
+
+.ao-status-folder > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-head-meta {
+  font-size: 0.72rem;
+  color: var(--soft);
+  white-space: nowrap;
+}
+
+/* ---------- status-line pickers ---------- */
+
+/* Borderless by default, like the reference's footer controls: an icon and a
+   label that only shows a surface when you point at it or open it. */
+.ao-picker {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.ao-picker-trigger,
+.ao-status-folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  min-width: 0;
+  height: 21px;
+  padding: 0 0.4rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ao-picker-trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ao-picker-trigger:not(:disabled):hover,
+.ao-status-folder:hover {
+  background: rgb(var(--ink) / 0.06);
+  color: var(--foreground);
+}
+
+/* The open picker and a folder that's actually been chosen both read as the
+   current selection, so both get the filled pill from the reference. */
+.ao-picker-trigger[data-open='true'],
+.ao-status-folder[data-set='true'] {
+  background: var(--card-active);
+  color: var(--foreground);
+}
+
+.ao-picker-value,
+.ao-status-folder > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- picker popover ---------- */
+
+.ao-picker-menu {
+  position: absolute;
+  z-index: 60;
+  min-width: 260px;
+  max-width: 340px;
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+  /* The end of the list doesn't bounce or hand the scroll to the page. */
+  overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  box-shadow: 0 16px 40px rgb(var(--shade) / calc(0.5 * var(--shade-k)));
+}
+
+/* Rendered into <body> and placed beside its trigger (lib/popup-layer.ts),
+   so no panel or card can paint over it. */
+.ao-picker-menu[data-popup-layer] {
+  position: fixed;
+  z-index: 1100;
+}
+
+/* ---------- DatePicker (components/DatePicker.tsx): the Picker's popup,
+   holding a month. ---------- */
+
+.ao-date-menu {
+  min-width: 0;
+  width: 264px;
+  max-height: none;
+  overflow: visible;
+  padding: 8px;
+}
+
+.ao-date-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 0 0 6px;
+}
+
+.ao-date-head .ao-icon-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.ao-date-month {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+.ao-date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.ao-date-dow {
+  padding: 0.25rem 0;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.ao-date-dow[data-weekend] {
+  color: var(--rule-strong);
+}
+
+.ao-date-day {
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.ao-date-day:hover:not(:disabled) {
+  background: var(--card-hover);
+}
+
+.ao-date-day[data-out] {
+  color: var(--soft);
+}
+
+.ao-date-day[data-today] {
+  border-color: var(--accent-line);
+  color: var(--accent-ink);
+}
+
+.ao-date-day[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.ao-date-day:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.ao-date-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+  margin-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+
+/* The trigger as a field (forms, headers): the same 32px box as the other
+   controls around it. */
+.ao-date-trigger {
+  height: 32px;
+  padding: 0 0.75rem;
+  gap: 0.45rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 9px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ao-date-trigger:hover,
+.ao-date-trigger[data-open='true'] {
+  background: var(--card);
+  border-color: var(--rule-strong);
+}
+
+.ao-date-trigger[data-empty] .ao-picker-value {
+  color: var(--soft);
+  font-weight: 400;
+}
+
+/* A date in a form, beside text fields (.ao-task-input): full width, the
+   field's own size and weight. */
+.ao-date-field {
+  display: flex;
+  width: 100%;
+}
+
+.ao-date-field .ao-date-trigger {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 0 0.65rem;
+  border-color: var(--rule);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+
+.ao-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  text-align: left;
+}
+
+.ao-picker-item-icon {
+  /* A long hint must never squeeze the item's icon. */
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Options with a second line (the session's agent and role pickers): a
+   roomier row, the mark on a small tile, and a hairline between rows. */
+.ao-picker-menu:has(.ao-picker-item-hint) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 288px;
+  padding: 6px;
+}
+
+.ao-picker-item:has(.ao-picker-item-hint) {
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+}
+
+.ao-picker-item:has(.ao-picker-item-hint) .ao-picker-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--ink) / 0.05);
+  border: 1px solid rgb(var(--ink) / 0.06);
+}
+
+/* A role's own coloured tile replaces the neutral one. */
+.ao-picker-item:has(.ao-picker-item-hint) .ao-picker-item-icon:has(> .ao-agent-tile) {
+  background: none;
+  border: 0;
+}
+
+.ao-picker-item[data-selected='true']:has(.ao-picker-item-hint) .ao-picker-item-icon {
+  background: rgb(var(--ink) / 0.08);
+}
+
+.ao-picker-item:has(.ao-picker-item-hint) .ao-picker-item-text {
+  gap: 2px;
+  line-height: 1.3;
+}
+
+.ao-picker-item:has(.ao-picker-item-hint) .ao-picker-check {
+  padding-left: 8px;
+}
+
+.ao-picker-item:hover {
+  background: rgb(var(--ink) / 0.06);
+  color: var(--foreground);
+}
+
+.ao-picker-item[data-selected='true'] {
+  background: var(--accent-tint);
+  color: var(--foreground);
+}
+
+.ao-picker-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ao-picker-item-name {
+  font-size: 0.82rem;
+  font-weight: 550;
+  color: var(--foreground);
+}
+
+.ao-picker-item-hint {
+  font-size: 0.7rem;
+  color: var(--soft);
+  /* Long hints (a role's description) wrap and stop at two lines rather
+     than being cut mid-word. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ao-picker-check {
+  margin-left: auto;
+  display: inline-flex;
+  color: var(--accent-ink);
+}
+
+/* ---------- Changes panel: branch control (BranchMenu.tsx) ----------
+   The summary row's left side: the current branch as a button, opening a
+   menu that spans the panel's width (it sits in the summary row, which is
+   the positioning context) so it never runs out of the narrow panel. */
+
+.ao-changes-summary {
+  position: relative;
+  align-items: center;
+}
+
+.ao-branch {
+  min-width: 0;
+}
+
+.ao-branch-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  height: 22px;
+  padding: 0 0.45rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--foreground);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ao-branch-trigger:hover:not(:disabled),
+.ao-branch-trigger[data-open='true'] {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+}
+
+.ao-branch-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ao-branch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-branch-menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 4px);
+  left: 0.4rem;
+  right: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  max-height: min(380px, 60vh);
+  padding: 4px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  box-shadow: 0 16px 40px rgb(var(--shade) / calc(0.5 * var(--shade-k)));
+}
+
+.ao-branch-input {
+  flex-shrink: 0;
+  height: 30px;
+  margin: 2px 2px 4px;
+  padding: 0 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.ao-branch-input:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.ao-branch-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ao-branch-group {
+  padding: 0.45rem 0.5rem 0.2rem;
+  font-size: 0.6rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.ao-branch-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  text-align: left;
+}
+
+.ao-branch-item > svg {
+  flex-shrink: 0;
+}
+
+.ao-branch-item:hover:not(:disabled) {
+  background: rgb(var(--ink) / 0.06);
+  color: var(--foreground);
+}
+
+.ao-branch-item[data-current='true'] {
+  color: var(--foreground);
+}
+
+.ao-branch-item:disabled {
+  opacity: 0.6;
+}
+
+.ao-branch-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ao-branch-item-name {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-branch-item-sub {
+  font-size: 0.64rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-branch-create {
+  color: var(--accent-ink);
+}
+
+.ao-branch-create b {
+  font-weight: 650;
+}
+
+.ao-branch-track {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--soft);
+}
+
+.ao-branch-note {
+  padding: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-branch-error {
+  flex-shrink: 0;
+  margin: 4px 2px 2px;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(240, 97, 109, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(240, 97, 109, 0.08);
+  color: var(--red);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+/* A refused switch: the files in the way, and stash-and-switch. */
+.ao-branch-blocked {
+  flex-shrink: 0;
+  margin: 4px 2px 2px;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid rgba(224, 169, 46, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(224, 169, 46, 0.07);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
+.ao-branch-blocked b {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.ao-branch-blocked ul {
+  list-style: none;
+  margin: 0.35rem 0;
+}
+
+.ao-branch-blocked li {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-branch-blocked li span {
+  color: var(--soft);
+}
+
+.ao-branch-more {
+  color: var(--soft);
+  font-family: inherit !important;
+}
+
+.ao-branch-hint {
+  color: var(--soft);
+  font-size: 0.68rem;
+}
+
+.ao-branch-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 0.5rem;
+}
+
+/* One of the app's own stashes, with its Restore button. */
+.ao-branch-stash {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.ao-branch-stash .ao-btn-compact {
+  flex-shrink: 0;
+  height: 24px;
+}
+
+/* The ways round a conflicting restore — they wrap in the narrow panel. */
+.ao-branch-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 0.5rem;
+}
+
+.ao-branch-choices .ao-btn-compact,
+.ao-branch-actions .ao-btn-compact {
+  height: 26px;
+}
+
+/* Leaves conflict markers in files: marked, not hidden. */
+.ao-branch-risky:hover {
+  color: var(--amber-ink);
+  border-color: rgba(224, 169, 46, 0.5);
+}
+
+.ao-branch-newbranch {
+  margin-top: 0.5rem;
+}
+
+.ao-branch-newbranch .ao-branch-input {
+  width: 100%;
+  margin: 0;
+}
+
+/* ---------- Changes panel: discard ---------- */
+
+.ao-changes-totals {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.ao-git-discard {
+  width: 22px;
+  height: 22px;
+  color: var(--soft);
+}
+
+.ao-git-discard:hover:not(:disabled) {
+  color: var(--red);
+}
+
+.ao-git-confirm {
+  margin: 0.2rem 0.65rem 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(240, 97, 109, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(240, 97, 109, 0.07);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
+.ao-git-confirm > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 0.45rem;
+}
+
+.ao-git-confirm .ao-btn-compact {
+  height: 26px;
+}
+
+.ao-git-error {
+  margin: 0.2rem 0.65rem 0.4rem;
+  font-size: 0.7rem;
+  color: var(--red);
+  white-space: pre-wrap;
+}
+
+/* A file row with its discard button at the end, shown on hover. */
+.ao-git-row {
+  position: relative;
+}
+
+.ao-git-row > .ao-workspace-file {
+  padding-right: 1.9rem;
+}
+
+.ao-git-discard-file {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 0.3rem;
+  border-radius: 5px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--soft);
+  background: var(--paper-2);
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.ao-git-row:hover .ao-git-discard-file,
+.ao-git-discard-file:focus-visible,
+.ao-git-discard-file[data-confirm='true'] {
+  opacity: 1;
+}
+
+.ao-git-discard-file:hover:not(:disabled),
+.ao-git-discard-file[data-confirm='true'] {
+  color: var(--red);
+}
+
+.ao-git-discard-file:disabled {
+  opacity: 0 !important;
+}
+
+/* ---------- Changes panel: commit and remote (GitSync.tsx) ---------- */
+
+.ao-git-pick-all,
+.ao-git-pick {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ao-git-pick-all {
+  margin: 0 0.15rem 0 0;
+}
+
+/* The row's own checkbox sits before the caret; the file button makes room. */
+.ao-git-pick {
+  position: absolute;
+  top: 8px;
+  /* Lines up with the files header's pick-all box. */
+  left: 4px;
+  margin: 0;
+  z-index: 1;
+}
+
+.ao-git-row > .ao-workspace-file {
+  padding-left: 1.55rem;
+}
+
+/* The repo block: branch + Fetch, where it stands, Pull | Push — then a
+   rule, then the files. */
+.ao-git-repo {
+  flex-shrink: 0;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ao-git-fetch {
+  flex-shrink: 0;
+  width: 24px;
+  height: 22px;
+  color: var(--soft);
+}
+
+.ao-git-repo-head {
+  justify-content: flex-start;
+  padding-bottom: 0.4rem;
+}
+
+/* Where the branch stands, right after the branch button: ↑ahead ↓behind,
+   a tick when in sync, the upstream's name only when it's unusual. */
+.ao-git-remote-where {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ao-git-upstream {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-git-synced {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--soft);
+}
+
+.ao-git-unpublished {
+  color: var(--soft);
+}
+
+.ao-git-repo-head .ao-git-fetch {
+  margin-left: auto;
+}
+
+.ao-git-repo > .ao-git-remote-done,
+.ao-git-repo > .ao-git-remote-error {
+  margin: 0.3rem 0.65rem 0;
+}
+
+/* The files' own header: pick-all, count, +/−, discard all. */
+.ao-git-files-head {
+  display: flex;
+  align-items: center;
+  padding: 0.45rem 0.65rem 0.25rem;
+  color: var(--soft);
+  font-size: 0.68rem;
+}
+
+.ao-git-files-head .ao-changes-totals {
+  flex: 1;
+}
+
+.ao-git-files-head .ao-git-discard {
+  margin-left: auto;
+}
+
+.ao-git-remote-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0.65rem;
+}
+
+.ao-git-ahead { color: var(--accent-ink); }
+.ao-git-behind { color: var(--blue); }
+
+.ao-git-fetch[data-spinning] svg {
+  animation: ao-spin 0.9s linear infinite;
+}
+
+@keyframes ao-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ao-git-sync-btn {
+  flex: 1;
+  justify-content: center;
+  height: 26px;
+  padding: 0 0.55rem;
+  font-size: 0.72rem;
+}
+
+.ao-git-remote-done {
+  margin-top: 0.25rem;
+  font-size: 0.68rem;
+  color: var(--green);
+}
+
+/* The commit box at the foot of the Changes list. */
+.ao-git-commit {
+  flex-shrink: 0;
+  padding: 0.55rem 0.65rem 0.65rem;
+  border-top: 1px solid var(--rule);
+}
+
+.ao-git-commit-message {
+  width: 100%;
+  resize: vertical;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.ao-git-commit-message:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.ao-git-commit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 0.4rem;
+}
+
+.ao-git-commit-actions .ao-btn-compact {
+  height: 26px;
+}
+
+/* The status line: a role the app refused, and a session with none. */
+.ao-status-error {
+  color: var(--red);
+  font-size: 0.72rem;
+}
+
+.ao-status-norole {
+  color: var(--soft);
+}
+
+/* Above the composer: the merge-request hint (page.tsx MR_LINK). */
+.ao-composer-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-tint);
+  font-size: 0.76rem;
+  color: var(--foreground);
+}
+
+/* Claude ↔ Codex hand-over (agent-relay.ts), in the session's status line. */
+.ao-agent-mark {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--foreground);
+}
+
+.ao-agent-mark svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Handed over: a small dot, the way a badge says "not the usual one". */
+.ao-agent-mark[data-switched]::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: -1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--background);
+}
+
+/* One line, whatever the width: everything keeps its size and the folder's
+   name gives way (ellipsis) when the panel is narrow. */
+.ao-statusbar {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ao-statusbar > * {
+  flex-shrink: 0;
+}
+
+.ao-statusbar > .ao-status-repo,
+.ao-statusbar > .ao-status-folder {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/* ---------- Local AI (components/LocalAiCard.tsx, Sessions composer) ---------- */
+
+.ao-localai-layer {
+  margin-top: 0.9rem;
+}
+
+.ao-localai-layer h4 {
+  margin: 0 0 0.2rem;
+  font-size: 0.82rem;
+}
+
+.ao-localai-layer > p {
+  margin: 0 0 0.5rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.ao-localai-model {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.4rem;
+}
+
+.ao-localai-model[data-active] {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+}
+
+.ao-localai-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.ao-localai-name strong {
+  font-size: 0.8rem;
+}
+
+.ao-localai-name > span {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.ao-localai-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.ao-localai-progress {
+  display: block;
+  height: 4px;
+  margin-top: 0.3rem;
+  border-radius: 2px;
+  background: var(--rule);
+  overflow: hidden;
+}
+
+.ao-localai-progress > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s linear;
+}
+
+.ao-localai-pct {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  min-width: 2.6em;
+  text-align: right;
+}
+
+.ao-localai-error {
+  color: var(--red);
+  font-size: 0.72rem;
+}
+
+.ao-localai-note {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+
+/* The message check's question before a message with a password or an ID goes out. */
+.ao-composer-warn {
+  margin: 0 0 6px;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--fill-red) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fill-red) 9%, transparent);
+  font-size: 0.76rem;
+}
+
+.ao-composer-warn ul {
+  margin: 0.3rem 0 0.45rem;
+  padding-left: 1.1rem;
+}
+
+.ao-composer-warn-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* Sessions: status tabs, groups by when, this week's spend, one-line previews. */
+.ao-sessions-tabs .ao-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ao-sessions-tab-count {
+  font-size: 0.66rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ao-sessions-cost {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgb(var(--ink) / 0.06);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.ao-sessions-group {
+  padding: 10px 4px 2px;
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ao-sessions .ao-card-preview {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+/* Rewind (Sessions): a small button beside your own message on hover, and
+   the panel above the composer to choose what goes back. */
+.ao-msg-rewind {
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--paper-2);
+  color: var(--soft);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ao-msg[data-kind='user']:hover .ao-msg-rewind,
+.ao-msg-rewind:focus-visible {
+  opacity: 1;
+}
+
+.ao-msg-rewind:hover {
+  color: var(--accent-text);
+  border-color: var(--accent-line);
+}
+
+.ao-rewind {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-2);
+  font-size: 0.8rem;
+}
+
+.ao-rewind-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.ao-rewind-quote {
+  max-height: 4.8em;
+  overflow: hidden;
+  padding: 6px 10px;
+  border-left: 3px solid var(--accent-line);
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ao-rewind-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ao-rewind-note {
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+.ao-rewind-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ao-rewind-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--ink) / 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ao-rewind-list button:hover {
+  background: rgb(var(--ink) / 0.09);
+}
+
+.ao-rewind-item-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-rewind-item-when {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+/* Sessions: Stop while the agent works (the send button's place), and after
+   a stop, Continue or discard the message. */
+.ao-send-stop {
+  background: var(--fill-red) !important;
+  opacity: 1 !important;
+}
+
+.ao-send-stop[data-stopping] {
+  animation: ao-stop-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes ao-stop-pulse {
+  50% { opacity: 0.55 !important; transform: scale(0.94); }
+}
+
+.ao-stop-square {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.ao-stopped {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -2px -2px 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(229, 72, 77, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(229, 72, 77, 0.25);
+  font-size: 0.78rem;
+}
+
+.ao-stopped-text {
+  flex: 1;
+  min-width: 140px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.ao-stopped-text .ao-stop-square,
+.ao-msg-note .ao-stop-square {
+  background: var(--fill-red);
+}
+
+/* The app's own notes in a conversation: one quiet line. */
+.ao-msg-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: stretch;
+  font-size: 0.74rem;
+  color: var(--soft);
+}
+
+.ao-msg-note::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+.ao-msg-note[data-stopped] {
+  color: var(--red);
+}
+
+.ao-msg-note-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* The week's cost beside Sessions: one line, never a wrapped bubble (with
+   a session open it says just "This week $x", which fits whole). */
+.ao-sessions-cost {
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The Sessions header when the list is narrow (a session open beside it, a
+   small window): it stays one row — the week's cost goes first, then the
+   tabs' counts, and the tabs scroll if even that doesn't fit. Only this
+   list's header (other pages share .ao-sessions). */
+.ao-sessions:has(> .ao-panel-head .ao-sessions-tabs) {
+  container-type: inline-size;
+}
+
+.ao-sessions > .ao-panel-head:has(.ao-sessions-tabs) .ao-sessions-tabs {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ao-sessions > .ao-panel-head:has(.ao-sessions-tabs) .ao-sessions-tabs .ao-view-btn {
+  flex-shrink: 0;
+}
+
+@container (max-width: 620px) {
+  .ao-sessions > .ao-panel-head:has(.ao-sessions-tabs) .ao-sessions-cost {
+    display: none;
+  }
+}
+
+@container (max-width: 470px) {
+  .ao-sessions > .ao-panel-head:has(.ao-sessions-tabs) .ao-sessions-tab-count {
+    display: none;
+  }
+  .ao-sessions > .ao-panel-head:has(.ao-sessions-tabs) .ao-sessions-tabs .ao-view-btn {
+    padding-inline: 0.6rem;
+  }
+}
+
+/* A time of day from a list (components/TimePicker.tsx), as DatePicker's
+   field — the system's time popup never shows. */
+.ao-time-trigger .ao-picker-value {
+  flex: 0 1 auto;
+  font-variant-numeric: tabular-nums;
+}
+.ao-time-menu {
+  min-width: 150px;
+  overflow-y: auto;
+}
+.ao-time-item {
+  font-variant-numeric: tabular-nums;
+}
+.ao-time-length {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.ao-time-item[data-selected='true'] .ao-time-length {
+  margin-left: auto;
+}
+
+/* A context menu's sections (the Gantt's: card, then the project's baseline). */
+.ao-context-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--rule);
+}
+.ao-context-head {
+  margin: 6px 8px 3px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ao-context-check {
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.ao-context-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ao-context-item-text small {
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.ao-context-item[aria-checked='true'] {
+  color: var(--accent-ink);
+}
+.ao-context-note {
+  margin: 0 8px 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.ao-context-note[data-late] {
+  color: var(--red);
+}
+
+/* Story points in the card editor: the field with Claude's spark beside it,
+   and under the row, what Claude suggests or the subtasks add up to (Use). */
+.ao-task-points {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 4px;
+}
+.ao-task-points .ao-task-input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+.ao-task-points-ai {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--accent-ink);
+}
+.ao-task-points-ai[aria-busy] svg {
+  animation: ao-spin 1.2s linear infinite;
+}
+.ao-task-points-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: -0.25rem;
+}
+.ao-task-points-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--accent-tint);
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.ao-task-points-hint > svg {
+  color: var(--accent-ink);
+}
+.ao-task-points-hint b {
+  color: var(--foreground);
+}
+/* The why on a line of its own under the points and Use. */
+.ao-task-points-hint > span {
+  order: 1;
+  flex-basis: 100%;
+  line-height: 1.45;
+}
+.ao-task-points-hint > button {
+  margin-left: auto;
+}
+.ao-task-points-error {
+  font-size: 0.72rem;
+  color: var(--red);
+}
+/* In the card panel: its own points, then its subtasks' total. */
+.ao-task-points-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ao-task-points-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+}

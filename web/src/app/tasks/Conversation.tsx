@@ -1,50 +1,184 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { CheckIcon, ChevronRight, SendIcon, ToolIcon } from '@/components/icons';
 import { call, type Run, type RunEvent } from '@/lib/bridge';
+import { Markdown } from '@/lib/markdown';
 
 type Block =
-  | { kind: 'you' | 'text' | 'system' | 'error'; event: RunEvent }
-  /** Consecutive tool calls, folded into one line as in AI Office's sessions. */
-  | { kind: 'tools'; events: RunEvent[] };
+  | { kind: 'message'; index: number; event: RunEvent }
+  /** A run of tool calls, folded into one group as in AI Office's sessions. */
+  | { kind: 'tools'; index: number; events: RunEvent[] };
 
 function blocks(events: RunEvent[]): Block[] {
   const out: Block[] = [];
-  for (const e of events) {
+  events.forEach((e, index) => {
     const last = out.at(-1);
     if (e.kind === 'tool') {
       if (last?.kind === 'tools') last.events.push(e);
-      else out.push({ kind: 'tools', events: [e] });
-    } else out.push({ kind: e.kind, event: e });
-  }
+      else out.push({ kind: 'tools', index, events: [e] });
+    } else out.push({ kind: 'message', index, event: e });
+  });
   return out;
 }
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+/** A tool line from the run ("Read src/x.ts", "$ npm test") as AI Office's step: its name, then what it was on. */
+function toolSummary(text: string): { name: string; target: string } {
+  if (text.startsWith('$ ')) return { name: 'Bash', target: text.slice(2) };
+  const i = text.indexOf(' ');
+  return i < 0 ? { name: text, target: '' } : { name: text.slice(0, i), target: text.slice(i + 1) };
+}
 
-/** The task's conversation with Claude — the workflow's steps and the person's own messages — and the box to write in. */
-export function Conversation({ run, statusbar }: { run: Run; statusbar?: ReactNode }) {
-  const [text, setText] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const end = useRef<HTMLDivElement>(null);
+/** AI Office's MessageRow, for this app's events: you, Claude's text, the app's notes and errors. */
+function MessageRow({ event }: { event: RunEvent }) {
+  // The app's own short notes — a step done, a branch made — as a quiet line in the flow.
+  if (event.kind === 'system' && event.text.length <= 220) {
+    return (
+      <div className="ao-msg-note">
+        <span className="ao-msg-note-dot" aria-hidden="true" />
+        <span>{event.text}</span>
+      </div>
+    );
+  }
+  const kind = event.kind === 'you' ? 'user' : event.kind;
+  return (
+    <div className="ao-msg" data-kind={kind}>
+      {kind !== 'user' && kind !== 'text' && <p className="ao-msg-role">{kind}</p>}
+      {/* What you wrote shows as typed; only Claude's replies are Markdown. */}
+      {kind === 'user' ? <p className="ao-msg-text">{event.text}</p> : <Markdown text={event.text} />}
+    </div>
+  );
+}
+
+/**
+ * One collapsible group for a run of tool calls — collapsed even while it's
+ * the live tail; its summary line's spinner says something is happening.
+ */
+function ToolGroup({ events, running }: { events: RunEvent[]; running: boolean }) {
+  const current = running ? toolSummary(events.at(-1)!.text) : null;
+  return (
+    <details className="ao-tool-group">
+      <summary className="ao-tool-group-summary">
+        <span className="ao-tool-group-chevron">
+          <ChevronRight size={11} />
+        </span>
+        {current ? (
+          <>
+            <span className="ao-spinner" />
+            <span className="ao-tool-group-label">Running {current.name}…</span>
+          </>
+        ) : (
+          <>
+            <ToolIcon size={12} />
+            <span className="ao-tool-group-label">
+              {events.length} tool call{events.length === 1 ? '' : 's'}
+            </span>
+          </>
+        )}
+      </summary>
+      <div className="ao-tool-group-steps">
+        {events.map((e, i) => {
+          const { name, target } = toolSummary(e.text);
+          const live = running && i === events.length - 1;
+          return (
+            <details key={i} className="ao-tool-step">
+              <summary className="ao-tool-step-summary">
+                {live ? <span className="ao-spinner" /> : <CheckIcon size={13} />}
+                <span className="ao-tool-name">{name}</span>
+                <span className="ao-tool-target">{target || '—'}</span>
+              </summary>
+              <pre className="ao-tool-detail">
+                {e.text}
+                {`\n\n${new Date(e.at).toLocaleTimeString()}`}
+              </pre>
+            </details>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
+function ThinkingIndicator() {
+  return (
+    <div className="ao-thinking">
+      <span className="ao-spinner" />
+      <span>Working…</span>
+    </div>
+  );
+}
+
+/** The task's conversation with Claude — the workflow's steps and your own messages. */
+export function Transcript({ run }: { run: Run }) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
-  // Follows new messages while the person is at the bottom; leaves them be when they've scrolled up.
+  // Follows new messages while you're at the bottom; leaves you be when you've scrolled up.
   useEffect(() => {
-    if (stick.current) end.current?.scrollIntoView({ block: 'end' });
+    const el = scroller.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [run.events.length, run.running]);
+
+  const list = blocks(run.events);
+  const last = list.at(-1);
+
+  return (
+    <div
+      ref={scroller}
+      className="ao-transcript-scroll"
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      }}
+    >
+      <div className="ao-transcript">
+        {list.length === 0 && !run.running && (
+          <p className="ao-empty">
+            {run.source === 'none'
+              ? 'Pick where this task works (under the message box), then tell Claude what it is about — paste the ticket, or describe it.'
+              : 'Tell Claude what this task is about — or press Run workflow to carry its ticket through the seven steps.'}
+          </p>
+        )}
+        {list.map((b) =>
+          b.kind === 'tools' ? (
+            <ToolGroup key={b.index} events={b.events} running={run.running && b === last} />
+          ) : (
+            <MessageRow key={b.index} event={b.event} />
+          ),
+        )}
+        {run.running && last?.kind !== 'tools' && <ThinkingIndicator />}
+      </div>
+    </div>
+  );
+}
+
+/** AI Office's composer: the message grows upward; Send, or Stop while Claude works. */
+export function Composer({ run }: { run: Run }) {
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+
+  // Grows with the message, to the cap in board.css.
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
 
   const send = async () => {
     const msg = text.trim();
-    if (!msg || run.running) return;
+    if (!msg || run.running || sending) return;
     setError(null);
+    setSending(true);
     try {
       await call('runsSend', run.id, msg);
       setText('');
-      stick.current = true;
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -55,88 +189,37 @@ export function Conversation({ run, statusbar }: { run: Run; statusbar?: ReactNo
     }
   };
 
-  const list = blocks(run.events);
-
   return (
-    <div className="aw-convo">
-      <div
-        ref={scroller}
-        className="aw-convo-scroll"
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-        }}
-      >
-        {list.length === 0 && !run.running && (
-          <div className="aw-empty">
-            {run.source === 'none'
-              ? 'Pick where this task works (under the message box), then tell Claude what it is about — paste the ticket, or describe it.'
-              : 'Tell Claude what this task is about — or press Run workflow to carry its ticket through the seven steps.'}
-          </div>
+    <form
+      className="ao-composer"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void send();
+      }}
+    >
+      {error && <p className="ao-attach-error">{error}</p>}
+      <textarea
+        ref={input}
+        className="ao-composer-input"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={onKey}
+        disabled={run.running || sending}
+        placeholder={run.running ? 'Claude is working on this task…' : run.sessionId ? 'Send a follow-up…' : 'Message Claude to start…'}
+        rows={1}
+      />
+      <div className="ao-composer-bar">
+        <div className="ao-spacer" />
+        {run.running ? (
+          <button type="button" className="ao-send ao-send-stop" onClick={() => void call('runsStop', run.id)} aria-label="Stop" title="Stop Claude">
+            <span className="ao-stop-square" aria-hidden="true" />
+          </button>
+        ) : (
+          <button type="submit" className="ao-send" disabled={sending || !text.trim()} aria-label="Send" title="Send (Enter)">
+            <SendIcon size={15} />
+          </button>
         )}
-        {list.map((b, i) =>
-          b.kind === 'tools' ? (
-            <details key={i} className="aw-msg-tools">
-              <summary>
-                {b.events.length} step{b.events.length === 1 ? '' : 's'} · <span className="aw-mono">{b.events.at(-1)!.text.slice(0, 90)}</span>
-              </summary>
-              {b.events.map((e, j) => (
-                <div key={j} className="aw-mono">{e.text}</div>
-              ))}
-            </details>
-          ) : b.kind === 'you' ? (
-            <div key={i} className="aw-msg aw-msg-you">
-              <div className="aw-msg-bubble">{b.event.text}</div>
-              <span className="aw-msg-time">{time(b.event.at)}</span>
-            </div>
-          ) : b.kind === 'text' ? (
-            <div key={i} className="aw-msg aw-msg-claude">
-              <span className="aw-msg-who">Claude</span>
-              <div className="aw-prose">{b.event.text}</div>
-            </div>
-          ) : (
-            <div key={i} className="aw-msg-note" data-kind={b.kind}>
-              {b.event.text}
-            </div>
-          ),
-        )}
-        {run.running && (
-          <div className="aw-thinking" aria-live="polite">
-            <span /> <span /> <span /> Working…
-          </div>
-        )}
-        <div ref={end} />
       </div>
-      <form
-        className="aw-composer"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send();
-        }}
-      >
-        <textarea
-          className="aw-composer-input"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKey}
-          placeholder={run.running ? 'Claude is working on this task…' : run.sessionId ? 'Send a follow-up…' : 'Message Claude to start…'}
-          rows={1}
-        />
-        <div className="aw-composer-bar">
-          <span style={{ flex: 1 }} />
-          {run.running ? (
-            <button type="button" className="aw-send aw-send-stop" onClick={() => void call('runsStop', run.id)} aria-label="Stop" title="Stop">
-              <span className="aw-stop-square" aria-hidden="true" />
-            </button>
-          ) : (
-            <button type="submit" className="aw-send" disabled={!text.trim()} aria-label="Send" title="Send (Enter)">
-              ↑
-            </button>
-          )}
-        </div>
-      </form>
-      {error && <p className="aw-error aw-composer-error">{error}</p>}
-      {statusbar}
-    </div>
+    </form>
   );
 }

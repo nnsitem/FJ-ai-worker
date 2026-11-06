@@ -10,11 +10,11 @@ import { bridge, call } from '@/lib/bridge';
 function theme() {
   const css = getComputedStyle(document.documentElement);
   const v = (name: string) => css.getPropertyValue(name).trim();
-  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = document.documentElement.dataset.theme !== 'light';
   return {
     background: v('--paper-2') || '#141218',
     foreground: v('--foreground') || '#ecebf0',
-    cursor: '#e1306c',
+    cursor: v('--accent') || '#e1306c',
     cursorAccent: v('--paper-2') || '#141218',
     selectionBackground: dark ? 'rgba(225, 48, 108, 0.35)' : 'rgba(194, 24, 91, 0.25)',
     magenta: '#e1306c',
@@ -92,5 +92,5 @@ export function TerminalView({ id, active }: { id: string; active: boolean }) {
     term.current?.focus();
   }, [active]);
 
-  return <div ref={box} className="aw-term" hidden={!active} />;
+  return <div ref={box} className="ao-term" hidden={!active} />;
 }

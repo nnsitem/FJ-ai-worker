@@ -1,22 +1,25 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
-import { AddIcon, PanelIcon, RunsIcon } from '@/components/icons';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { AgentLogo } from '@/components/AgentLogo';
+import { CloseIcon, EditIcon, PanelIcon, PipelineIcon, ToolIcon } from '@/components/icons';
 import { bridge, call, type Run } from '@/lib/bridge';
 import { NEW_TASK_AGENT_KEY, OPEN_TASK_KEY } from '@/lib/models';
+import { OPEN_TASK_EVENT, takeParked } from '@/lib/open';
+import { usePanelResize } from '@/lib/use-panel-resize';
 import { TaskView } from './TaskView';
-import { currentStep, STEP_LABELS } from './steps';
+import { currentStep, placeName, standing, STEP_LABELS, type Standing } from './steps';
 
-type Tab = 'all' | 'working' | 'you' | 'done';
+type Tab = 'all' | Exclude<Standing, 'idle'>;
 const TAB_LABEL: Record<Tab, string> = { all: 'All', working: 'Working', you: 'Needs you', done: 'Done' };
 
-/** Where a task stands, for the tabs and its chip. */
-function standing(r: Run): Exclude<Tab, 'all'> | 'idle' {
-  if (r.running) return 'working';
-  const cur = currentStep(r);
-  if (r.workflowStarted && !cur) return 'done';
-  if (r.error || cur?.state === 'waiting') return 'you';
-  return 'idle';
+/** The card's status, in AI Office's status set (globals.css --st-*): its stripe and chip. */
+function status(r: Run): { key: string; label: string } {
+  const s = standing(r);
+  if (s === 'working') return { key: 'in_progress', label: 'Working' };
+  if (s === 'done') return { key: 'done', label: 'Done' };
+  if (s === 'you') return r.error ? { key: 'cancelled', label: 'Needs you' } : { key: 'hold', label: 'Needs you' };
+  return r.sessionId ? { key: 'todo', label: 'Idle' } : { key: 'draft', label: 'Draft' };
 }
 
 function whenGroup(iso: string): string {
@@ -35,25 +38,35 @@ const whenLabel = (iso: string) => {
   return whenGroup(iso) === 'Today' ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
 };
 
-/** Tasks, as AI Office's Sessions: the list (tabs, by day) and the open task's conversation. */
+/**
+ * Tasks, laid out as AI Office's Sessions ((shell)/page.tsx): the list —
+ * status tabs, grouped by day — and beside it the open task's conversation,
+ * the divider between them dragged to resize.
+ */
 export default function TasksPage() {
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('all');
   const [collapsed, setCollapsed] = useState(false);
+  const [changesOpen, setChangesOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const { boardRef, width: detailWidth, startResize, resetWidth } = usePanelResize(560);
+
+  const select = useCallback(
+    (id: string | null) => {
+      setOpenId(id);
+      setChangesOpen(false);
+      // Every panel opens at its minimum, as in AI Office.
+      if (id) resetWidth();
+    },
+    [resetWidth],
+  );
 
   useEffect(() => {
-    let wanted: string | null = null;
-    let withAgent: string | null = null;
-    try {
-      wanted = sessionStorage.getItem(OPEN_TASK_KEY);
-      withAgent = sessionStorage.getItem(NEW_TASK_AGENT_KEY);
-      sessionStorage.removeItem(OPEN_TASK_KEY);
-      sessionStorage.removeItem(NEW_TASK_AGENT_KEY);
-    } catch {
-      // opened without a wish
-    }
+    const wanted = takeParked(OPEN_TASK_KEY);
+    const withAgent = takeParked(NEW_TASK_AGENT_KEY);
     call('runsList')
       .then(async (r) => {
         setRuns(r);
@@ -61,11 +74,11 @@ export default function TasksPage() {
         if (withAgent) {
           const t = await call('runsCreate', { ticket: { key: '', title: '', description: '', url: null }, agent: withAgent, draft: true });
           setRuns((rs) => [t, ...(rs ?? []).filter((x) => x.id !== t.id)]);
-          setOpenId(t.id);
-        } else if (wanted && r.some((x) => x.id === wanted)) setOpenId(wanted);
+          select(t.id);
+        } else if (wanted && r.some((x) => x.id === wanted)) select(wanted);
       })
       .catch((e) => setError((e as Error).message));
-    return bridge().onRun((run) =>
+    const off = bridge().onRun((run) =>
       setRuns((rs) => {
         if (!rs) return rs;
         if ('deleted' in run) return rs.filter((r) => r.id !== run.id);
@@ -73,20 +86,40 @@ export default function TasksPage() {
         return i < 0 ? [run, ...rs] : rs.map((r) => (r.id === run.id ? run : r));
       }),
     );
-  }, []);
+    // A task asked for from elsewhere while this page shows (the top bar's
+    // search or New task): read the list again — it may be newer — and open it.
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      takeParked(OPEN_TASK_KEY);
+      call('runsList')
+        .then((r) => {
+          setRuns(r);
+          if (r.some((x) => x.id === id)) {
+            select(id);
+            setCollapsed(false);
+          }
+        })
+        .catch((err) => setError((err as Error).message));
+    };
+    window.addEventListener(OPEN_TASK_EVENT, onOpen);
+    return () => {
+      off();
+      window.removeEventListener(OPEN_TASK_EVENT, onOpen);
+    };
+  }, [select]);
 
-  const newTask = async () => {
-    setError(null);
-    try {
-      const settings = await call('getSettings');
-      const t = await call('runsCreate', { ticket: { key: '', title: '', description: '', url: null }, agent: settings.defaultAgent, draft: true });
-      setRuns((rs) => [t, ...(rs ?? []).filter((x) => x.id !== t.id)]);
-      setOpenId(t.id);
-      setCollapsed(false);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
+  // The right-click menu closes on any click elsewhere, or Escape.
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    window.addEventListener('click', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
 
   const counts = useMemo(() => {
     const c: Record<Tab, number> = { all: 0, working: 0, you: 0, done: 0 };
@@ -100,110 +133,246 @@ export default function TasksPage() {
   const visible = (runs ?? []).filter((r) => tab === 'all' || standing(r) === tab);
   const open = runs?.find((r) => r.id === openId) ?? null;
 
+  const remove = async (r: Run) => {
+    const what = r.source === 'repo' ? 'Its checkout goes too.' : 'Its folder stays.';
+    if (!window.confirm(`Delete this task? ${what}`)) return;
+    try {
+      await call('runsDelete', r.id);
+      if (openId === r.id) select(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const rename = async (id: string, title: string) => {
+    setRenamingId(null);
+    try {
+      await call('runsSetTicket', id, { title });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const w = changesOpen ? Math.max(detailWidth, 680) : detailWidth;
+
   return (
-    <main className="aw-sessions-board">
-      <section className="aw-panel aw-sessions" data-collapsed={collapsed || undefined} data-narrow={open ? true : undefined}>
-        <header className="aw-panel-head">
-          <button type="button" className="aw-icon-btn" onClick={() => setCollapsed(true)} aria-label="Hide tasks" title="Hide tasks">
+    <main className="ao-board" ref={boardRef}>
+      {/* Stays mounted when collapsed, so its width can animate shut. */}
+      <section className="ao-panel ao-sessions" data-collapsed={collapsed} inert={collapsed}>
+        <header className="ao-panel-head">
+          <button type="button" className="ao-icon-btn ao-panel-toggle" onClick={() => setCollapsed(true)} aria-label="Hide tasks" title="Hide tasks">
             <PanelIcon size={15} />
           </button>
-          <h1 className="aw-panel-title">Tasks</h1>
-          <span className="aw-count">{runs?.length ?? 0}</span>
-          <span style={{ flex: 1 }} />
-          <button type="button" className="aw-btn aw-compact" data-primary onClick={() => void newTask()}>
-            <AddIcon size={14} /> New task
-          </button>
+          <h2 className="ao-panel-title">Tasks</h2>
+          <span className="ao-count">{runs?.length ?? 0}</span>
+          <div className="ao-spacer" />
+          <div className="ao-view-toggle ao-sessions-tabs" role="tablist" aria-label="Show">
+            {(Object.keys(TAB_LABEL) as Tab[]).map((k) => (
+              <button key={k} type="button" role="tab" className="ao-view-btn" aria-selected={tab === k} data-active={tab === k} onClick={() => setTab(k)}>
+                {TAB_LABEL[k]}
+                <span className="ao-sessions-tab-count">{counts[k]}</span>
+              </button>
+            ))}
+          </div>
         </header>
-        <div className="aw-sessions-tabs" role="tablist" aria-label="Show">
-          {(Object.keys(TAB_LABEL) as Tab[]).map((k) => (
-            <button key={k} type="button" role="tab" className="aw-tab" aria-selected={tab === k} onClick={() => setTab(k)}>
-              {TAB_LABEL[k]} <span className="aw-tab-count">{counts[k]}</span>
-            </button>
-          ))}
-        </div>
-        <div className="aw-panel-body">
-          {error && <p className="aw-error aw-pad">{error}</p>}
-          <ul className="aw-session-list">
-            {runs && visible.length === 0 && <li className="aw-muted aw-pad">{tab === 'all' ? 'No tasks yet — New task starts one.' : 'None in this tab.'}</li>}
-            {visible.map((r, i) => {
-              const g = whenGroup(r.createdAt);
-              const head = i === 0 || whenGroup(visible[i - 1].createdAt) !== g;
-              return (
-                <Fragment key={r.id}>
-                  {head && <li className="aw-sessions-group">{g}</li>}
-                  <li>
-                    <TaskCard run={r} active={r.id === openId} onOpen={() => setOpenId(r.id)} />
-                  </li>
-                </Fragment>
-              );
-            })}
-          </ul>
-        </div>
+
+        {error && <p className="ao-task-panel-error ao-inset-note">{error}</p>}
+        <ul className="ao-list">
+          {runs && visible.length === 0 && (
+            <li className="ao-column-empty">{tab !== 'all' ? 'None in this tab' : 'No tasks yet — New task, in the top bar, starts one.'}</li>
+          )}
+          {/* By when they started (the list's order, and the time on each card). */}
+          {visible.map((r, i) => {
+            const g = whenGroup(r.createdAt);
+            const head = i === 0 || whenGroup(visible[i - 1].createdAt) !== g;
+            return (
+              <Fragment key={r.id}>
+                {head && <li className="ao-sessions-group">{g}</li>}
+                <li>
+                  <TaskCard
+                    run={r}
+                    active={r.id === openId}
+                    renaming={renamingId === r.id}
+                    onOpen={() => select(r.id)}
+                    onMenu={(x, y) => setMenu({ id: r.id, x, y })}
+                    onRename={(title) => void rename(r.id, title)}
+                    onCancelRename={() => setRenamingId(null)}
+                  />
+                </li>
+              </Fragment>
+            );
+          })}
+        </ul>
       </section>
 
+      {open && !collapsed && <div className="ao-resizer" onMouseDown={startResize} />}
+      {/* Not there until a card is picked: the list starts at full width. */}
       {(open || collapsed) && (
-        <section className="aw-panel aw-task-detail" data-full={collapsed || undefined}>
+        <section
+          className="ao-panel ao-detail"
+          data-full={collapsed}
+          data-changes-open={changesOpen}
+          style={open ? { flexBasis: `${w}px`, ['--detail-w' as string]: `${w}px` } : undefined}
+        >
           {open ? (
-            <TaskView key={open.id} run={open} onClose={() => setOpenId(null)} onDeleted={() => setOpenId(null)} />
+            <TaskView
+              key={open.id}
+              run={open}
+              listHidden={collapsed}
+              onShowList={() => setCollapsed(false)}
+              changesOpen={changesOpen}
+              onToggleChanges={() => setChangesOpen((v) => !v)}
+              onClose={() => select(null)}
+              onDelete={() => void remove(open)}
+            />
           ) : (
-            <div className="aw-empty">
-              The task list is hidden.
-              <button type="button" className="aw-btn aw-compact" onClick={() => setCollapsed(false)}>
-                <PanelIcon size={14} /> Show tasks
+            <div className="ao-detail-blank">
+              <p className="ao-empty">The task list is hidden.</p>
+              <button type="button" className="ao-btn-ghost" onClick={() => setCollapsed(false)}>
+                <PanelIcon size={15} />
+                Show tasks
               </button>
             </div>
           )}
-          {open && collapsed && (
-            <button type="button" className="aw-icon-btn aw-show-list" onClick={() => setCollapsed(false)} aria-label="Show tasks" title="Show tasks">
-              <PanelIcon size={15} />
-            </button>
-          )}
         </section>
       )}
-      {!open && !collapsed && runs && runs.length > 0 && (
-        <section className="aw-panel aw-task-detail">
-          <div className="aw-empty">
-            <RunsIcon size={28} />
-            Pick a task to see its conversation.
-          </div>
-        </section>
+
+      {menu && (
+        <div className="ao-context-menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="ao-context-item"
+            onClick={() => {
+              setRenamingId(menu.id);
+              setMenu(null);
+            }}
+          >
+            <EditIcon size={13} />
+            Rename
+          </button>
+          <button
+            type="button"
+            className="ao-context-item"
+            data-danger
+            onClick={() => {
+              const r = runs?.find((x) => x.id === menu.id);
+              setMenu(null);
+              if (r) void remove(r);
+            }}
+          >
+            <CloseIcon size={13} />
+            Delete task
+          </button>
+        </div>
       )}
     </main>
   );
 }
 
-/** A task in the list, as a session card: its folder and when; its title, the last word in it; where it stands. */
-function TaskCard({ run, active, onOpen }: { run: Run; active: boolean; onOpen: () => void }) {
-  const s = standing(run);
+/** A task in the list, as AI Office's session card: Claude · where · agent and when; its title, the last word in it; its chips. */
+function TaskCard({
+  run,
+  active,
+  renaming,
+  onOpen,
+  onMenu,
+  onRename,
+  onCancelRename,
+}: {
+  run: Run;
+  active: boolean;
+  renaming: boolean;
+  onOpen: () => void;
+  onMenu: (x: number, y: number) => void;
+  onRename: (title: string) => void;
+  onCancelRename: () => void;
+}) {
+  const st = status(run);
   const cur = currentStep(run);
   const last = [...run.events].reverse().find((e) => e.kind === 'text' || e.kind === 'you');
-  const where = run.source === 'repo' ? run.repo.split('/')[1] : run.source === 'folder' ? (run.folder ?? '').split(/[\\/]/).filter(Boolean).pop() : 'no folder';
+  const tools = run.events.filter((e) => e.kind === 'tool').length;
   return (
-    <button type="button" className="aw-card-task" data-active={active || undefined} data-standing={s} onClick={onOpen}>
-      <span className="aw-card-meta">
-        <span className="aw-claude-mark" aria-hidden="true">C</span>
-        <span className="aw-dot-sep">·</span>
-        <span className="aw-card-repo">{where}</span>
-        {run.agent && (
-          <>
-            <span className="aw-dot-sep">·</span>
-            <span className="aw-card-repo">{run.agent}</span>
-          </>
-        )}
-        <span style={{ flex: 1 }} />
-        <span className="aw-card-when">{whenLabel(run.createdAt)}</span>
-      </span>
-      <span className="aw-card-title">
-        {run.ticket.key && <span className="aw-mono aw-muted">{run.ticket.key} </span>}
-        {run.ticket.title || 'New task'}
-      </span>
-      {last && <span className="aw-card-preview">{last.kind === 'you' ? 'You: ' : ''}{last.text}</span>}
-      <span className="aw-card-chips">
-        <span className="aw-pill" data-tone={s === 'working' ? 'info' : s === 'you' ? 'warn' : s === 'done' ? 'ok' : undefined}>
-          {s === 'working' ? 'Working' : s === 'you' ? 'Needs you' : s === 'done' ? 'Done' : run.sessionId ? 'Idle' : 'Draft'}
+    <div
+      className="ao-card"
+      role="button"
+      tabIndex={0}
+      data-status={st.key}
+      data-active={active}
+      onClick={() => !renaming && onOpen()}
+      onKeyDown={(e) => {
+        if (renaming || e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onMenu(e.clientX, e.clientY);
+      }}
+      title="Right-click to rename or delete"
+    >
+      <div className="ao-card-meta">
+        <span className="ao-card-src">
+          <span className="ao-agent-mark" title="Claude" aria-label="Claude">
+            <AgentLogo provider="claude" />
+          </span>
+          <span className="ao-dot-sep">·</span>
+          <span className="ao-card-repo">{placeName(run)}</span>
+          {run.agent && (
+            <>
+              <span className="ao-dot-sep">·</span>
+              <span className="ao-card-repo">{run.agent}</span>
+            </>
+          )}
         </span>
-        {run.workflowStarted && cur && <span className="aw-pill">{cur.index + 1}. {STEP_LABELS[cur.index].short}</span>}
-      </span>
-    </button>
+        <span className="ao-card-when">{whenLabel(run.createdAt)}</span>
+      </div>
+
+      {renaming ? (
+        <input
+          className="ao-card-title-input"
+          defaultValue={run.ticket.title}
+          autoFocus
+          onFocus={(e) => e.target.select()}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') e.currentTarget.blur();
+            else if (e.key === 'Escape') onCancelRename();
+          }}
+          onBlur={(e) => onRename(e.target.value)}
+        />
+      ) : (
+        <p className="ao-card-title">
+          {run.ticket.key && <span className="ao-card-key">{run.ticket.key} </span>}
+          {run.ticket.title || 'New task'}
+        </p>
+      )}
+      {last && (
+        <p className="ao-card-preview">
+          {last.kind === 'you' ? 'You: ' : ''}
+          {last.text}
+        </p>
+      )}
+
+      <div className="ao-card-chips">
+        <span className="ao-chip ao-chip-status" data-status={st.key}>
+          {st.label}
+        </span>
+        {run.workflowStarted && (
+          <span className="ao-chip" title="Where its workflow is">
+            <PipelineIcon size={11} />
+            {cur ? `${cur.index + 1}. ${STEP_LABELS[cur.index].short}` : 'Finished'}
+          </span>
+        )}
+        {tools > 0 && (
+          <span className="ao-chip ao-chip-tool" title="Tool calls">
+            <ToolIcon size={11} />
+            {tools}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

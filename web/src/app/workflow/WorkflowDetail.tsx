@@ -3,20 +3,22 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { LinkOpener } from '@/components/LinkOpener';
+import { BoardIcon, CloseIcon, PlayIcon } from '@/components/icons';
 import { call, type Run } from '@/lib/bridge';
-import { OPEN_TASK_KEY } from '@/lib/models';
+import { Markdown } from '@/lib/markdown';
+import { openTask } from '@/lib/open';
 import { RunWork } from '../tasks/RunWork';
-import { STATE_TONE, STEP_LABELS } from '../tasks/steps';
+import { currentStep, STEP_LABELS } from '../tasks/steps';
 
-const STATE_TEXT = { pending: '', running: 'Working', waiting: 'Your turn', done: 'Done', skipped: 'Skipped', failed: 'Failed' } as const;
 const SSO = /https:\/\/github\.com\/\S+\/sso\S*/;
 
 /**
- * A task's workflow, on the Workflow page (the task itself is the
- * conversation, on Tasks): its steps, the plan and its review, the fix, the
- * tests — and the way to start or rerun it.
+ * A task's workflow, in the Workflow page's side panel — AI Office's CardPanel
+ * (agents-board/panels.tsx): where it stands on the steps, a note on what
+ * it's doing, then the plan and its review, the fix and the tests; the way
+ * to start or rerun it at the foot.
  */
-export function WorkflowDetail({ run }: { run: Run }) {
+export function WorkflowDetail({ run, onClose }: { run: Run; onClose: () => void }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const t = run.ticket;
@@ -28,73 +30,119 @@ export function WorkflowDetail({ run }: { run: Run }) {
       setError((e as Error).message);
     }
   };
-  const openTask = () => {
-    try {
-      sessionStorage.setItem(OPEN_TASK_KEY, run.id);
-    } catch {
-      // the Tasks page opens its first
-    }
-    router.push('/tasks');
-  };
   const canStart = !run.running && (!run.workflowStarted || run.steps.analyze === 'failed');
+  const cur = currentStep(run);
+  const last = [...run.events].reverse().find((e) => e.kind === 'tool' || e.kind === 'text' || e.kind === 'system');
+
   return (
     <>
-      <header className="aw-panel-head">
-        <div className="aw-panel-head-text">
-          <h1 className="aw-panel-title">
-            {t.key && <span className="aw-mono aw-muted">{t.key} </span>}
-            {t.title || 'New task'}
-          </h1>
-          <p className="aw-panel-sub aw-mono">{run.source === 'repo' ? run.repo : run.source === 'folder' ? run.folder : 'No folder yet'}{run.branch && ` · ${run.branch}`}</p>
+      <header className="ao-task-panel-head">
+        <div className="ao-task-panel-heading">
+          <div className="ao-task-panel-meta">
+            {t.key && (
+              <span className="ao-team-tag" data-kind="project">
+                {t.key}
+              </span>
+            )}
+            <span className="ao-task-panel-id">
+              {run.source === 'repo' ? run.repo : run.source === 'folder' ? run.folder : 'No folder yet'}
+              {run.branch && ` · ${run.branch}`}
+            </span>
+          </div>
+          <h2 className="ao-task-panel-title">{t.title || 'New task'}</h2>
         </div>
-        {canStart && (
-          <button type="button" className="aw-btn aw-compact" data-primary onClick={() => void act(() => call(run.workflowStarted ? 'runsRerun' : 'runsStartWorkflow', run.id))}>
-            ▶ {run.workflowStarted ? 'Run again' : 'Run workflow'}
-          </button>
-        )}
-        {run.running && <button type="button" className="aw-btn aw-compact" onClick={() => void act(() => call('runsStop', run.id))}>Stop</button>}
-        <button type="button" className="aw-btn aw-compact" onClick={openTask}>Open task</button>
+        <button type="button" className="ao-icon-btn" onClick={onClose} aria-label="Close panel" title="Close">
+          <CloseIcon size={15} />
+        </button>
       </header>
-      <div className="aw-panel-body">
-        <div className="aw-side-body">
-          {(run.error || error) && (
-            <div className="aw-side-cards" style={{ marginBottom: 12 }}>
-              {run.error && <p className="aw-error">{run.error.replace(/:\s*https:\/\/\S+$/, '')}</p>}
-              {run.error && SSO.test(run.error) && <LinkOpener url={SSO.exec(run.error)![0]} />}
-              {error && <p className="aw-error">{error}</p>}
-            </div>
-          )}
+
+      <div className="ao-task-panel-body">
+        <ol className="ao-pipe-steps ao-wf-steps" aria-label="Progress">
+          {STEP_LABELS.map((s, i) => {
+            const state = run.steps[s.id];
+            const shown = !run.workflowStarted
+              ? 'next'
+              : state === 'done' || state === 'skipped'
+                ? 'past'
+                : i === cur?.index
+                  ? state === 'waiting' || state === 'failed'
+                    ? 'waiting'
+                    : 'current'
+                  : 'next';
+            return (
+              <li key={s.id} data-state={shown} title={`${s.label}${s.manual ? ` — then ${s.manual}` : ''}${state === 'skipped' ? ' (skipped)' : ''}`}>
+                <span className="ao-pipe-step-dot" />
+                {s.short.split(' ')[0]}
+              </li>
+            );
+          })}
+        </ol>
+
+        {(run.running || run.error || error) && (
+          <p className="ao-pipe-panel-note" data-tone={run.error || error ? 'error' : undefined}>
+            {run.running ? (
+              <>
+                <span className="ao-pipe-pulse" /> {last?.text ?? 'Starting…'}
+              </>
+            ) : (
+              (run.error ?? error ?? '').replace(/:\s*https:\/\/\S+$/, '')
+            )}
+          </p>
+        )}
+        {run.error && SSO.test(run.error) && <LinkOpener url={SSO.exec(run.error)![0]} />}
+        {run.error && error && <p className="ao-task-panel-error">{error}</p>}
+
+        {!run.workflowStarted ? (
+          <section>
+            <p className="ao-task-panel-label">The seven steps</p>
+            <ol className="ao-wf-step-list">
+              {STEP_LABELS.map((s, i) => (
+                <li key={s.id}>
+                  <span className="ao-wf-step-n">{i + 1}</span>
+                  <span>
+                    {s.label}
+                    {s.manual && <small> — {s.manual}</small>}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="ao-task-panel-muted ao-wf-explain">
+              Run workflow carries the task through these steps, in the task&apos;s own conversation. Each step&apos;s agent and model are the board&apos;s Step settings.
+            </p>
+          </section>
+        ) : (
           <WorkflowSide run={run} act={act} />
-        </div>
+        )}
       </div>
+
+      <footer className="ao-task-panel-foot">
+        <span className="ao-task-panel-muted">{run.workflowStarted ? (cur ? `Step ${cur.index + 1} of 7` : 'Finished') : ''}</span>
+        <div className="ao-task-panel-actions">
+          {run.running && (
+            <button type="button" className="ao-btn-secondary" onClick={() => void act(() => call('runsStop', run.id))}>
+              Stop
+            </button>
+          )}
+          <button type="button" className="ao-btn-secondary" onClick={() => openTask(run.id, router)}>
+            <BoardIcon size={14} /> Open task
+          </button>
+          {canStart && (
+            <button type="button" className="ao-btn-primary" onClick={() => void act(() => call(run.workflowStarted ? 'runsRerun' : 'runsStartWorkflow', run.id))}>
+              <PlayIcon size={14} /> {run.workflowStarted ? 'Run again' : 'Run workflow'}
+            </button>
+          )}
+        </div>
+      </footer>
     </>
   );
 }
 
-/** Steps 1–5 as cards: the plan (copy to Jira), its review, the fix and the tests. */
+/** Steps 1–5 as the panel's sections: the plan (copy to Jira), its review, the fix and the tests. */
 function WorkflowSide({ run, act }: { run: Run; act: (fn: () => Promise<unknown>) => Promise<void> }) {
   const [feedback, setFeedback] = useState('');
   const [asking, setAsking] = useState(false);
   const [copied, setCopied] = useState(false);
   const t = run.ticket;
-
-  if (!run.workflowStarted)
-    return (
-      <div className="aw-side-empty">
-        <ol className="aw-steps">
-          {STEP_LABELS.map((s, i) => (
-            <li key={s.id} className="aw-step">
-              <span className="aw-step-n">{i + 1}</span>
-              <span className="aw-step-label">
-                {s.label}
-                {s.manual && <small> — {s.manual}</small>}
-              </span>
-            </li>
-          ))}
-        </ol>
-        <p className="aw-muted aw-small">Run workflow carries the task through these steps, in the task&apos;s own conversation. Each step&apos;s agent and model are the step settings above.</p>
-      </div>
-    );
 
   const copyPlan = async () => {
     if (!run.plan) return;
@@ -104,45 +152,17 @@ function WorkflowSide({ run, act }: { run: Run; act: (fn: () => Promise<unknown>
   };
 
   return (
-    <div className="aw-side-cards">
-      <ol className="aw-steps">
-        {STEP_LABELS.map((s, i) => {
-          const state = run.steps[s.id];
-          return (
-            <li key={s.id} className="aw-step" data-state={state}>
-              <span className="aw-step-n">{i + 1}</span>
-              <span className="aw-step-label">{s.label}</span>
-              {state !== 'pending' && <span className="aw-pill" data-tone={STATE_TONE[state]}>{STATE_TEXT[state]}</span>}
-            </li>
-          );
-        })}
-      </ol>
-
-      {run.plan && (
-        <section className="aw-card aw-plan">
-          <div className="aw-card-head">
-            <h2>Plan{run.revisions.length > 0 && <span className="aw-muted"> · rev {run.revisions.length + 1}</span>}</h2>
-            <button type="button" className="aw-btn aw-compact" onClick={copyPlan}>{copied ? 'Copied' : 'Copy for Jira'}</button>
-          </div>
-          <div className="aw-prose">{run.plan}</div>
-          <label className="aw-check">
-            <input type="checkbox" checked={run.planInTicket} onChange={(e) => void act(() => call('runsPlanInTicket', run.id, e.target.checked))} />
-            <span>Added to {t.key || 'the ticket'} in Jira <span className="aw-muted">— by hand for now</span></span>
-          </label>
-        </section>
-      )}
-
+    <>
       {run.steps.review === 'waiting' && !run.running && (
-        <section className="aw-card aw-review">
-          <div className="aw-card-head"><h2>Step 3 — review the plan</h2></div>
+        <section className="ao-wf-review">
+          <p className="ao-task-panel-label">Step 3 — review the plan</p>
           {asking ? (
-            <>
-              <textarea className="aw-textarea" value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What should change in the plan?" autoFocus />
-              <div className="aw-row">
+            <div className="ao-pipe-check-panel">
+              <textarea className="ao-task-input ao-task-textarea" value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What should change in the plan?" autoFocus />
+              <div className="ao-pipe-panel-actions">
                 <button
                   type="button"
-                  className="aw-btn"
-                  data-primary
+                  className="ao-btn-primary ao-btn-compact"
                   disabled={!feedback.trim()}
                   onClick={() =>
                     act(async () => {
@@ -154,20 +174,50 @@ function WorkflowSide({ run, act }: { run: Run; act: (fn: () => Promise<unknown>
                 >
                   Send to Claude
                 </button>
-                <button type="button" className="aw-btn" onClick={() => setAsking(false)}>Back</button>
+                <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => setAsking(false)}>
+                  Back
+                </button>
               </div>
-            </>
+            </div>
           ) : (
-            <div className="aw-row">
-              <button type="button" className="aw-btn" data-primary onClick={() => act(() => call('runsReview', run.id, { kind: 'approve' }))}>Approve</button>
-              <button type="button" className="aw-btn" onClick={() => setAsking(true)}>Ask for changes</button>
-              <button type="button" className="aw-btn" onClick={() => act(() => call('runsReview', run.id, { kind: 'skip' }))}>Skip</button>
+            <div className="ao-pipe-panel-actions">
+              <button type="button" className="ao-btn-primary ao-btn-compact" onClick={() => act(() => call('runsReview', run.id, { kind: 'approve' }))}>
+                Approve
+              </button>
+              <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => setAsking(true)}>
+                Ask for changes
+              </button>
+              <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={() => act(() => call('runsReview', run.id, { kind: 'skip' }))}>
+                Skip
+              </button>
             </div>
           )}
         </section>
       )}
 
+      {run.plan && (
+        <section>
+          <p className="ao-task-panel-label">
+            Plan{run.revisions.length > 0 && <span className="ao-task-panel-id">rev {run.revisions.length + 1}</span>}
+            <span className="ao-spacer" />
+            <button type="button" className="ao-btn-secondary ao-btn-compact" onClick={copyPlan}>
+              {copied ? 'Copied' : 'Copy for Jira'}
+            </button>
+          </p>
+          <div className="ao-task-panel-desc ao-md-box">
+            <Markdown text={run.plan} />
+          </div>
+          <label className="ao-pipe-check ao-wf-plan-check">
+            <input type="checkbox" checked={run.planInTicket} onChange={(e) => void act(() => call('runsPlanInTicket', run.id, e.target.checked))} />
+            <span>
+              Added to {t.key || 'the ticket'} in Jira
+              <small>By hand for now.</small>
+            </span>
+          </label>
+        </section>
+      )}
+
       <RunWork run={run} act={act} />
-    </div>
+    </>
   );
 }

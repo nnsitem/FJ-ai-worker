@@ -2,11 +2,15 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Panel } from '@/components/Panel';
-import { TicketsIcon } from '@/components/icons';
+import { Picker } from '@/components/Picker';
+import { CloseIcon, LinkIcon, SearchIcon, TicketsIcon } from '@/components/icons';
 import { call, type JiraProject, type StatusCategory, type TicketDetail, type TicketFilter, type TicketSummary } from '@/lib/bridge';
+import { usePanelResize } from '@/lib/use-panel-resize';
 
-const TONE: Record<StatusCategory, string | undefined> = { new: undefined, indeterminate: 'info', done: 'ok', undefined: undefined };
+/** Jira's status category, in the app's one status set (board.css .ao-chip-status). */
+const STATUS: Record<StatusCategory, string> = { new: 'todo', indeterminate: 'in_progress', done: 'done', undefined: 'todo' };
+// Must match the slide-out on .ao-task-panel[data-closing] (team.css).
+const PANEL_CLOSE_MS = 220;
 
 const when = (iso: string | null) => {
   if (!iso) return '';
@@ -23,7 +27,7 @@ const SCOPES: { id: NonNullable<TicketFilter['scope']>; label: string }[] = [
   { id: 'jql', label: 'JQL' },
 ];
 
-/** Jira tickets: a filtered list, and the open one's details beside it. */
+/** Jira tickets, on the boards' panel system: a filtered list, and the open one in the side panel. */
 export default function TicketsPage() {
   const [scope, setScope] = useState<NonNullable<TicketFilter['scope']>>('mine');
   const [project, setProject] = useState('');
@@ -35,16 +39,16 @@ export default function TicketsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<number | undefined>(undefined);
   const seq = useRef(0);
+  const { boardRef, width: panelWidth, startResize, resetWidth } = usePanelResize();
 
   useEffect(() => {
     call('jiraProjects').then(setProjects).catch(() => {});
   }, []);
 
-  const filter = useCallback(
-    (): TicketFilter => ({ scope, projects: project ? [project] : [], text, jql }),
-    [scope, project, text, jql],
-  );
+  const filter = useCallback((): TicketFilter => ({ scope, projects: project ? [project] : [], text, jql }), [scope, project, text, jql]);
 
   const load = useCallback(
     async (more = false) => {
@@ -72,93 +76,154 @@ export default function TicketsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- not on every keystroke
   }, [scope, project]);
 
+  const openPanel = (key: string) => {
+    window.clearTimeout(closeTimer.current);
+    setClosing(false);
+    if (key !== openKey) resetWidth();
+    setOpenKey(key);
+  };
+  const closePanel = () => {
+    setClosing(true);
+    closeTimer.current = window.setTimeout(() => {
+      setOpenKey(null);
+      setClosing(false);
+    }, PANEL_CLOSE_MS);
+  };
+
   const notConnected = error?.startsWith('Connect Jira first');
 
   return (
-    <div className="aw-split">
-      <Panel title="Tickets" sub="From Jira — read only until it's connected for writing">
-        <div className="aw-filter">
-          <div className="aw-tabs" role="tablist">
+    <main className="ao-board" ref={boardRef}>
+      <section className="ao-panel ao-sessions">
+        <header className="ao-panel-head">
+          <h2 className="ao-panel-title">Tickets</h2>
+          <span className="ao-count">{tickets?.length ?? 0}</span>
+          <div className="ao-spacer" />
+          <div className="ao-view-toggle" role="tablist" aria-label="Which tickets">
             {SCOPES.map((s) => (
-              <button key={s.id} type="button" role="tab" aria-selected={scope === s.id} className="aw-tab" onClick={() => setScope(s.id)}>
+              <button key={s.id} type="button" role="tab" aria-selected={scope === s.id} data-active={scope === s.id} className="ao-view-btn" onClick={() => setScope(s.id)}>
                 {s.label}
               </button>
             ))}
           </div>
-          <form
-            className="aw-row"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void load();
-            }}
-          >
-            {scope === 'jql' ? (
-              <input className="aw-input aw-mono" value={jql} onChange={(e) => setJql(e.target.value)} placeholder='project = BF9 AND status = "To Do" ORDER BY created DESC' />
-            ) : (
-              <>
-                <select className="aw-input aw-select" value={project} onChange={(e) => setProject(e.target.value)} aria-label="Project">
-                  <option value="">All projects</option>
-                  {projects.map((p) => (
-                    <option key={p.key} value={p.key}>{p.key} — {p.name}</option>
-                  ))}
-                </select>
-                <input className="aw-input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search, or a key like BF9-123" />
-              </>
-            )}
-            <button type="submit" className="aw-btn" disabled={loading}>{loading ? 'Loading…' : 'Search'}</button>
-          </form>
-        </div>
+        </header>
 
-        <div className="aw-panel-body">
-          {notConnected ? (
-            <p className="aw-muted aw-pad">Jira isn&apos;t connected yet — <Link href="/">Connections</Link>.</p>
-          ) : error ? (
-            <p className="aw-error aw-pad">{error}</p>
-          ) : tickets && tickets.length === 0 ? (
-            <p className="aw-muted aw-pad">No tickets match.</p>
+        <form
+          className="ao-art-filters"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void load();
+          }}
+        >
+          {scope === 'jql' ? (
+            <div className="ao-search-field ao-jql-field">
+              <SearchIcon size={14} />
+              <input className="ao-search-input ao-mono-input" value={jql} onChange={(e) => setJql(e.target.value)} placeholder='project = BF9 AND status = "To Do" ORDER BY created DESC' aria-label="JQL" />
+            </div>
           ) : (
-            <ul className="aw-rows">
-              {tickets?.map((t) => (
-                <li key={t.key}>
-                  <button type="button" className="aw-row-btn" aria-current={openKey === t.key || undefined} onClick={() => setOpenKey(t.key)}>
-                    <span className="aw-row-key">{t.key}</span>
-                    <span className="aw-row-title">{t.summary}</span>
-                    <span className="aw-pill" data-tone={TONE[t.statusCategory]}>{t.status}</span>
-                    <span className="aw-row-meta">
-                      {t.type}
-                      {t.assignee && scope !== 'mine' ? ` · ${t.assignee}` : ''} · {when(t.updated)}
-                      {!t.repo && <span className="aw-norepo"> · no repo</span>}
-                    </span>
+            <>
+              <Picker<string>
+                value={project}
+                onChange={setProject}
+                options={[{ value: '', label: 'All projects' }, ...projects.map((p) => ({ value: p.key, label: p.key, hint: p.name }))]}
+                placement="down-start"
+                ariaLabel="Project"
+              />
+              <span className="ao-spacer" />
+              <div className="ao-search-field ao-team-search">
+                <SearchIcon size={14} />
+                <input className="ao-search-input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search, or a key like BF9-123" aria-label="Search tickets" />
+                {text && (
+                  <button type="button" className="ao-icon-btn" onClick={() => setText('')} aria-label="Clear search">
+                    <CloseIcon size={13} />
                   </button>
-                </li>
-              ))}
-            </ul>
+                )}
+              </div>
+            </>
+          )}
+          <button type="submit" className="ao-btn-secondary ao-btn-compact" disabled={loading}>
+            {loading ? 'Loading…' : 'Search'}
+          </button>
+        </form>
+
+        <ul className="ao-list">
+          {notConnected ? (
+            <li className="ao-column-empty">
+              Jira isn&apos;t connected yet — <Link href="/" className="ao-inline-link">Connections</Link>.
+            </li>
+          ) : error ? (
+            <li className="ao-task-panel-error ao-inset-note">{error}</li>
+          ) : tickets && tickets.length === 0 ? (
+            <li className="ao-column-empty">No tickets match.</li>
+          ) : (
+            tickets?.map((t) => (
+              <li key={t.key}>
+                <div
+                  className="ao-card"
+                  role="button"
+                  tabIndex={0}
+                  data-status={STATUS[t.statusCategory]}
+                  data-active={openKey === t.key && !closing}
+                  onClick={() => (openKey === t.key && !closing ? closePanel() : openPanel(t.key))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openPanel(t.key);
+                    }
+                  }}
+                >
+                  <div className="ao-card-meta">
+                    <span className="ao-card-src">
+                      <span className="ao-card-key">{t.key}</span>
+                      <span className="ao-dot-sep">·</span>
+                      <span className="ao-card-repo">{t.type}</span>
+                      {t.assignee && scope !== 'mine' && (
+                        <>
+                          <span className="ao-dot-sep">·</span>
+                          <span className="ao-card-repo">{t.assignee}</span>
+                        </>
+                      )}
+                    </span>
+                    <span className="ao-card-when">{when(t.updated)}</span>
+                  </div>
+                  <p className="ao-card-title">{t.summary}</p>
+                  <div className="ao-card-chips">
+                    <span className="ao-chip ao-chip-status" data-status={STATUS[t.statusCategory]}>
+                      {t.status}
+                    </span>
+                    {t.priority && <span className="ao-chip">{t.priority}</span>}
+                    {t.repo ? <span className="ao-chip">{t.repo}</span> : <span className="ao-chip ao-chip-warn">no repo</span>}
+                  </div>
+                </div>
+              </li>
+            ))
           )}
           {next && !error && (
-            <div className="aw-pad">
-              <button type="button" className="aw-btn" disabled={loading} onClick={() => void load(true)}>Load more</button>
-            </div>
+            <li className="ao-load-more">
+              <button type="button" className="ao-btn-secondary ao-btn-compact" disabled={loading} onClick={() => void load(true)}>
+                Load more
+              </button>
+            </li>
           )}
-        </div>
-      </Panel>
-
-      <section className="aw-panel">
-        <div className="aw-panel-body">
-          {openKey ? (
-            <TicketPanel key={openKey} ticketKey={openKey} />
-          ) : (
-            <div className="aw-empty">
-              <TicketsIcon size={28} />
-              Pick a ticket to see it here.
-            </div>
-          )}
-        </div>
+        </ul>
       </section>
-    </div>
+
+      {openKey && (
+        <>
+          {!closing && <div className="ao-resizer" onMouseDown={startResize} />}
+          <section className="ao-panel ao-detail ao-task-panel" data-closing={closing || undefined} style={{ flexBasis: `${panelWidth}px` }} aria-label={openKey}>
+            <div className="ao-task-panel-inner" style={{ width: `${panelWidth}px` }}>
+              <TicketPanel key={openKey} ticketKey={openKey} onClose={closePanel} />
+            </div>
+          </section>
+        </>
+      )}
+    </main>
   );
 }
 
-function TicketPanel({ ticketKey }: { ticketKey: string }) {
+/** One ticket, as AI Office's task side panel: its facts, description, attachments and comments. */
+function TicketPanel({ ticketKey, onClose }: { ticketKey: string; onClose: () => void }) {
   const [t, setT] = useState<TicketDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -166,58 +231,146 @@ function TicketPanel({ ticketKey }: { ticketKey: string }) {
     call('jiraTicket', ticketKey).then(setT).catch((e) => setError((e as Error).message));
   }, [ticketKey]);
 
-  if (error) return <p className="aw-error aw-pad">{error}</p>;
-  if (!t) return <p className="aw-muted aw-pad">Loading {ticketKey}…</p>;
-
   return (
-    <article className="aw-detail">
-      <div className="aw-row">
-        <span className="aw-mono aw-muted">{t.key}</span>
-        <span className="aw-pill" data-tone={TONE[t.statusCategory]}>{t.status}</span>
-        <span className="aw-muted">{t.type}{t.priority && ` · ${t.priority}`}</span>
-        <span style={{ flex: 1 }} />
-        <button type="button" className="aw-link-btn" onClick={() => void call('openExternal', t.url)}>Open in Jira</button>
-      </div>
-      <h2>{t.summary}</h2>
-      <dl className="aw-facts">
-        <dt>Assignee</dt><dd>{t.assignee ?? 'Unassigned'}</dd>
-        <dt>Reporter</dt><dd>{t.reporter ?? '—'}</dd>
-        <dt>Updated</dt><dd>{when(t.updated)}</dd>
-        {t.parent && (<><dt>Parent</dt><dd><span className="aw-mono">{t.parent.key}</span> {t.parent.summary}</dd></>)}
-        {t.labels.length > 0 && (<><dt>Labels</dt><dd>{t.labels.join(', ')}</dd></>)}
-        <dt>Repo</dt>
-        <dd>{t.repo ? <span className="aw-mono">{t.repo}</span> : <span className="aw-norepo">None — link {t.projectKey} to a repo in <Link href="/settings">Settings</Link></span>}</dd>
-      </dl>
+    <>
+      <header className="ao-task-panel-head">
+        <div className="ao-task-panel-heading">
+          <div className="ao-task-panel-meta">
+            <span className="ao-team-tag" data-kind="project">
+              {ticketKey}
+            </span>
+            {t && (
+              <>
+                <span className="ao-chip ao-chip-status" data-status={STATUS[t.statusCategory]}>
+                  {t.status}
+                </span>
+                <span className="ao-task-panel-id">
+                  {t.type}
+                  {t.priority && ` · ${t.priority}`}
+                </span>
+              </>
+            )}
+          </div>
+          <h2 className="ao-task-panel-title">{t?.summary ?? (error ? 'Couldn’t load it' : `Loading ${ticketKey}…`)}</h2>
+        </div>
+        <button type="button" className="ao-icon-btn" onClick={onClose} aria-label="Close panel" title="Close">
+          <CloseIcon size={15} />
+        </button>
+      </header>
 
-      <section>
-        <h3>Description</h3>
-        {t.description ? <div className="aw-prose">{t.description}</div> : <p className="aw-muted">No description.</p>}
-      </section>
-
-      {t.attachments.length > 0 && (
-        <section>
-          <h3>Attachments</h3>
-          <ul className="aw-list">
-            {t.attachments.map((a) => (
-              <li key={a.id}><span>{a.filename}</span><span className="aw-muted">{Math.ceil(a.size / 1024)} KB</span></li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section>
-        <h3>Comments{t.commentTotal > t.comments.length ? ` (latest ${t.comments.length} of ${t.commentTotal})` : t.comments.length ? ` (${t.comments.length})` : ''}</h3>
-        {t.comments.length === 0 ? (
-          <p className="aw-muted">None.</p>
-        ) : (
-          t.comments.map((c) => (
-            <div key={c.id} className="aw-comment">
-              <div className="aw-muted"><strong>{c.author}</strong> · {when(c.created)}</div>
-              <div className="aw-prose">{c.body}</div>
-            </div>
-          ))
+      <div className="ao-task-panel-body">
+        {error && <p className="ao-task-panel-error">{error}</p>}
+        {!t && !error && (
+          <div className="ao-art-preview-skel">
+            <span className="ao-skel-line" style={{ width: '60%' }} />
+            <span className="ao-skel-line" style={{ width: '92%' }} />
+          </div>
         )}
-      </section>
-    </article>
+        {t && (
+          <>
+            <div className="ao-task-panel-grid">
+              <div>
+                <p className="ao-task-panel-label">Assignee</p>
+                <p className="ao-task-panel-value">{t.assignee ?? 'Unassigned'}</p>
+              </div>
+              <div>
+                <p className="ao-task-panel-label">Reporter</p>
+                <p className="ao-task-panel-value">{t.reporter ?? '—'}</p>
+              </div>
+              <div>
+                <p className="ao-task-panel-label">Updated</p>
+                <p className="ao-task-panel-value">{when(t.updated)}</p>
+              </div>
+              {t.parent && (
+                <div>
+                  <p className="ao-task-panel-label">Parent</p>
+                  <p className="ao-task-panel-value" title={t.parent.summary ?? undefined}>
+                    <span className="ao-task-panel-strong">{t.parent.key}</span>
+                  </p>
+                </div>
+              )}
+              {t.labels.length > 0 && (
+                <div>
+                  <p className="ao-task-panel-label">Labels</p>
+                  <p className="ao-task-panel-value">{t.labels.join(', ')}</p>
+                </div>
+              )}
+            </div>
+
+            <section>
+              <p className="ao-task-panel-label">Repo</p>
+              {t.repo ? (
+                <p className="ao-task-panel-value">
+                  <code>{t.repo}</code>
+                </p>
+              ) : (
+                <p className="ao-task-panel-muted">
+                  None — link {t.projectKey} to a repo in <Link href="/settings" className="ao-inline-link">Settings</Link>.
+                </p>
+              )}
+            </section>
+
+            <section>
+              <p className="ao-task-panel-label">Description</p>
+              <div className="ao-task-panel-desc" data-empty={!t.description}>
+                {t.description || 'No description.'}
+              </div>
+            </section>
+
+            {t.attachments.length > 0 && (
+              <section>
+                <p className="ao-task-panel-label">Attachments</p>
+                <ul className="ao-pipe-runs">
+                  {t.attachments.map((a) => (
+                    <li key={a.id} className="ao-pipe-run ao-static-row">
+                      <span className="ao-pipe-run-stage">{a.filename}</span>
+                      <span className="ao-spacer" />
+                      <span className="ao-pipe-run-meta">{Math.ceil(a.size / 1024)} KB</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <section className="ao-task-panel-comments">
+              <p className="ao-task-panel-label">
+                Comments
+                <span className="ao-task-panel-id">{t.commentTotal > t.comments.length ? `latest ${t.comments.length} of ${t.commentTotal}` : t.comments.length || ''}</span>
+              </p>
+              {t.comments.length === 0 ? (
+                <p className="ao-task-panel-muted">None.</p>
+              ) : (
+                <ul className="ao-task-panel-comment-list">
+                  {t.comments.map((c) => (
+                    <li key={c.id} className="ao-task-panel-comment">
+                      <div className="ao-task-panel-comment-main">
+                        <div className="ao-task-panel-comment-head">
+                          <span className="ao-task-panel-comment-author">{c.author}</span>
+                          <span className="ao-task-panel-comment-time">{when(c.created)}</span>
+                        </div>
+                        <p className="ao-task-panel-comment-body">{c.body}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
+      </div>
+
+      {t && (
+        <footer className="ao-task-panel-foot">
+          <span className="ao-task-panel-muted">
+            <TicketsIcon size={13} /> {t.projectKey}
+          </span>
+          <div className="ao-task-panel-actions">
+            <button type="button" className="ao-btn-secondary" onClick={() => void call('openExternal', t.url)}>
+              <LinkIcon size={14} /> Open in Jira
+            </button>
+          </div>
+        </footer>
+      )}
+    </>
   );
 }

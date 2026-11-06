@@ -40,14 +40,14 @@ export function LinkOpener({ url }: { url: string }) {
   };
 
   return (
-    <div className="aw-link-opener">
-      <input className="aw-input aw-mono" value={url} readOnly onFocus={(e) => e.currentTarget.select()} aria-label="Sign-in link" />
-      <div className="aw-row">
-        <button type="button" className="aw-btn" data-primary onClick={copy}>{copied ? 'Copied' : 'Copy link'}</button>
-        {edge && <button type="button" className="aw-btn" onClick={() => open('openInVpnBrowser')}>Open in VPN Edge</button>}
-        <button type="button" className="aw-btn" onClick={() => open('openExternal')}>Open in default browser</button>
+    <div className="ao-link-opener">
+      <input className="ao-task-input ao-mono-input" value={url} readOnly onFocus={(e) => e.currentTarget.select()} aria-label="Sign-in link" />
+      <div className="ao-status-actions">
+        <button type="button" className="ao-btn-primary" onClick={copy}>{copied ? 'Copied' : 'Copy link'}</button>
+        {edge && <button type="button" className="ao-btn-secondary" onClick={() => open('openInVpnBrowser')}>Open in VPN Edge</button>}
+        <button type="button" className="ao-btn-secondary" onClick={() => open('openExternal')}>Open in default browser</button>
       </div>
-      {error && <p className="aw-error">{error}</p>}
+      {error && <p className="ao-task-panel-error">{error}</p>}
     </div>
   );
 }

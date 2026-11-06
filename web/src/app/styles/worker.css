@@ -1,0 +1,861 @@
+/* ---------- FJ AI Worker's own pieces ----------
+   Everything above this file is AI Office's design system as it is (tokens,
+   shell, boards, Agents Board, Artifacts, Agent Capabilities). What follows
+   covers only what AI Office doesn't have — the brand tile, the readiness
+   pills, the terminal panel, the ticket form, the workflow's seven steps —
+   built from the same tokens and scale. */
+
+/* ---------- shell ---------- */
+
+/* The page and, under it, the terminal panel share the content column. */
+.ao-content-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.ao-page {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* The brand tile: "FJ" on the brand's red → purple. */
+.ao-logo-tile.ao-logo-fj {
+  background: var(--brand-gradient);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 14px -4px rgba(225, 48, 108, 0.55);
+}
+
+/* The primary call in the top bar wears the brand gradient. */
+:root .ao-btn-primary.ao-btn-brand {
+  background: var(--brand-gradient);
+}
+
+:root .ao-btn-primary.ao-btn-brand:hover:not(:disabled) {
+  background: var(--brand-gradient-hover);
+}
+
+/* The top bar is the window's drag region: its controls must take clicks. */
+.ao-topbar-status > * {
+  -webkit-app-region: no-drag;
+}
+
+.ao-topbar-status {
+  min-width: 0;
+}
+
+.ao-ready-pill {
+  cursor: pointer;
+}
+
+:root .ao-ready-pill:hover {
+  color: var(--foreground);
+  border-color: rgb(var(--ink) / 0.16);
+}
+
+/* Readiness: green ready, amber needs a look, red not ready, grey checking. */
+.ao-ready-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--soft);
+}
+
+.ao-ready-dot[data-tone='ok'] {
+  background: var(--fill-green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fill-green) 18%, transparent);
+}
+
+.ao-ready-dot[data-tone='warn'] {
+  background: var(--fill-amber);
+}
+
+.ao-ready-dot[data-tone='bad'] {
+  background: var(--fill-red);
+}
+
+.ao-nav-ready {
+  margin-left: auto;
+}
+
+.ao-topbar-error {
+  font-size: 0.72rem;
+  color: var(--red);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-topbar-icon {
+  height: 26px;
+  width: 26px;
+}
+
+/* ---------- terminal panel (TerminalDock) ---------- */
+
+.ao-panel.ao-dock {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 120px;
+  overflow: visible;
+}
+
+.ao-dock[data-max] {
+  flex: 1 1 auto;
+  height: auto;
+}
+
+/* Dragged by its top edge, like the boards' divider. */
+.ao-dock-grip {
+  position: absolute;
+  inset: -7px 0 auto;
+  height: 10px;
+  z-index: 2;
+  cursor: row-resize;
+}
+
+.ao-dock-grip::before {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  top: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.ao-dock-grip:hover::before {
+  background: var(--accent-line);
+}
+
+.ao-dock-head {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ao-dock-error {
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--red);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-dock-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  border-radius: 0 0 var(--radius) var(--radius);
+  overflow: hidden;
+}
+
+.ao-dock-terms {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.ao-term {
+  position: absolute;
+  inset: 6px 4px 4px 10px;
+}
+
+.ao-term[hidden] {
+  display: none;
+}
+
+/* xterm draws its own scrollbar; keep it out of sight like the app's. */
+.ao-term .xterm-viewport {
+  background: transparent !important;
+}
+
+.ao-dock-list {
+  list-style: none;
+  width: 150px;
+  flex-shrink: 0;
+  padding: 6px;
+  border-left: 1px solid var(--rule);
+  overflow-y: auto;
+}
+
+.ao-dock-term {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.ao-dock-term:hover {
+  background: rgb(var(--ink) / 0.05);
+  color: var(--foreground);
+}
+
+.ao-dock-term[data-active='true'] {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+.ao-dock-ended {
+  margin-left: auto;
+  font-size: 0.64rem;
+  color: var(--soft);
+}
+
+/* ---------- shared bits ---------- */
+
+.ao-mono-input,
+.ao-mono {
+  font-family: var(--font-mono);
+}
+
+input.ao-mono-input,
+textarea.ao-mono-input {
+  font-size: 0.8rem;
+}
+
+.ao-soft {
+  color: var(--soft);
+}
+
+.ao-inset-note {
+  padding: var(--panel-inset) var(--pad-x) 0;
+  list-style: none;
+}
+
+.ao-inline-link {
+  color: var(--accent-ink);
+}
+
+.ao-inline-link:hover {
+  text-decoration: underline;
+}
+
+.ao-link-btn {
+  color: var(--accent-ink);
+  font-size: 0.8rem;
+}
+
+.ao-link-btn:hover {
+  text-decoration: underline;
+}
+
+/* A field: its small-caps label (.ao-task-panel-label) over the input. */
+.ao-task-panel-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ao-task-panel-field .ao-task-panel-label {
+  margin-bottom: 0.35rem;
+}
+
+.ao-field-note {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--soft);
+}
+
+.ao-status-card .ao-task-panel-field + .ao-task-panel-field,
+.ao-status-card .ao-task-panel-grid + .ao-task-panel-field {
+  margin-top: 0.85rem;
+}
+
+.ao-status-card .ao-task-panel-field {
+  margin-top: 0.6rem;
+}
+
+/* A card's buttons, at its foot. */
+.ao-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+/* Text in a card on a settings-shell page reads as the boards' body text. */
+.ao-settings-content .ao-status-card > p,
+.ao-status-text {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
+
+.ao-settings-content .ao-status-card .ao-toggle {
+  margin-top: 0.85rem;
+  font-size: 0.82rem;
+}
+
+.ao-settings-content .ao-status-card h3 .ao-badge {
+  margin-left: auto;
+}
+
+/* Status badges: AI Office's planned/active, plus the readiness tones. */
+.ao-badge[data-tone='ok'] {
+  color: var(--green);
+  border-color: color-mix(in srgb, var(--fill-green) 35%, transparent);
+}
+
+.ao-badge[data-tone='warn'] {
+  color: var(--amber-ink);
+  border-color: color-mix(in srgb, var(--fill-amber) 40%, transparent);
+}
+
+.ao-badge[data-tone='bad'] {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--fill-red) 40%, transparent);
+}
+
+.ao-library-ok {
+  margin-bottom: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--green);
+}
+
+/* ---------- Connections ---------- */
+
+.ao-conn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+}
+
+.ao-status-card-slot {
+  flex: 1 1 420px !important;
+  min-width: 0;
+}
+
+.ao-status-card-slot[hidden] {
+  display: none;
+}
+
+.ao-who {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0.4rem 0 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+.ao-who img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.ao-who > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.84rem;
+}
+
+.ao-who > div > span {
+  font-size: 0.74rem;
+}
+
+.ao-conn-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--well-line);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+.ao-conn-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+.ao-conn-list li + li {
+  border-top: 1px solid var(--grid-line);
+}
+
+.ao-device-code {
+  margin: 0.5rem 0;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--accent-ink);
+}
+
+.ao-link-opener {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.ao-link-opener .ao-status-actions {
+  margin-top: 0;
+}
+
+/* Settings › Projects: a Jira project → its repo, one row each. */
+.ao-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ao-link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ao-link-row .ao-task-input {
+  flex: 1;
+}
+
+/* ---------- Tasks ---------- */
+
+.ao-card-key {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--soft);
+}
+
+/* The two statuses a task has that a session hasn't: needs you (amber) and a draft. */
+.ao-card[data-status='hold']::before {
+  background: var(--st-hold);
+}
+
+.ao-card[data-status='draft']::before {
+  background: var(--st-todo);
+  opacity: 0.5;
+}
+
+.ao-detail-rename {
+  margin: 0;
+  min-width: 220px;
+}
+
+.ao-detail-head .ao-btn-compact {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ao-btn-secondary[data-active] {
+  color: var(--accent-ink);
+}
+
+.ao-wf-chip {
+  color: var(--accent-ink);
+}
+
+.ao-detail-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem var(--pad-x) 0;
+  flex-shrink: 0;
+}
+
+/* The ticket, edited under the head. */
+.ao-ticket-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.75rem var(--pad-x) 0;
+  padding: 0.85rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--card);
+  flex-shrink: 0;
+  max-height: 55%;
+  overflow-y: auto;
+}
+
+.ao-ticket-grid {
+  grid-template-columns: minmax(110px, 0.35fr) 1fr;
+}
+
+.ao-ticket-form .ao-task-textarea {
+  min-height: 6rem;
+}
+
+/* The status line's place picker, a popover rising from it. */
+.ao-place {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.ao-pipe-menu.ao-place-menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: auto;
+  width: 300px;
+}
+
+.ao-place-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ao-place-row .ao-task-input {
+  flex: 1;
+  height: 30px;
+  letter-spacing: normal;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.ao-place-folder {
+  align-self: flex-start;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.ao-status-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The status line's pickers: borderless, as AI Office's agent and role pickers. */
+.ao-statusbar .ao-picker {
+  min-width: 0;
+}
+
+.ao-statusbar {
+  min-width: 0;
+}
+
+/* ---------- Workflow (the Agents Board) ---------- */
+
+/* Nine columns: narrower than the Agents Board's five, so more fit before it scrolls. */
+.ao-wf-columns .ao-column {
+  flex: 1 1 250px;
+  min-width: 250px;
+  max-width: 360px;
+}
+
+/* A colour per step, from the app's one status set (globals.css --st-*). */
+.ao-column-dot[data-step='chat'] { background: var(--st-todo); }
+.ao-column-dot[data-step='analyze'],
+.ao-column-dot[data-step='plan'],
+.ao-column-dot[data-step='fix'] { background: var(--st-progress); }
+.ao-column-dot[data-step='review'],
+.ao-column-dot[data-step='humanReview'] { background: var(--st-review); }
+.ao-column-dot[data-step='test'] { background: var(--st-deploy); }
+.ao-column-dot[data-step='pr'] { background: var(--st-hold); }
+.ao-column-dot[data-step='finished'] { background: var(--st-done); }
+
+.ao-pipe-card[data-step='chat']::before { background: var(--st-todo); }
+.ao-pipe-card[data-step='analyze']::before,
+.ao-pipe-card[data-step='plan']::before,
+.ao-pipe-card[data-step='fix']::before { background: var(--st-progress); }
+.ao-pipe-card[data-step='review']::before,
+.ao-pipe-card[data-step='humanReview']::before { background: var(--st-review); }
+.ao-pipe-card[data-step='test']::before { background: var(--st-deploy); }
+.ao-pipe-card[data-step='pr']::before { background: var(--st-hold); }
+.ao-pipe-card[data-step='finished']::before { background: var(--st-done); }
+
+.ao-head-error {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-pipe-menu.ao-wf-settings {
+  width: 360px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
+.ao-wf-pickers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.4rem;
+}
+
+.ao-wf-rounds {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+.ao-wf-rounds .ao-task-input {
+  width: 70px;
+  height: 30px;
+}
+
+/* Seven steps across the panel: names short, the line between their dots. */
+.ao-wf-steps li {
+  font-size: 0.6rem;
+  text-align: center;
+}
+
+.ao-wf-step-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+}
+
+.ao-wf-step-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.ao-wf-step-list li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.ao-wf-step-list small {
+  color: var(--soft);
+}
+
+.ao-wf-step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--muted);
+  background: rgb(var(--ink) / 0.06);
+}
+
+.ao-wf-explain {
+  margin-top: 0.6rem;
+  line-height: 1.5;
+}
+
+.ao-wf-review {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-tint);
+}
+
+.ao-wf-plan-check {
+  margin-top: 0.6rem;
+}
+
+.ao-task-panel-label .ao-team-tag,
+.ao-task-panel-label .ao-task-panel-id {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.ao-branch-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Markdown in a description box: its own spacing, not pre-wrap. */
+.ao-task-panel-desc.ao-md-box {
+  white-space: normal;
+}
+
+.ao-test-command {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* ---------- Artifacts ---------- */
+
+.ao-art-kind[data-kind='doc'] { color: var(--blue-text); background: rgba(76, 154, 255, 0.13); }
+.ao-art-kind[data-kind='pdf'] { color: var(--red); background: rgba(240, 97, 109, 0.13); }
+
+.ao-csv {
+  overflow: auto;
+  border: 1px solid var(--well-line);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+.ao-csv table {
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.ao-csv th,
+.ao-csv td {
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--grid-line);
+}
+
+.ao-csv th {
+  position: sticky;
+  top: 0;
+  background: var(--well-head);
+  font-weight: 600;
+}
+
+/* ---------- Tickets ---------- */
+
+.ao-jql-field {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+}
+
+.ao-chip-warn {
+  color: var(--amber-ink);
+  border-color: color-mix(in srgb, var(--fill-amber) 40%, transparent);
+}
+
+.ao-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 0.4rem 0;
+}
+
+.ao-static-row {
+  cursor: default;
+}
+
+.ao-static-row:hover {
+  background: none;
+}
+
+/* ---------- Agents & skills ---------- */
+
+.ao-skill-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.ao-pipe-modal.ao-sheet {
+  width: min(860px, calc(100vw - 48px));
+  max-width: none;
+  height: min(720px, calc(100vh - 80px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.ao-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.ao-sheet-editor {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.ao-library-default .ao-picker {
+  min-width: 0;
+}
+
+/* The status side holds more than AI Office's (three readiness pills, Connect
+   VPN, the terminal): it takes what it needs, and the search gives way. */
+.ao-topbar {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 440px) minmax(max-content, 1fr);
+}
+
+.ao-status-card-slot > .ao-status-card {
+  margin-bottom: 0;
+}
+
+/* The task's title takes the head's room first; its buttons give way. */
+.ao-detail-head .ao-detail-heading {
+  flex: 1 1 140px;
+}
+
+.ao-statusbar .ao-picker-trigger,
+.ao-statusbar .ao-status-folder {
+  max-width: 180px;
+}
+
+.ao-statusbar .ao-picker-value,
+.ao-statusbar .ao-status-folder span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .ao-wf-pickers .ao-picker-trigger {
+  justify-content: flex-start;
+}
+
+.ao-wf-steps li {
+  white-space: nowrap;
+}
+
+.ao-task-panel-foot > .ao-task-panel-muted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A skill's actions wrap under its name when the split is narrow. */
+.ao-skill-detail-head {
+  flex-wrap: wrap;
+}
+
+.ao-skill-detail-head > div {
+  flex: 1 1 220px;
+}

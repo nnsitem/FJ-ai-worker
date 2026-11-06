@@ -1,0 +1,1561 @@
+/* /agents — the shared agent library, in the Settings layout (shell.css's
+   .ao-settings-shell / -nav / -content). Only what's specific to this page
+   lives here. */
+
+/* Full width, as every unframed page is (see .ao-settings-content-inner in
+   shell.css) — the agent cards' own grid adds columns as it widens. */
+.ao-library-inner {
+  min-width: 0;
+}
+
+/* ---------- view header ---------- */
+
+.ao-library-head {
+  /* The title row itself is shared with Settings' (.ao-settings-header, in
+     shell.css); here it also carries an action on the right. */
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ao-library-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ao-library-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ao-library-title-count {
+  font-size: 0.72rem;
+}
+
+/* The page's one primary action, sized up like the reference's header CTA. */
+.ao-library-sync {
+  /* The page toolbars' size (shell.css › page toolbars). */
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 0.8rem;
+  font-size: 0.78rem;
+}
+
+.ao-library-error {
+  margin-bottom: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--red);
+  overflow-wrap: anywhere;
+}
+
+.ao-library-hint {
+  font-size: 0.8rem;
+  color: var(--soft);
+}
+
+/* Info strip under the header — the reference's "Preview." box. */
+.ao-library-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.ao-library-banner > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent-ink);
+}
+
+.ao-library-banner > span {
+  flex: 1;
+}
+
+.ao-library-banner .ao-library-sync {
+  align-self: center;
+}
+
+/* "New sessions use [picker]" */
+.ao-library-default {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+}
+
+.ao-library-default-label {
+  font-size: 0.84rem;
+  font-weight: 550;
+}
+
+/* The picker's trigger here reads as a control, not the borderless status
+   line style it has elsewhere. */
+.ao-library-default .ao-picker-trigger {
+  height: 30px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.8rem;
+}
+
+.ao-library-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+/* In the Agents toolbar: at the right, the page toolbars' size (shell.css).
+   (In the Skills panel's column it spans the width.) */
+.ao-library-toolbar > .ao-library-search {
+  flex: 0 1 300px;
+  min-width: 120px;
+  height: 32px;
+}
+
+.ao-library-search {
+  /* Fixed height; its width comes from where it sits (below). */
+  flex: none;
+  height: 32px;
+  padding-right: 0.25rem;
+}
+
+.ao-library-search .ao-icon-btn {
+  width: 22px;
+  height: 22px;
+}
+
+
+/* ---------- agents ---------- */
+
+.ao-library-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 0.7rem;
+}
+
+.ao-agent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.05rem;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+
+.ao-agent-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.ao-agent-card-heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ao-agent-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+
+.ao-agent-badge {
+  font-family: var(--font-sans);
+  font-size: 0.66rem;
+  font-weight: 550;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgb(var(--ink) / 0.06);
+  white-space: nowrap;
+}
+
+.ao-agent-badge[data-kind='default'] {
+  color: var(--green);
+  background: rgba(63, 185, 80, 0.14);
+}
+
+.ao-agent-badge[data-kind='house'] {
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+}
+
+.ao-agent-desc {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The 2×2 facts grid under the divider — label over value, icon beside. */
+.ao-agent-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--rule);
+}
+
+.ao-agent-meta > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.55rem;
+  align-items: center;
+}
+
+.ao-agent-meta svg {
+  grid-row: span 2;
+  color: var(--soft);
+}
+
+.ao-agent-meta dt {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.ao-agent-meta dd {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The tool list is the one value worth reading in full — let it wrap. */
+.ao-agent-meta dd.ao-agent-meta-wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ao-agent-meta dd em {
+  font-family: var(--font-sans);
+  color: var(--muted);
+}
+
+.ao-agent-meta-note {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--amber-ink);
+}
+
+/* List layout */
+.ao-library-rows {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--rule);
+}
+
+.ao-library-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 1rem;
+  background: var(--paper-2);
+}
+
+.ao-library-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ao-library-row .ao-agent-desc {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.ao-library-row-tools {
+  flex-shrink: 0;
+  max-width: 34%;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- skills ---------- */
+
+/* One framed panel holding filter, list and detail — the reference's big box. */
+.ao-skills-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+}
+
+.ao-skills-panel > .ao-library-search {
+  flex: none;
+  width: 100%;
+}
+
+.ao-skills-split {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 0.8rem;
+  /* Tall enough to browse, short enough that the page itself never has to
+     scroll to reach the detail pane. */
+  height: min(640px, calc(100vh - 260px));
+  min-height: 360px;
+}
+
+.ao-skills-list {
+  list-style: none;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+}
+
+.ao-skills-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.ao-skills-item:hover {
+  background: rgb(var(--ink) / 0.04);
+}
+
+.ao-skills-item[data-active='true'] {
+  background: var(--card-active);
+}
+
+.ao-skills-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ao-skills-item-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-skills-item-slug {
+  font-size: 0.7rem;
+  color: var(--soft);
+  background: none;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-skills-empty {
+  padding: 0.6rem;
+}
+
+.ao-skill-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  overflow: hidden;
+}
+
+.ao-skill-detail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ao-skill-detail-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ao-skill-detail-head h3 {
+  font-size: 0.98rem;
+  font-weight: 650;
+  margin-bottom: 0.15rem;
+}
+
+.ao-skill-detail-head code {
+  font-size: 0.72rem;
+  color: var(--soft);
+  background: none;
+  padding: 0;
+}
+
+.ao-skill-detail-about {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.ao-skill-detail-about p {
+  overflow-wrap: anywhere;
+}
+
+.ao-skill-detail-stats {
+  display: block;
+  margin-top: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+.ao-skill-detail-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, 40%) minmax(0, 1fr);
+}
+
+.ao-skill-files {
+  list-style: none;
+  overflow-y: auto;
+  padding: 4px;
+  border-right: 1px solid var(--rule);
+}
+
+.ao-skill-file {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding-top: 0.38rem;
+  padding-bottom: 0.38rem;
+  padding-right: 0.55rem;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  color: var(--muted);
+  text-align: left;
+}
+
+.ao-skill-file > svg {
+  flex-shrink: 0;
+}
+
+.ao-skill-file:hover {
+  background: rgb(var(--ink) / 0.04);
+  color: var(--foreground);
+}
+
+.ao-skill-file[data-active='true'] {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+.ao-skill-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Folder rows: a label for the files indented beneath, not clickable. */
+.ao-skill-folder {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-top: 0.38rem;
+  padding-bottom: 0.38rem;
+  padding-right: 0.55rem;
+  font-size: 0.76rem;
+  color: var(--soft);
+}
+
+.ao-skill-folder > svg {
+  flex-shrink: 0;
+}
+
+.ao-skill-file-size {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--soft);
+}
+
+.ao-skill-preview {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ao-skill-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-skill-preview pre {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: var(--foreground);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- source ---------- */
+
+.ao-library-url {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.ao-library-meta {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  font-size: 0.78rem;
+  color: var(--soft);
+}
+
+/* Agents › Project context: the projects beside the note being edited. */
+.ao-settings-content .ao-pctx {
+  /* Clear of the floating assistant button. */
+  margin-bottom: 64px;
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 0;
+  flex: 0 0 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* The three steps above the notes. */
+.ao-pctx-how {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-tiles);
+  margin-bottom: var(--gap-tiles);
+}
+
+.ao-pctx-how li {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--well);
+}
+
+.ao-pctx-how-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--accent-text);
+  background: var(--accent-tint);
+}
+
+.ao-pctx-how strong {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 650;
+  margin-bottom: 2px;
+}
+
+.ao-pctx-how p {
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* Left: the notes. */
+.ao-pctx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid var(--rule);
+  background: var(--well);
+}
+
+.ao-pctx-add {
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.ao-pctx-add[data-active] {
+  color: var(--accent-text);
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+}
+
+.ao-pctx-list-label {
+  margin: 4px 4px 6px;
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.ao-pctx-list-empty {
+  padding: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.ao-pctx-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.ao-pctx-item:hover {
+  background: rgb(var(--ink) / 0.04);
+}
+
+.ao-pctx-item[data-active] {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+}
+
+.ao-pctx-item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-pctx-item-group {
+  max-width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-pctx-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Right: the open note, or a new one. */
+.ao-pctx-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.ao-pctx-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ao-pctx-head-text {
+  min-width: 0;
+}
+
+.ao-pctx-head h3,
+.ao-pctx-new h3 {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.ao-pctx-head code {
+  padding: 0;
+  background: none;
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-pctx-text,
+.ao-pctx-preview {
+  min-height: 380px;
+}
+
+.ao-pctx-text {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.ao-pctx-preview {
+  padding: 12px 16px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  overflow-y: auto;
+}
+
+.ao-pctx-preview .ao-md-h {
+  margin: 0.9em 0 0.35em;
+}
+
+.ao-pctx-preview .ao-md-h:first-child {
+  margin-top: 0;
+}
+
+.ao-pctx-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ao-pctx-status {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.ao-pctx-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--green);
+}
+
+/* A new note: what was found here, or a path. */
+.ao-pctx-new {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+}
+
+.ao-pctx-new-sub {
+  margin-top: -8px;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.ao-pctx-sugg ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ao-pctx-sugg button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  color: var(--soft);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.ao-pctx-sugg button:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.ao-pctx-sugg-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.ao-pctx-sugg-icon {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.ao-pctx-sugg-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ao-pctx-sugg-text code {
+  padding: 0;
+  background: none;
+  font-size: 0.78rem;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ao-pctx-sugg-text small,
+.ao-pctx-path small {
+  font-size: 0.7rem;
+  color: var(--soft);
+}
+
+.ao-pctx-path {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ao-pctx-path .ao-pctx-list-label {
+  margin: 0;
+}
+
+.ao-pctx-path-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ao-pctx-path-row input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 900px) {
+  .ao-settings-content .ao-pctx,
+  .ao-pctx-how {
+    grid-template-columns: 1fr;
+  }
+  .ao-pctx-list {
+    border-right: none;
+    border-bottom: 1px solid var(--rule);
+  }
+}
+
+/* ---------- Agents › Usage (UsageView.tsx) ---------- */
+
+.ao-usage-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ao-usage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-tiles);
+  /* Clear of the floating assistant button. */
+  padding-bottom: 64px;
+}
+
+.ao-usage-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gap-tiles);
+}
+
+.ao-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap-tiles);
+}
+
+@media (max-width: 980px) {
+  .ao-usage-tiles,
+  .ao-usage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ao-usage-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ao-usage-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ao-usage-tile-label,
+.ao-usage-card h3 {
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.ao-usage-card h3 {
+  margin-bottom: 12px;
+}
+
+.ao-usage-tile-value {
+  font-size: 1.55rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
+.ao-usage-tile-sub,
+.ao-usage-empty {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+/* The day chart: a scale, the bars, and a date every few days. */
+.ao-usage-chart {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.ao-usage-chart-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 160px;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--soft);
+  text-align: right;
+}
+
+.ao-usage-chart-plot {
+  position: relative;
+  min-width: 0;
+}
+
+.ao-usage-chart-bars {
+  display: grid;
+  align-items: end;
+  height: 160px;
+  border-top: 1px dashed var(--grid-line);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.ao-usage-chart-col {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  padding: 0 1px;
+  cursor: default;
+}
+
+.ao-usage-chart-col[data-hover] {
+  background: rgb(var(--ink) / 0.04);
+}
+
+.ao-usage-chart-bar {
+  width: min(100%, 22px);
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+  transition: opacity 0.12s ease;
+}
+
+.ao-usage-chart-col[data-hover] .ao-usage-chart-bar {
+  opacity: 1;
+}
+
+.ao-usage-chart-axis {
+  display: grid;
+  margin-top: 6px;
+  font-size: 0.64rem;
+  color: var(--soft);
+}
+
+.ao-usage-chart-axis span {
+  overflow: visible;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.ao-usage-tip {
+  position: absolute;
+  top: -6px;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  background: var(--glass-solid);
+  box-shadow: 0 6px 18px rgb(var(--shade) / calc(0.35 * var(--shade-k)));
+  font-size: 0.72rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ao-usage-tip span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Breakdown bars: a share of the range's cost each. */
+.ao-usage-bars {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ao-usage-bar-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.ao-usage-bar-num {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ao-usage-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ao-usage-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgb(var(--ink) / 0.06);
+  overflow: hidden;
+}
+
+.ao-usage-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.ao-usage-dl {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ao-usage-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
+.ao-usage-row dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.ao-usage-row dd {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.ao-usage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--soft);
+}
+
+.ao-usage-dot[data-tone='good'] {
+  background: var(--fill-green);
+}
+
+.ao-usage-dot[data-tone='bad'] {
+  background: var(--fill-red);
+}
+
+.ao-usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  table-layout: fixed;
+}
+
+.ao-usage-table th {
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--soft);
+  text-align: left;
+  padding: 0 0 8px;
+}
+
+.ao-usage-table th:not(:first-child),
+.ao-usage-table td:not(:first-child) {
+  width: 90px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ao-usage-table td {
+  padding: 7px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.ao-usage-table td:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ao-usage-gone {
+  flex-shrink: 0;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  color: var(--soft);
+  background: rgb(var(--ink) / 0.06);
+}
+
+/* ---------- Sync Setting › Requirements (RequirementsView.tsx) ---------- */
+
+.ao-req-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ao-req-head h3 {
+  margin: 0;
+}
+
+.ao-req-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ao-req-sub,
+.ao-req-empty {
+  margin: 8px 0 12px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.ao-req-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.ao-req-list li {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+.ao-req-list li[data-status='missing']:not([data-optional]) {
+  border-color: var(--accent-line);
+}
+
+.ao-req-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--green);
+  background: rgba(63, 185, 80, 0.12);
+}
+
+.ao-req-list li[data-status='missing'] .ao-req-icon {
+  color: var(--accent-text);
+  background: var(--accent-tint);
+}
+
+.ao-req-list li[data-status='missing'][data-optional] .ao-req-icon {
+  color: var(--soft);
+  background: rgb(var(--ink) / 0.06);
+}
+
+.ao-req-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ao-req-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+}
+
+.ao-req-tag {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 650;
+  line-height: 16px;
+  color: var(--soft);
+  background: rgb(var(--ink) / 0.06);
+}
+
+.ao-req-tag[data-tone='auto'] {
+  color: var(--accent-text);
+  background: var(--accent-tint);
+}
+
+.ao-req-desc,
+.ao-req-for,
+.ao-req-env {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.ao-req-for code,
+.ao-req-env code {
+  margin-right: 4px;
+  font-size: 0.68rem;
+}
+
+.ao-req-env {
+  color: var(--accent-text);
+}
+
+.ao-req-manual {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ao-req-manual pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--background);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.ao-req-docs {
+  font-size: 0.74rem;
+  color: var(--accent-text);
+}
+
+.ao-req-log {
+  max-height: 220px;
+  overflow: auto;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* "needs setup" on an agent — opens Sync Setting. */
+.ao-req-needs {
+  border: 1px solid var(--accent-line);
+  color: var(--accent-text);
+  background: var(--accent-tint);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ao-req-count {
+  color: var(--accent-text);
+  background: var(--accent-tint);
+}
+
+.ao-library-folder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* ---------- Sync Setting › Settings for the agents (EnvView.tsx) ---------- */
+
+.ao-env-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.ao-env-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ao-env-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ao-env-label code {
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.ao-env-set,
+.ao-env-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--green);
+}
+
+.ao-env-cleared {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--red);
+}
+
+.ao-env-desc {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.ao-env-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ao-env-input input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.ao-env-more {
+  margin-top: 14px;
+}
+
+/* Vercel projects' bypass secrets — a group of their own, each named by the
+   project and the sites it opens. */
+.ao-env-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.ao-env-group h4 {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ao-env-project {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.ao-env-add {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+}
+
+.ao-env-add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.ao-env-group > .ao-env-add-actions {
+  justify-content: flex-start;
+}
+
+.ao-env-group > .ao-env-unsaved {
+  align-items: center;
+}
+
+.ao-env-more summary {
+  margin-bottom: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* An agent's last 30 days, and a session started with it. */
+.ao-agent-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+
+.ao-agent-card-foot .ao-agent-usage {
+  flex: 1;
+}
+
+.ao-agent-usage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.8rem;
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--soft);
+}
+
+.ao-agent-usage b {
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+.ao-agent-usage [data-tone='warn'] b {
+  color: var(--amber-ink);
+}
+
+.ao-agent-usage[data-idle] {
+  font-style: italic;
+}
+
+.ao-library-row .ao-agent-usage {
+  margin-top: 0.25rem;
+}
+
+.ao-library-row > .ao-btn-compact {
+  flex-shrink: 0;
+}
