@@ -80,7 +80,15 @@ export function TerminalDock() {
     if (readPref(OPEN_PREF) === '1') setOpen(true);
     void refresh();
     const off = bridge().onTerminal((ev) => {
-      if (ev.kind !== 'data') void refresh();
+      if (ev.kind === 'data') return;
+      // Its last terminal closed from elsewhere (Disconnect VPN closes the
+      // VPN's): the panel goes with it, as the ✕ on it would.
+      void refresh().then((list) => {
+        if (ev.kind === 'list' && list.length === 0 && openNow.current) {
+          setOpen(false);
+          writePref(OPEN_PREF, '0');
+        }
+      });
     });
     const onRequest = (e: Event) => {
       const req = (e as CustomEvent<DockRequest>).detail;

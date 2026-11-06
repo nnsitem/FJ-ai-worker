@@ -105,6 +105,11 @@ export function closeTerminal(id: string): void {
   emit({ kind: 'list' });
 }
 
+/** The VPN script's terminals closed — with the tunnel, on Disconnect VPN. */
+export function closeVpnTerminals(): void {
+  for (const t of [...terms.values()]) if (t.kind === 'vpn') closeTerminal(t.id);
+}
+
 export function closeAllTerminals(): void {
   for (const t of terms.values()) if (t.running) t.pty.kill();
   terms.clear();

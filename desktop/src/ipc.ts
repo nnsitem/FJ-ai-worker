@@ -64,7 +64,7 @@ import {
   type Run,
 } from '../../core/src/runs.js';
 import { aiOfficeLibrary, createLibraryItem, importLibrary, libraryItem, readLibrary, removeFromLibrary, saveLibraryItem, skillFile, skillFiles } from '../../core/src/library.js';
-import { closeTerminal, listTerminals, onTerminalEvent, openTerminal, resizeTerminal, terminalBuffer, writeTerminal, type TerminalKind } from './terminal.js';
+import { closeTerminal, closeVpnTerminals, listTerminals, onTerminalEvent, openTerminal, resizeTerminal, terminalBuffer, writeTerminal, type TerminalKind } from './terminal.js';
 import { artifactContent, artifactFile, deleteArtifact, listArtifacts } from '../../core/src/artifacts.js';
 import { deleteProjectContext, listProjectContexts, PROJECT_CONTEXT_TEMPLATE, saveProjectContext, taskProject } from '../../core/src/project-context.js';
 import { getSettings as readSettings } from '../../core/src/settings.js';
@@ -137,7 +137,11 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   });
 
   handle(CHANNELS.vpnStatus, () => vpnStatus());
-  handle(CHANNELS.vpnDisconnect, () => vpnDisconnect());
+  handle(CHANNELS.vpnDisconnect, async () => {
+    const s = await vpnDisconnect();
+    closeVpnTerminals();
+    return s;
+  });
   handle(CHANNELS.vpnOpenScript, async () => {
     const script = getSettings().vpnScript;
     if (!script || !fs.existsSync(script)) throw new Error('Set the VPN script in Settings first');
