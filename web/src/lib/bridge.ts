@@ -37,7 +37,7 @@ export type ClaudeLoginEvent =
   | { kind: 'done'; account: ClaudeAccount }
   | { kind: 'error'; error: string }
   | { kind: 'closed' };
-export type AppInfo = { version: string; platform: string; claudeConfigDir: string };
+export type AppInfo = { version: string; platform: string; claudeConfigDir: string; vpnBrowser: boolean };
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 type P<T> = Promise<Reply<T>>;
@@ -63,6 +63,7 @@ type Bridge = {
   claudeLogout(): P<ClaudeAccount>;
   onClaudeLogin(cb: (ev: ClaudeLoginEvent) => void): () => void;
   openExternal(url: string): P<void>;
+  openInVpnBrowser(url: string): P<void>;
 };
 
 declare global {

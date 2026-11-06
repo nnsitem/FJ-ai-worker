@@ -28,4 +28,5 @@ contextBridge.exposeInMainWorld('aiWorker', {
     return () => ipcRenderer.removeListener(C.claudeLoginEvent, l);
   },
   openExternal: (url) => ipcRenderer.invoke(C.openExternal, url),
+  openInVpnBrowser: (url) => ipcRenderer.invoke(C.openInVpnBrowser, url),
 });

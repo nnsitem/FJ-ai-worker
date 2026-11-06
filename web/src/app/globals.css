@@ -142,3 +142,4 @@ code, .aw-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; fo
 .aw-list li { display: flex; align-items: center; gap: 10px; padding: 7px 2px; border-bottom: 1px solid var(--rule); }
 .aw-list li span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aw-divider { border: none; border-top: 1px solid var(--rule); margin: 2px 0; width: 100%; }
+.aw-link-opener { display: flex; flex-direction: column; gap: 8px; }

@@ -1,5 +1,8 @@
 import { app, ipcMain, session, shell, type BrowserWindow } from 'electron';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import CHANNELS from './channels.json' with { type: 'json' };
 import { getSettings, saveSettings, type SettingsPatch } from '../../core/src/settings.js';
 import { pacScript, vpnStatus } from '../../core/src/network.js';
@@ -45,6 +48,28 @@ export async function applyProxy(): Promise<void> {
   await session.defaultSession.closeAllConnections();
 }
 
+/**
+ * The VPN script's Edge: its own profile (~/.edge-vpn-proxy), going out
+ * through the tunnel — where the company's GitHub and Google sign-ins live,
+ * rather than the person's own browser. Mac only, like the script.
+ */
+const EDGE = '/Applications/Microsoft Edge.app';
+const EDGE_PROFILE = path.join(os.homedir(), '.edge-vpn-proxy');
+
+function vpnBrowserAvailable(): boolean {
+  return process.platform === 'darwin' && fs.existsSync(EDGE);
+}
+
+function openInVpnBrowser(url: string): Promise<void> {
+  const { host, port } = getSettings().proxy;
+  // Same arguments as the script, so an Edge it already opened takes the
+  // link as a new tab instead of starting a second copy.
+  const args = ['-na', 'Microsoft Edge', '--args', `--proxy-server=socks5://${host}:${port}`, `--user-data-dir=${EDGE_PROFILE}`, url];
+  return new Promise((resolve, reject) =>
+    execFile('open', args, (err, _o, stderr) => (err ? reject(new Error((stderr || err.message).trim())) : resolve())),
+  );
+}
+
 export function registerIpc(win: () => BrowserWindow | null): void {
   const send = (channel: string, payload: unknown) => {
     const w = win();
@@ -55,6 +80,7 @@ export function registerIpc(win: () => BrowserWindow | null): void {
     version: app.getVersion(),
     platform: process.platform,
     claudeConfigDir: claudeConfigDir(),
+    vpnBrowser: vpnBrowserAvailable(),
   }));
 
   handle(CHANNELS.settingsGet, () => getSettings());
@@ -106,5 +132,10 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.openExternal, async (url: string) => {
     if (!/^https:\/\//.test(url)) throw new Error('Only https links open');
     await shell.openExternal(url);
+  });
+  handle(CHANNELS.openInVpnBrowser, async (url: string) => {
+    if (!/^https:\/\//.test(url)) throw new Error('Only https links open');
+    if (!vpnBrowserAvailable()) throw new Error('Microsoft Edge is not installed');
+    await openInVpnBrowser(url);
   });
 }

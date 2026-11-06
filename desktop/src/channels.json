@@ -18,5 +18,6 @@
   "claudeLogout": "claude:logout",
   "claudeLoginEvent": "claude:login-event",
   "openExternal": "app:open-external",
+  "openInVpnBrowser": "app:open-in-vpn-browser",
   "appInfo": "app:info"
 }

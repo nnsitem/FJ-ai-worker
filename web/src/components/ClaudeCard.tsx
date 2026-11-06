@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { LinkOpener } from './LinkOpener';
 import { bridge, call, type ClaudeAccount } from '@/lib/bridge';
 
 /**
@@ -16,7 +17,6 @@ export function ClaudeCard() {
   /** Sign-in under way: its link, and whether the code is pasted by hand. */
   const [pending, setPending] = useState<{ url: string; manual: boolean } | null>(null);
   const [code, setCode] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -81,12 +81,6 @@ export function ClaudeCard() {
     }
   };
 
-  const copy = async () => {
-    if (!pending) return;
-    await navigator.clipboard.writeText(pending.url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
 
   const wrongAccount = account?.loggedIn && !account.ok;
   const tone = !account ? undefined : account.ok ? 'ok' : account.loggedIn ? 'bad' : 'warn';
@@ -122,10 +116,7 @@ export function ClaudeCard() {
         pending.manual ? (
           <>
             <p>Open the link in a browser signed in to the company Gmail, sign in, then paste the code the page shows.</p>
-            <div className="aw-row">
-              <button type="button" className="aw-btn" onClick={copy}>{copied ? 'Copied' : 'Copy the link'}</button>
-              <button type="button" className="aw-btn" onClick={() => void call('openExternal', pending.url)}>Open in my browser</button>
-            </div>
+            <LinkOpener url={pending.url} />
             <label className="aw-field">
               <span>Code</span>
               <input className="aw-input aw-mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Paste the code here" />
@@ -149,7 +140,7 @@ export function ClaudeCard() {
           {!account?.loggedIn ? (
             <>
               <button type="button" className="aw-btn" data-primary disabled={busy} onClick={() => start(true)}>Sign in to Claude</button>
-              <button type="button" className="aw-btn" disabled={busy} onClick={() => start(false)}>Sign in in my browser</button>
+              <button type="button" className="aw-btn" disabled={busy} onClick={() => start(false)}>Sign in with a link</button>
             </>
           ) : (
             <button type="button" className="aw-btn" data-danger onClick={signOut}>Sign out</button>

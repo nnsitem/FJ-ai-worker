@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { LinkOpener } from './LinkOpener';
 import { call, type DeviceCode, type GithubState, type RepoSummary } from '@/lib/bridge';
 
 /**
@@ -62,8 +63,8 @@ export function GithubCard({ vpnUp }: { vpnUp: boolean }) {
     setError(null);
     try {
       const d = await call('githubDeviceStart');
+      // Not opened by itself — the default browser is likely the person's own GitHub.
       setDevice(d);
-      void call('openExternal', d.verificationUri);
       await run(() => call('githubDeviceFinish'));
     } catch (e) {
       setError((e as Error).message);
@@ -117,10 +118,11 @@ export function GithubCard({ vpnUp }: { vpnUp: boolean }) {
         </>
       ) : device ? (
         <>
-          <p>Enter this code on GitHub (opened in your browser — use the one on the VPN):</p>
+          <p>Open this link in the browser signed in to the company GitHub, and enter the code:</p>
           <div className="aw-code">{device.userCode}</div>
+          <LinkOpener url={device.verificationUri} />
           <div className="aw-row">
-            <button type="button" className="aw-btn" onClick={() => void call('openExternal', device.verificationUri)}>Open GitHub again</button>
+            <span className="aw-muted">Waiting for GitHub…</span>
             <button type="button" className="aw-btn" onClick={() => void call('githubDeviceCancel')}>Cancel</button>
           </div>
         </>
