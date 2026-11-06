@@ -49,6 +49,19 @@ function bundledClaude(): string | null {
   }
 }
 
+/**
+ * The app was "AI Worker" before it was FJ AI Worker: its settings come
+ * along to the new data folder. Sign-ins don't — the keychain keys them to
+ * the old name and folder — so GitHub and Claude are signed in again.
+ */
+function carrySettingsOver(dataDir: string): void {
+  const old = path.join(app.getPath('appData'), 'AI Worker', 'settings.json');
+  const now = path.join(dataDir, 'settings.json');
+  if (process.env.FJ_AI_WORKER_DATA_DIR || fs.existsSync(now) || !fs.existsSync(old)) return;
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.copyFileSync(old, now);
+}
+
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 function isInsideRenderer(candidate: string): boolean {
@@ -94,12 +107,16 @@ function registerRendererProtocol(): void {
 }
 
 function createWindow(): void {
+  // Unpackaged, the dock would show Electron's own icon.
+  const icon = path.resolve(here, '../build/icon.png');
+  if (!app.isPackaged && process.platform === 'darwin' && fs.existsSync(icon)) app.dock?.setIcon(icon);
   mainWindow = new BrowserWindow({
+    title: 'FJ AI Worker',
     width: 1200,
     height: 800,
     minWidth: 860,
     minHeight: 560,
-    backgroundColor: '#15161a',
+    backgroundColor: '#0c0b10',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: process.platform === 'darwin' ? { x: 16, y: 17 } : undefined,
     autoHideMenuBar: process.platform !== 'darwin',
@@ -132,7 +149,9 @@ else
 
 app.whenReady().then(async () => {
   if (!isPrimaryInstance) return;
-  setDataRoot(process.env.AI_WORKER_DATA_DIR || app.getPath('userData'));
+  const dataDir = process.env.FJ_AI_WORKER_DATA_DIR || app.getPath('userData');
+  carrySettingsOver(dataDir);
+  setDataRoot(dataDir);
   setClaudeExecutable(bundledClaude());
   // Calls from the main process take the session's routing (the VPN tunnel
   // for GitHub, network.ts).

@@ -42,7 +42,7 @@ export function NewRunForm({ onCreated, onCancel }: { onCreated: (r: Run) => voi
   };
 
   return (
-    <div className="aw-run">
+    <div className="aw-detail">
       <h2>New run</h2>
       <p className="aw-muted">Copy the ticket from Jira. Claude reads the repo, then writes a plan for you to check before any code changes.</p>
       <div className="aw-grid-key">

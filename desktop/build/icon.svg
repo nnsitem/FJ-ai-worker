@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6413a"/>
+      <stop offset="0.38" stop-color="#e1306c"/>
+      <stop offset="0.66" stop-color="#c13584"/>
+      <stop offset="1" stop-color="#833ab4"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="0.3" cy="0.15" r="0.9">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.22"/>
+      <stop offset="0.6" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- macOS icon grid: an 824px tile centred in the 1024 canvas. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#shine)"/>
+  <text x="512" y="512" dy="0.35em" text-anchor="middle" font-family="LINE Seed Sans TH, Helvetica Neue, Arial, sans-serif" font-weight="800" font-size="400" letter-spacing="-8" fill="#fff">FJ</text>
+</svg>

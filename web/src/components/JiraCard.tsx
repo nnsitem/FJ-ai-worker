@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { JiraIcon } from './icons';
 import { call, type JiraState, type Settings } from '@/lib/bridge';
 
 const hostOf = (site: string) => {
@@ -80,6 +81,7 @@ export function JiraCard({ vpnUp }: { vpnUp: boolean }) {
   return (
     <section className="aw-card">
       <div className="aw-card-head">
+        <span className="aw-card-icon"><JiraIcon size={17} /></span>
         <h2>Jira</h2>
         <span className="aw-pill" data-tone={!state ? undefined : connected ? 'ok' : error ? 'bad' : 'warn'}>
           {!state ? 'Checking…' : connected ? 'Connected' : 'Not connected'}

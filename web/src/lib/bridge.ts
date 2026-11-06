@@ -143,7 +143,7 @@ declare global {
 }
 
 export function bridge(): Bridge {
-  if (typeof window === 'undefined' || !window.aiWorker) throw new Error('Open AI Worker in its desktop app');
+  if (typeof window === 'undefined' || !window.aiWorker) throw new Error('Open FJ AI Worker in its desktop app');
   return window.aiWorker;
 }
 

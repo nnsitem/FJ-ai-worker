@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { LinkOpener } from './LinkOpener';
+import { GithubIcon } from './icons';
 import { call, type DeviceCode, type GithubState, type RepoSummary } from '@/lib/bridge';
 
 /**
@@ -82,6 +83,7 @@ export function GithubCard({ vpnUp }: { vpnUp: boolean }) {
   return (
     <section className="aw-card">
       <div className="aw-card-head">
+        <span className="aw-card-icon"><GithubIcon size={17} /></span>
         <h2>GitHub</h2>
         <span className="aw-pill" data-tone={signedIn ? 'ok' : vpnUp ? 'warn' : undefined}>
           {signedIn ? 'Signed in' : vpnUp ? 'Not signed in' : 'Waiting for the VPN'}

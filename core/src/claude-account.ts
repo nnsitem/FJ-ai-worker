@@ -6,7 +6,7 @@ import { toolEnv } from './network.js';
 import { getSettings } from './settings.js';
 
 /**
- * AI Worker's own Claude account — the company's — kept apart from the
+ * FJ AI Worker's own Claude account — the company's — kept apart from the
  * person's own Claude Code:
  * - its own config folder (CLAUDE_CONFIG_DIR, under the app's data). Claude
  *   Code keys its stored sign-in to that folder, so signing in here neither

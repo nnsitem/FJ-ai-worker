@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Where AI Worker keeps its own files — settings, sealed secrets, its own
+ * Where FJ AI Worker keeps its own files — settings, sealed secrets, its own
  * Claude config folder. Set once by the desktop app before anything else
  * touches the disk; nothing here is shared with any other app.
  */

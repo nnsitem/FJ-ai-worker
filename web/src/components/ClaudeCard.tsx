@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { LinkOpener } from './LinkOpener';
+import { ClaudeIcon } from './icons';
 import { bridge, call, type ClaudeAccount } from '@/lib/bridge';
 
 /**
@@ -89,11 +90,12 @@ export function ClaudeCard() {
   return (
     <section className="aw-card">
       <div className="aw-card-head">
+        <span className="aw-card-icon"><ClaudeIcon size={17} /></span>
         <h2>Claude</h2>
         <span className="aw-pill" data-tone={tone}>{label}</span>
       </div>
       <p className="aw-muted">
-        AI Worker&apos;s own Claude sign-in. Claude Code in your terminal, and any other app, keep their own account.
+        FJ AI Worker&apos;s own Claude sign-in. Claude Code in your terminal, and any other app, keep their own account.
       </p>
 
       {account?.loggedIn && (

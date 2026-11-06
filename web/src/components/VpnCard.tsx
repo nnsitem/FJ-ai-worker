@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { VpnIcon } from './icons';
 import { call, type VpnStatus } from '@/lib/bridge';
 
 /** The VPN tunnel GitHub goes through: up, and GitHub answering through it. */
@@ -46,6 +47,7 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
   return (
     <section className="aw-card">
       <div className="aw-card-head">
+        <span className="aw-card-icon"><VpnIcon size={17} /></span>
         <h2>VPN</h2>
         <span className="aw-pill" data-tone={tone}>{label}</span>
       </div>

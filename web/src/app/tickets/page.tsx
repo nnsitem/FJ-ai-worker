@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Panel } from '@/components/Panel';
+import { TicketsIcon } from '@/components/icons';
 import { call, type JiraProject, type StatusCategory, type TicketDetail, type TicketFilter, type TicketSummary } from '@/lib/bridge';
 
 const TONE: Record<StatusCategory, string | undefined> = { new: undefined, indeterminate: 'info', done: 'ok', undefined: undefined };
@@ -73,10 +75,9 @@ export default function TicketsPage() {
   const notConnected = error?.startsWith('Connect Jira first');
 
   return (
-    <div className="aw-tickets">
-      <div className="aw-tickets-list">
-        <div className="aw-tickets-head">
-          <h1>Tickets</h1>
+    <div className="aw-split">
+      <Panel title="Tickets" sub="From Jira — read only until it's connected for writing">
+        <div className="aw-filter">
           <div className="aw-tabs" role="tablist">
             {SCOPES.map((s) => (
               <button key={s.id} type="button" role="tab" aria-selected={scope === s.id} className="aw-tab" onClick={() => setScope(s.id)}>
@@ -85,7 +86,7 @@ export default function TicketsPage() {
             ))}
           </div>
           <form
-            className="aw-row aw-tickets-filter"
+            className="aw-row"
             onSubmit={(e) => {
               e.preventDefault();
               void load();
@@ -108,40 +109,51 @@ export default function TicketsPage() {
           </form>
         </div>
 
-        {notConnected ? (
-          <p className="aw-muted aw-pad">Jira isn&apos;t connected yet — <Link href="/">Connections</Link>.</p>
-        ) : error ? (
-          <p className="aw-error aw-pad">{error}</p>
-        ) : tickets && tickets.length === 0 ? (
-          <p className="aw-muted aw-pad">No tickets match.</p>
-        ) : (
-          <ul className="aw-ticket-rows">
-            {tickets?.map((t) => (
-              <li key={t.key}>
-                <button type="button" className="aw-ticket-row" aria-current={openKey === t.key || undefined} onClick={() => setOpenKey(t.key)}>
-                  <span className="aw-ticket-key aw-mono">{t.key}</span>
-                  <span className="aw-ticket-summary">{t.summary}</span>
-                  <span className="aw-pill" data-tone={TONE[t.statusCategory]}>{t.status}</span>
-                  <span className="aw-ticket-meta">
-                    {t.type}
-                    {t.assignee && scope !== 'mine' ? ` · ${t.assignee}` : ''} · {when(t.updated)}
-                    {!t.repo && <span className="aw-ticket-norepo"> · no repo</span>}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {next && !error && (
-          <div className="aw-pad">
-            <button type="button" className="aw-btn" disabled={loading} onClick={() => void load(true)}>Load more</button>
-          </div>
-        )}
-      </div>
+        <div className="aw-panel-body">
+          {notConnected ? (
+            <p className="aw-muted aw-pad">Jira isn&apos;t connected yet — <Link href="/">Connections</Link>.</p>
+          ) : error ? (
+            <p className="aw-error aw-pad">{error}</p>
+          ) : tickets && tickets.length === 0 ? (
+            <p className="aw-muted aw-pad">No tickets match.</p>
+          ) : (
+            <ul className="aw-rows">
+              {tickets?.map((t) => (
+                <li key={t.key}>
+                  <button type="button" className="aw-row-btn" aria-current={openKey === t.key || undefined} onClick={() => setOpenKey(t.key)}>
+                    <span className="aw-row-key">{t.key}</span>
+                    <span className="aw-row-title">{t.summary}</span>
+                    <span className="aw-pill" data-tone={TONE[t.statusCategory]}>{t.status}</span>
+                    <span className="aw-row-meta">
+                      {t.type}
+                      {t.assignee && scope !== 'mine' ? ` · ${t.assignee}` : ''} · {when(t.updated)}
+                      {!t.repo && <span className="aw-norepo"> · no repo</span>}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {next && !error && (
+            <div className="aw-pad">
+              <button type="button" className="aw-btn" disabled={loading} onClick={() => void load(true)}>Load more</button>
+            </div>
+          )}
+        </div>
+      </Panel>
 
-      <div className="aw-tickets-detail">
-        {openKey ? <TicketPanel key={openKey} ticketKey={openKey} /> : <p className="aw-muted aw-pad">Pick a ticket to see it here.</p>}
-      </div>
+      <section className="aw-panel">
+        <div className="aw-panel-body">
+          {openKey ? (
+            <TicketPanel key={openKey} ticketKey={openKey} />
+          ) : (
+            <div className="aw-empty">
+              <TicketsIcon size={28} />
+              Pick a ticket to see it here.
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -158,7 +170,7 @@ function TicketPanel({ ticketKey }: { ticketKey: string }) {
   if (!t) return <p className="aw-muted aw-pad">Loading {ticketKey}…</p>;
 
   return (
-    <article className="aw-ticket">
+    <article className="aw-detail">
       <div className="aw-row">
         <span className="aw-mono aw-muted">{t.key}</span>
         <span className="aw-pill" data-tone={TONE[t.statusCategory]}>{t.status}</span>
@@ -167,14 +179,14 @@ function TicketPanel({ ticketKey }: { ticketKey: string }) {
         <button type="button" className="aw-link-btn" onClick={() => void call('openExternal', t.url)}>Open in Jira</button>
       </div>
       <h2>{t.summary}</h2>
-      <dl className="aw-ticket-facts">
+      <dl className="aw-facts">
         <dt>Assignee</dt><dd>{t.assignee ?? 'Unassigned'}</dd>
         <dt>Reporter</dt><dd>{t.reporter ?? '—'}</dd>
         <dt>Updated</dt><dd>{when(t.updated)}</dd>
         {t.parent && (<><dt>Parent</dt><dd><span className="aw-mono">{t.parent.key}</span> {t.parent.summary}</dd></>)}
         {t.labels.length > 0 && (<><dt>Labels</dt><dd>{t.labels.join(', ')}</dd></>)}
         <dt>Repo</dt>
-        <dd>{t.repo ? <span className="aw-mono">{t.repo}</span> : <span className="aw-ticket-norepo">None — link {t.projectKey} to a repo in <Link href="/settings">Settings</Link></span>}</dd>
+        <dd>{t.repo ? <span className="aw-mono">{t.repo}</span> : <span className="aw-norepo">None — link {t.projectKey} to a repo in <Link href="/settings">Settings</Link></span>}</dd>
       </dl>
 
       <section>

@@ -71,7 +71,7 @@ function loadAll(): void {
       // A run the app was closed in the middle of stops there.
       for (const s of STEPS) if (r.steps[s] === 'running') {
         r.steps[s] = 'failed';
-        r.error = 'AI Worker was closed while this step ran — run it again';
+        r.error = 'FJ AI Worker was closed while this step ran — run it again';
       }
       runs.set(r.id, r);
     } catch {
@@ -277,7 +277,7 @@ async function analyse(r: Run, feedback?: string): Promise<void> {
         systemPrompt: {
           type: 'preset',
           preset: 'claude_code',
-          append: 'You are AI Worker, analysing a ticket before any code is changed. Only read; never try to edit, write or run commands.',
+          append: 'You are FJ AI Worker, analysing a ticket before any code is changed. Only read; never try to edit, write or run commands.',
         },
         // Read-only: these exist, nothing else does.
         tools: ['Read', 'Grep', 'Glob'],

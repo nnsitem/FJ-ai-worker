@@ -16,7 +16,7 @@ const lineSeed = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'AI Worker',
+  title: 'FJ AI Worker',
   description: 'Jira tickets fixed by Claude Code, through to a GitHub pull request.',
 };
 

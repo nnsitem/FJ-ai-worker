@@ -1,4 +1,4 @@
-# AI Worker
+# FJ AI Worker
 
 A desktop agent worker: takes a Jira Cloud ticket, has Claude Code analyse it,
 plan, fix, test and open a GitHub pull request. One person, one machine — no
@@ -27,8 +27,8 @@ environment (`core/src/network.ts` `toolEnv`).
 
 ## Claude account
 
-AI Worker signs in to Claude with its own config folder
+FJ AI Worker signs in to Claude with its own config folder
 (`CLAUDE_CONFIG_DIR` = `<app data>/claude`) and an environment without the
 shell's `ANTHROPIC_*` / `CLAUDE_*`, so the company account never mixes with
 the Claude Code in your terminal. Data lives in
-`~/Library/Application Support/AI Worker` (override: `AI_WORKER_DATA_DIR`).
+`~/Library/Application Support/FJ AI Worker` (override: `FJ_AI_WORKER_DATA_DIR`).

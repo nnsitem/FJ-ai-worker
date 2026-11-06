@@ -1,4 +1,4 @@
-import { BrowserWindow, session, shell } from 'electron';
+import { app, BrowserWindow, session, shell } from 'electron';
 
 /**
  * Claude's sign-in page in a window of the app's own, on a fresh in-memory
@@ -13,7 +13,8 @@ export function openClaudeLoginWindow(url: string, parent: BrowserWindow | null)
     const ses = session.fromPartition(`claude-login-${Date.now()}`, { cache: false });
     // Google refuses to sign in inside an app that names itself as one
     // ("This browser or app may not be secure"); the plain Chrome agent.
-    ses.setUserAgent(ses.getUserAgent().replace(/\s(Electron|ai-worker-desktop|AI Worker)\/\S+/g, ''));
+    const appToken = new RegExp(`\\s(Electron|${app.getName().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\/\\S+`, 'g');
+    ses.setUserAgent(ses.getUserAgent().replace(appToken, ''));
     const win = new BrowserWindow({
       width: 520,
       height: 720,

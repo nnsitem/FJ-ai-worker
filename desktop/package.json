@@ -1,8 +1,8 @@
 {
-  "name": "ai-worker-desktop",
+  "name": "fj-ai-worker-desktop",
   "version": "0.1.0",
-  "productName": "AI Worker",
-  "description": "AI Worker — Jira tickets fixed by Claude Code, through to a GitHub pull request",
+  "productName": "FJ AI Worker",
+  "description": "FJ AI Worker — Jira tickets fixed by Claude Code, through to a GitHub pull request",
   "private": true,
   "type": "module",
   "main": "dist/main.mjs",

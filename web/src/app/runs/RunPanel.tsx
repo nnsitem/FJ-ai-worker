@@ -31,7 +31,7 @@ export function RunPanel({ run, onDeleted }: { run: Run; onDeleted: () => void }
 
   const copyPlan = async () => {
     if (!run.plan) return;
-    await navigator.clipboard.writeText(`AI Worker plan for ${run.ticket.key}\n\n${run.plan}`);
+    await navigator.clipboard.writeText(`FJ AI Worker plan for ${run.ticket.key}\n\n${run.plan}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -41,7 +41,7 @@ export function RunPanel({ run, onDeleted }: { run: Run; onDeleted: () => void }
   const reviewed = run.steps.review === 'done' || run.steps.review === 'skipped';
 
   return (
-    <article className="aw-run">
+    <article className="aw-detail">
       <div className="aw-row">
         <span className="aw-mono aw-muted">{t.key}</span>
         <span className="aw-mono aw-muted">· {run.repo}{run.baseBranch && `@${run.baseBranch}`}</span>
