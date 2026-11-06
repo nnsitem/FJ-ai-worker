@@ -11,13 +11,14 @@ import { usePanelResize } from '@/lib/use-panel-resize';
 import { inPopupLayer } from '@/lib/popup-layer';
 import { currentStep, placeName, STEP_LABELS } from '../tasks/steps';
 import { WorkflowDetail } from './WorkflowDetail';
+import { Minimap } from './Minimap';
 
 type ColumnId = StepId | 'chat' | 'finished';
 
-const COLUMNS: { id: ColumnId; label: string; hint: string }[] = [
-  { id: 'chat', label: 'Not started', hint: 'Tasks still in conversation — Run workflow carries one through the steps' },
-  ...STEP_LABELS.map((s) => ({ id: s.id as ColumnId, label: `${s.n}. ${s.short}`, hint: s.manual ? `${s.label} — then ${s.manual}` : s.label })),
-  { id: 'finished', label: 'Finished', hint: 'Through every step' },
+const COLUMNS: { id: ColumnId; label: string; short: string; hint: string }[] = [
+  { id: 'chat', label: 'Not started', short: 'Not started', hint: 'Tasks still in conversation — Run workflow carries one through the steps' },
+  ...STEP_LABELS.map((s) => ({ id: s.id as ColumnId, label: `${s.n}. ${s.short}`, short: `${s.n} ${s.short}`, hint: s.manual ? `${s.label} — then ${s.manual}` : s.label })),
+  { id: 'finished', label: 'Finished', short: 'Done', hint: 'Through every step' },
 ];
 
 const columnOf = (r: Run): ColumnId => (!r.workflowStarted ? 'chat' : (currentStep(r)?.id ?? 'finished'));
@@ -133,6 +134,18 @@ export default function WorkflowPage() {
           </div>
         </header>
 
+        {runs && runs.length > 0 && (
+          <Minimap
+            columns={COLUMNS}
+            runs={visible}
+            columnOf={columnOf}
+            selected={selected}
+            onPick={(id) => {
+              openPanel(id);
+              setTimeout(() => document.querySelector(`[data-run="${id}"]`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }), 50);
+            }}
+          />
+        )}
         <div className="ao-columns ao-pipe-columns ao-wf-columns">
           {COLUMNS.map((col) => {
             const list = visible.filter((r) => columnOf(r) === col.id);
@@ -207,6 +220,7 @@ function CardView({ run, column, active, onOpen, onOpenTask, onStart }: { run: R
     <div
       className="ao-card ao-pipe-card"
       data-step={column}
+      data-run={run.id}
       data-active={active}
       role="button"
       tabIndex={0}

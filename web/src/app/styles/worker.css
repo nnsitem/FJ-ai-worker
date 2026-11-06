@@ -575,26 +575,70 @@ textarea.ao-mono-input {
   max-width: 360px;
 }
 
-/* A colour per step, from the app's one status set (globals.css --st-*). */
-.ao-column-dot[data-step='chat'] { background: var(--st-todo); }
-.ao-column-dot[data-step='analyze'],
-.ao-column-dot[data-step='plan'],
-.ao-column-dot[data-step='fix'] { background: var(--st-progress); }
-.ao-column-dot[data-step='review'],
-.ao-column-dot[data-step='humanReview'] { background: var(--st-review); }
-.ao-column-dot[data-step='test'] { background: var(--st-deploy); }
-.ao-column-dot[data-step='pr'] { background: var(--st-hold); }
-.ao-column-dot[data-step='finished'] { background: var(--st-done); }
+/* A colour per step that says what kind of step it is: blue–violet while
+   Claude works it out, amber–pink where a person decides, orange while it
+   builds, teal while it's checked, sky as it ships, green when it's done. */
+:root {
+  --step-chat: #8b8b9a;
+  --step-analyze: #60a5fa;
+  --step-plan: #a78bfa;
+  --step-review: #f59e0b;
+  --step-fix: #fb923c;
+  --step-test: #2dd4bf;
+  --step-selfReview: #818cf8;
+  --step-pr: #38bdf8;
+  --step-humanReview: #f472b6;
+  --step-finished: #22c55e;
+}
+:root[data-theme='light'] {
+  --step-chat: #6b6b7b;
+  --step-analyze: #2563eb;
+  --step-plan: #7c3aed;
+  --step-review: #b45309;
+  --step-fix: #c2410c;
+  --step-test: #0f766e;
+  --step-selfReview: #4f46e5;
+  --step-pr: #0369a1;
+  --step-humanReview: #be185d;
+  --step-finished: #15803d;
+}
+[data-step='chat'] { --step: var(--step-chat); }
+[data-step='analyze'] { --step: var(--step-analyze); }
+[data-step='plan'] { --step: var(--step-plan); }
+[data-step='review'] { --step: var(--step-review); }
+[data-step='fix'] { --step: var(--step-fix); }
+[data-step='test'] { --step: var(--step-test); }
+[data-step='selfReview'] { --step: var(--step-selfReview); }
+[data-step='pr'] { --step: var(--step-pr); }
+[data-step='humanReview'] { --step: var(--step-humanReview); }
+[data-step='finished'] { --step: var(--step-finished); }
 
-.ao-pipe-card[data-step='chat']::before { background: var(--st-todo); }
-.ao-pipe-card[data-step='analyze']::before,
-.ao-pipe-card[data-step='plan']::before,
-.ao-pipe-card[data-step='fix']::before { background: var(--st-progress); }
-.ao-pipe-card[data-step='review']::before,
-.ao-pipe-card[data-step='humanReview']::before { background: var(--st-review); }
-.ao-pipe-card[data-step='test']::before { background: var(--st-deploy); }
-.ao-pipe-card[data-step='pr']::before { background: var(--st-hold); }
-.ao-pipe-card[data-step='finished']::before { background: var(--st-done); }
+.ao-column-dot[data-step] { background: var(--step); box-shadow: 0 0 0 3px color-mix(in srgb, var(--step) 22%, transparent); }
+.ao-wf-columns .ao-column[data-col] { --step: var(--step-chat); }
+.ao-wf-columns .ao-column[data-col='analyze'] { --step: var(--step-analyze); }
+.ao-wf-columns .ao-column[data-col='plan'] { --step: var(--step-plan); }
+.ao-wf-columns .ao-column[data-col='review'] { --step: var(--step-review); }
+.ao-wf-columns .ao-column[data-col='fix'] { --step: var(--step-fix); }
+.ao-wf-columns .ao-column[data-col='test'] { --step: var(--step-test); }
+.ao-wf-columns .ao-column[data-col='selfReview'] { --step: var(--step-selfReview); }
+.ao-wf-columns .ao-column[data-col='pr'] { --step: var(--step-pr); }
+.ao-wf-columns .ao-column[data-col='humanReview'] { --step: var(--step-humanReview); }
+.ao-wf-columns .ao-column[data-col='finished'] { --step: var(--step-finished); }
+.ao-wf-columns .ao-column-head { border-bottom: 2px solid color-mix(in srgb, var(--step) 55%, transparent); }
+.ao-wf-columns .ao-column-title { color: color-mix(in srgb, var(--step) 70%, var(--foreground)); }
+.ao-wf-columns .ao-column { background: linear-gradient(to bottom, color-mix(in srgb, var(--step) 6%, transparent), transparent 140px); }
+.ao-pipe-card[data-step]::before { background: var(--step); }
+
+/* The task's progress in the workflow panel, each step in its colour. */
+.ao-pipe-steps li[data-step][data-state='past'] .ao-pipe-step-dot { background: var(--step); border-color: var(--step); }
+.ao-pipe-steps li[data-step][data-state='past'] + li::before { background: color-mix(in srgb, var(--step) 60%, transparent); }
+.ao-pipe-steps li[data-step][data-state='current'] { color: var(--step); }
+.ao-pipe-steps li[data-step][data-state='current'] .ao-pipe-step-dot { background: var(--step); border-color: var(--step); box-shadow: 0 0 0 3px color-mix(in srgb, var(--step) 28%, transparent); }
+.ao-pipe-steps li[data-step][data-state='waiting'] .ao-pipe-step-dot { border-color: var(--step); background: color-mix(in srgb, var(--step) 30%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--step) 22%, transparent); }
+
+/* "Where its workflow is" chips (task cards, the task's header). */
+.ao-step-chip[data-step] { color: color-mix(in srgb, var(--step) 80%, var(--foreground)); border-color: color-mix(in srgb, var(--step) 40%, transparent); background: color-mix(in srgb, var(--step) 12%, transparent); }
+.ao-step-chip[data-step] svg { color: var(--step); }
 
 .ao-head-error {
   min-width: 0;
@@ -946,3 +990,22 @@ textarea.ao-mono-input {
 .ao-wf-settings .ao-wf-step[data-off] .ao-wf-step-n { background: rgb(var(--ink) / 0.12); color: var(--soft); }
 .ao-wf-settings .ao-wf-step-head { min-height: 24px; }
 .ao-wf-settings .ao-wf-step-body { gap: 8px; }
+
+/* The workflow minimap: a block per step in its colour, a dot per task. */
+.ao-minimap { display: flex; gap: 6px; padding: 10px 14px 12px; border-bottom: 1px solid var(--rule); overflow-x: auto; }
+.ao-minimap-step { flex: 1 1 0; min-width: 74px; display: flex; flex-direction: column; gap: 5px; }
+.ao-minimap-head { display: flex; align-items: baseline; gap: 6px; padding: 0; border: none; background: none; color: color-mix(in srgb, var(--step) 75%, var(--foreground)); font: inherit; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; text-align: left; min-width: 0; }
+.ao-minimap-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ao-minimap-count { font-family: var(--font-mono); color: var(--soft); font-weight: 600; }
+.ao-minimap-step[data-empty] .ao-minimap-head { color: var(--soft); }
+.ao-minimap-bar { height: 5px; border-radius: 999px; background: var(--step); opacity: 0.85; }
+.ao-minimap-step[data-empty] .ao-minimap-bar { opacity: 0.22; }
+.ao-minimap-dots { display: flex; flex-wrap: wrap; gap: 4px; min-height: 12px; }
+.ao-minimap-dot { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 2px solid var(--paper-2); background: var(--step); cursor: pointer; transition: transform 0.12s ease; }
+.ao-minimap-dot:hover { transform: scale(1.35); }
+.ao-minimap-dot[data-running] { animation: ao-minimap-pulse 1.4s ease-in-out infinite; }
+.ao-minimap-dot[data-waiting] { box-shadow: 0 0 0 2px var(--amber, #e0a92e); }
+.ao-minimap-dot[data-error] { box-shadow: 0 0 0 2px var(--red, #f5727d); }
+.ao-minimap-dot[aria-current] { box-shadow: 0 0 0 2px var(--foreground); transform: scale(1.25); }
+.ao-minimap-more { font-size: 0.62rem; color: var(--soft); line-height: 12px; }
+@keyframes ao-minimap-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--step) 35%, transparent); } }

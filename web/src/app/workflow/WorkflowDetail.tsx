@@ -70,7 +70,7 @@ export function WorkflowDetail({ run, onClose }: { run: Run; onClose: () => void
                     : 'current'
                   : 'next';
             return (
-              <li key={s.id} data-state={shown} title={`${s.label}${s.manual ? ` — then ${s.manual}` : ''}${state === 'skipped' ? ' (skipped)' : ''}`}>
+              <li key={s.id} data-step={s.id} data-state={shown} title={`${s.label}${s.manual ? ` — then ${s.manual}` : ''}${state === 'skipped' ? ' (skipped)' : ''}`}>
                 <span className="ao-pipe-step-dot" />
                 {s.short.split(' ')[0]}
               </li>

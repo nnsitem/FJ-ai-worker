@@ -361,7 +361,7 @@ function TaskCard({
           {st.label}
         </span>
         {run.workflowStarted && (
-          <span className="ao-chip" title="Where its workflow is">
+          <span className="ao-chip ao-step-chip" data-step={cur ? STEP_LABELS[cur.index].id : 'finished'} title="Where its workflow is">
             <PipelineIcon size={11} />
             {cur ? `${STEP_LABELS[cur.index].n}. ${STEP_LABELS[cur.index].short}` : 'Finished'}
           </span>

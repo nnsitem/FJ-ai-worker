@@ -99,7 +99,7 @@ export function TaskView({
           {t.key || 'Ticket'}
         </button>
         {run.workflowStarted ? (
-          <button type="button" className="ao-btn-secondary ao-btn-compact ao-wf-chip" onClick={toWorkflow} title="Open on the Workflow page">
+          <button type="button" className="ao-btn-secondary ao-btn-compact ao-wf-chip ao-step-chip" data-step={cur ? STEP_LABELS[cur.index].id : 'finished'} onClick={toWorkflow} title="Open on the Workflow page">
             <PipelineIcon size={13} />
             {cur ? `${STEP_LABELS[cur.index].n}. ${STEP_LABELS[cur.index].short}` : 'Finished'}
           </button>
