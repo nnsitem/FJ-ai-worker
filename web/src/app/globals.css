@@ -405,3 +405,33 @@ code, .aw-mono { font-family: var(--font-mono); font-size: 0.86em; }
 .aw-dock-list button:hover { background: rgb(var(--ink) / 0.05); color: var(--foreground); }
 .aw-dock-list button[aria-current] { background: var(--accent-tint); color: var(--foreground); }
 .aw-dock-ended { margin-left: auto; color: var(--soft); font-size: 0.7rem; }
+
+/* ---------- run: fix, tests, changes ---------- */
+.aw-small { font-size: 0.78rem; }
+.aw-nowrap { flex-wrap: nowrap; }
+.aw-grid-rounds { display: grid; grid-template-columns: 1fr 90px; gap: 12px; }
+.aw-summary { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--background); border: 1px solid var(--rule); }
+.aw-card[data-attention] { border: 1px solid transparent; background: linear-gradient(var(--card), var(--card)) padding-box, var(--brand-gradient) border-box; }
+.aw-tests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.aw-tests summary { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.85rem; list-style: none; }
+.aw-tests summary::-webkit-details-marker { display: none; }
+.aw-output, .aw-diff {
+  margin: 8px 0 0; max-height: 320px; overflow: auto;
+  padding: 10px 12px; border-radius: var(--radius-sm); background: var(--background); border: 1px solid var(--rule);
+  font-family: var(--font-mono); font-size: 0.74rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.aw-diff { white-space: pre; overflow-wrap: normal; padding: 6px 0; }
+.aw-diff > div { padding: 0 12px; }
+.aw-diff > div[data-k='add'] { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--foreground); }
+.aw-diff > div[data-k='del'] { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--foreground); }
+.aw-diff > div[data-k='hunk'] { color: var(--violet); }
+.aw-files { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.aw-files > li { border-bottom: 1px solid var(--rule); }
+.aw-file { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 2px; border: none; background: none; color: inherit; text-align: left; cursor: pointer; }
+.aw-file:hover { background: rgb(var(--ink) / 0.03); }
+.aw-file-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aw-file-status { width: 18px; font-family: var(--font-mono); font-size: 0.74rem; font-weight: 800; color: var(--amber); }
+.aw-file-status[data-s='A'] { color: var(--green); }
+.aw-file-status[data-s='D'] { color: var(--red); }
+.aw-add { color: var(--green); font-family: var(--font-mono); font-size: 0.74rem; }
+.aw-del { color: var(--red); font-family: var(--font-mono); font-size: 0.74rem; }

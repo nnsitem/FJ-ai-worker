@@ -35,6 +35,13 @@ export type Settings = {
   };
   /** Which repo a Jira project's tickets are fixed in. */
   projects: ProjectLink[];
+  /** Per repo (owner/name): how its tests run (step 5), remembered from the last run. */
+  repos: Record<string, RepoSettings>;
+};
+
+export type RepoSettings = {
+  /** A shell command run in the checkout; empty: Claude finds and runs the tests itself. */
+  testCommand: string;
 };
 
 export type ProjectLink = {
@@ -59,6 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
   claude: { expectedEmail: '' },
   jira: { site: '', email: '' },
   projects: [],
+  repos: {},
 };
 
 const FILE = 'settings.json';
@@ -73,6 +81,7 @@ export function getSettings(): Settings {
     claude: { ...DEFAULT_SETTINGS.claude, ...s.claude },
     jira: { ...DEFAULT_SETTINGS.jira, ...s.jira },
     projects: s.projects ?? [],
+    repos: s.repos ?? {},
   };
 }
 
@@ -84,6 +93,7 @@ export type SettingsPatch = {
   claude?: Partial<Settings['claude']>;
   jira?: Partial<Settings['jira']>;
   projects?: ProjectLink[];
+  repos?: Record<string, RepoSettings>;
 };
 
 export function saveSettings(patch: SettingsPatch): Settings {
@@ -96,6 +106,7 @@ export function saveSettings(patch: SettingsPatch): Settings {
     claude: { ...cur.claude, ...patch.claude },
     jira: { ...cur.jira, ...patch.jira },
     projects: patch.projects ?? cur.projects,
+    repos: { ...cur.repos, ...patch.repos },
   };
   next.jira.site = normaliseSite(next.jira.site);
   next.jira.email = next.jira.email.trim();

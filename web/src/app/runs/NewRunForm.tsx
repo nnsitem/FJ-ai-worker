@@ -14,6 +14,9 @@ export function NewRunForm({ onCreated, onCancel }: { onCreated: (r: Run) => voi
   const [repo, setRepo] = useState('');
   const [repoTouched, setRepoTouched] = useState(false);
   const [autoApprove, setAutoApprove] = useState(false);
+  /** null: the repo's remembered command, until typed over. */
+  const [testCommand, setTestCommand] = useState<string | null>(null);
+  const [rounds, setRounds] = useState(3);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [repos, setRepos] = useState<RepoSummary[]>([]);
   const [busy, setBusy] = useState(false);
@@ -28,13 +31,14 @@ export function NewRunForm({ onCreated, onCancel }: { onCreated: (r: Run) => voi
   // The project's linked repo (Settings › Projects), until one is picked by hand.
   const linked = settings?.projects.find((p) => cleanKey.startsWith(`${p.jiraKey}-`))?.repo ?? '';
   const repoValue = repoTouched ? repo : repo || linked;
+  const testValue = testCommand ?? settings?.repos[repoValue.trim()]?.testCommand ?? '';
   const url = settings?.jira.site && /^[A-Z][A-Z0-9_]+-\d+$/.test(cleanKey) ? `${settings.jira.site}/browse/${cleanKey}` : null;
 
   const start = async () => {
     setBusy(true);
     setError(null);
     try {
-      onCreated(await call('runsCreate', { ticket: { key: cleanKey, title, description, url }, repo: repoValue, autoApprove }));
+      onCreated(await call('runsCreate', { ticket: { key: cleanKey, title, description, url }, repo: repoValue, autoApprove, testCommand: testValue, maxRounds: rounds }));
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -78,6 +82,17 @@ export function NewRunForm({ onCreated, onCancel }: { onCreated: (r: Run) => voi
         </datalist>
         {linked && !repoTouched && <small>Linked to {cleanKey.split('-')[0]} in Settings › Projects.</small>}
       </label>
+      <div className="aw-grid-rounds">
+        <label className="aw-field">
+          <span>Test command</span>
+          <input className="aw-input aw-mono" value={testValue} onChange={(e) => setTestCommand(e.target.value)} placeholder="e.g. npm test — empty: Claude finds and runs the tests" />
+          <small>Step 5, run in the checkout; a failure goes back to the fix. Remembered for this repo.</small>
+        </label>
+        <label className="aw-field">
+          <span>Rounds</span>
+          <input className="aw-input" type="number" min={1} max={10} value={rounds} onChange={(e) => setRounds(Math.min(10, Math.max(1, Number(e.target.value) || 1)))} />
+        </label>
+      </div>
       <label className="aw-check">
         <input type="checkbox" checked={autoApprove} onChange={(e) => setAutoApprove(e.target.checked)} />
         <span>Skip the plan review <span className="aw-muted">— go on as soon as the plan is written (step 3)</span></span>

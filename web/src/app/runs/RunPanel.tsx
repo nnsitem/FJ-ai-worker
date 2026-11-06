@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { call, type Run } from '@/lib/bridge';
 import { STATE_TONE, STEP_LABELS } from './steps';
 import { LinkOpener } from '@/components/LinkOpener';
+import { RunWork } from './RunWork';
 
 const STATE_TEXT = { pending: '', running: 'Working', waiting: 'Your turn', done: 'Done', skipped: 'Skipped', failed: 'Failed' } as const;
 
@@ -38,7 +39,6 @@ export function RunPanel({ run, onDeleted }: { run: Run; onDeleted: () => void }
 
   const t = run.ticket;
   const reviewing = run.steps.review === 'waiting' && !run.running;
-  const reviewed = run.steps.review === 'done' || run.steps.review === 'skipped';
 
   return (
     <article className="aw-detail">
@@ -70,7 +70,7 @@ export function RunPanel({ run, onDeleted }: { run: Run; onDeleted: () => void }
         {run.running ? (
           <button type="button" className="aw-btn" onClick={() => act(() => call('runsStop', run.id))}>Stop</button>
         ) : (
-          (run.error || !run.plan) && <button type="button" className="aw-btn" onClick={() => act(() => call('runsRerun', run.id))}>Run again</button>
+          (!run.plan || (run.error && run.steps.fix === 'pending')) && <button type="button" className="aw-btn" onClick={() => act(() => call('runsRerun', run.id))}>Run again</button>
         )}
         <span style={{ flex: 1 }} />
         <button
@@ -140,11 +140,7 @@ export function RunPanel({ run, onDeleted }: { run: Run; onDeleted: () => void }
         </section>
       )}
 
-      {reviewed && (
-        <p className="aw-note">
-          Next, step 4: Claude fixes it on a branch of its own, and you move {t.key} to In progress — coming in M4.
-        </p>
-      )}
+      <RunWork run={run} act={act} />
 
       <section>
         <button type="button" className="aw-link-btn" onClick={() => setShowLog((v) => !v)}>

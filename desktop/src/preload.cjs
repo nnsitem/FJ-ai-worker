@@ -41,6 +41,14 @@ contextBridge.exposeInMainWorld('aiWorker', {
   runsStop: (id) => ipcRenderer.invoke(C.runsStop, id),
   runsRerun: (id) => ipcRenderer.invoke(C.runsRerun, id),
   runsDelete: (id) => ipcRenderer.invoke(C.runsDelete, id),
+  runsMovedInProgress: (id, done) => ipcRenderer.invoke(C.runsMovedInProgress, id, done),
+  runsTestCommand: (id, command) => ipcRenderer.invoke(C.runsTestCommand, id, command),
+  runsRetryFix: (id) => ipcRenderer.invoke(C.runsRetryFix, id),
+  runsRetryTests: (id) => ipcRenderer.invoke(C.runsRetryTests, id),
+  runsAcceptTests: (id) => ipcRenderer.invoke(C.runsAcceptTests, id),
+  runsChanges: (id) => ipcRenderer.invoke(C.runsChanges, id),
+  runsFileDiff: (id, file) => ipcRenderer.invoke(C.runsFileDiff, id, file),
+  runsOpenFolder: (id, how) => ipcRenderer.invoke(C.runsOpenFolder, id, how),
   onRun: (cb) => {
     const l = (_e, run) => cb(run);
     ipcRenderer.on(C.runsEvent, l);

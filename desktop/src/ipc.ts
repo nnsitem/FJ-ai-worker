@@ -25,7 +25,28 @@ import {
   submitClaudeCode,
 } from '../../core/src/claude-account.js';
 import { connectJira, disconnectJira, getTicket, jiraState, listProjects, searchTickets, type TicketFilter } from '../../core/src/jira.js';
-import { createRun, deleteRun, isRunning, listRuns, onRunChange, rerunAnalysis, reviewPlan, setPlanInTicket, stopRun, type NewRun, type Run } from '../../core/src/runs.js';
+import {
+  acceptTests,
+  createRun,
+  deleteRun,
+  getRun,
+  isRunning,
+  listRuns,
+  onRunChange,
+  rerunAnalysis,
+  retryFix,
+  retryTests,
+  reviewPlan,
+  runChanges,
+  runFileDiff,
+  setMovedInProgress,
+  setPlanInTicket,
+  setTestCommand,
+  stopRun,
+  type NewRun,
+  type Run,
+} from '../../core/src/runs.js';
+import { worktreeDir } from '../../core/src/repos.js';
 import { closeTerminal, listTerminals, onTerminalEvent, openTerminal, resizeTerminal, terminalBuffer, writeTerminal, type TerminalKind } from './terminal.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
@@ -121,7 +142,35 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.runsPlanInTicket, (id: string, done: boolean) => withLive(setPlanInTicket(id, done)));
   handle(CHANNELS.runsStop, (id: string) => withLive(stopRun(id)));
   handle(CHANNELS.runsRerun, (id: string) => withLive(rerunAnalysis(id)));
-  handle(CHANNELS.runsDelete, (id: string) => deleteRun(id));
+  handle(CHANNELS.runsDelete, async (id: string) => {
+    await deleteRun(id);
+    send(CHANNELS.runsEvent, { id, deleted: true });
+  });
+  handle(CHANNELS.runsMovedInProgress, (id: string, done: boolean) => withLive(setMovedInProgress(id, done)));
+  handle(CHANNELS.runsTestCommand, (id: string, command: string) => withLive(setTestCommand(id, command)));
+  handle(CHANNELS.runsRetryFix, (id: string) => withLive(retryFix(id)));
+  handle(CHANNELS.runsRetryTests, (id: string) => withLive(retryTests(id)));
+  handle(CHANNELS.runsAcceptTests, (id: string) => withLive(acceptTests(id)));
+  handle(CHANNELS.runsChanges, (id: string) => runChanges(id));
+  handle(CHANNELS.runsFileDiff, (id: string, file: string) => runFileDiff(id, file));
+  // The run's checkout, in the Finder / Explorer or in VS Code.
+  handle(CHANNELS.runsOpenFolder, async (id: string, how: 'folder' | 'vscode') => {
+    const dir = worktreeDir(getRun(id).id);
+    if (!fs.existsSync(dir)) throw new Error('The checkout isn’t there yet');
+    if (how === 'vscode') {
+      await new Promise<void>((resolve, reject) =>
+        execFile(
+          process.platform === 'darwin' ? 'open' : 'code',
+          process.platform === 'darwin' ? ['-a', 'Visual Studio Code', dir] : [dir],
+          { shell: process.platform === 'win32' },
+          (err) => (err ? reject(new Error('VS Code isn’t installed (or not on PATH)')) : resolve()),
+        ),
+      );
+    } else {
+      const err = await shell.openPath(dir);
+      if (err) throw new Error(err);
+    }
+  });
 
   // Terminals (terminal.ts).
   onTerminalEvent((ev) => send(CHANNELS.termEvent, ev));

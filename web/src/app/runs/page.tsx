@@ -25,6 +25,7 @@ export default function RunsPage() {
     return bridge().onRun((run) =>
       setRuns((rs) => {
         if (!rs) return rs;
+        if ('deleted' in run) return rs.filter((r) => r.id !== run.id);
         const i = rs.findIndex((r) => r.id === run.id);
         return i < 0 ? [run, ...rs] : rs.map((r) => (r.id === run.id ? run : r));
       }),

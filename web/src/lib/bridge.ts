@@ -12,6 +12,7 @@ export type Settings = {
   claude: { expectedEmail: string };
   jira: { site: string; email: string };
   projects: ProjectLink[];
+  repos: Record<string, { testCommand: string }>;
 };
 export type ProjectLink = { jiraKey: string; repo: string };
 export type SettingsPatch = {
@@ -87,10 +88,19 @@ export type Run = {
   revisions: { at: string; plan: string; feedback: string }[];
   planInTicket: boolean;
   sessionId: string | null;
+  branch: string | null;
+  movedInProgress: boolean;
+  testCommand: string;
+  maxRounds: number;
+  round: number;
+  fixSummary: string | null;
+  tests: TestResult[];
   error: string | null;
   events: RunEvent[];
   running: boolean;
 };
+export type TestResult = { round: number; at: string; passed: boolean; by: 'command' | 'claude'; output: string };
+export type ChangedFile = { path: string; status: string; added: number | null; removed: number | null };
 export type ReviewDecision = { kind: 'approve' } | { kind: 'skip' } | { kind: 'changes'; feedback: string };
 export type TerminalKind = 'shell' | 'vpn';
 export type TerminalInfo = { id: string; kind: TerminalKind; title: string; running: boolean; exitCode: number | null; startedAt: string };
@@ -128,13 +138,22 @@ type Bridge = {
   jiraTicket(key: string): P<TicketDetail>;
   githubAllRepos(): P<RepoSummary[]>;
   runsList(): P<Run[]>;
-  runsCreate(input: { ticket: ManualTicket; repo: string; autoApprove: boolean }): P<Run>;
+  runsCreate(input: { ticket: ManualTicket; repo: string; autoApprove: boolean; testCommand?: string; maxRounds?: number }): P<Run>;
   runsReview(id: string, decision: ReviewDecision): P<Run>;
   runsPlanInTicket(id: string, done: boolean): P<Run>;
   runsStop(id: string): P<Run>;
   runsRerun(id: string): P<Run>;
   runsDelete(id: string): P<void>;
-  onRun(cb: (run: Run) => void): () => void;
+  runsMovedInProgress(id: string, done: boolean): P<Run>;
+  runsTestCommand(id: string, command: string): P<Run>;
+  runsRetryFix(id: string): P<Run>;
+  runsRetryTests(id: string): P<Run>;
+  runsAcceptTests(id: string): P<Run>;
+  runsChanges(id: string): P<ChangedFile[]>;
+  runsFileDiff(id: string, file: string): P<string>;
+  runsOpenFolder(id: string, how: 'folder' | 'vscode'): P<void>;
+  /** A run changed — or, `deleted`, went. */
+  onRun(cb: (run: Run | { id: string; deleted: true }) => void): () => void;
   termList(): P<TerminalInfo[]>;
   termOpen(kind: TerminalKind, cols?: number, rows?: number): P<TerminalInfo>;
   termBuffer(id: string): P<string>;
