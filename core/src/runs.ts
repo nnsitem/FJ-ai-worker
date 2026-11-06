@@ -835,15 +835,15 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
     return res;
   };
   const stepName = t.step === 'chat' ? 'conversation' : t.step;
-  if (!t.ephemeral) {
-    r.current = {
-      agent: def && agentName ? agentName : r.engine === 'copilot' ? 'GitHub Copilot' : 'Claude Code',
-      model: model ?? null,
-      step: stepName,
-      startedAt: new Date().toISOString(),
-    };
-    save(r);
-  }
+  // Shown as working even when the turn leaves no log (the AI review, a
+  // failure's sorting): a long review otherwise looks like nothing happening.
+  r.current = {
+    agent: def && agentName ? agentName : r.engine === 'copilot' ? 'GitHub Copilot' : 'Claude Code',
+    model: model ?? null,
+    step: stepName,
+    startedAt: new Date().toISOString(),
+  };
+  save(r);
   /** The subagents this turn started, by their Agent call's id. */
   const subs = new Map<string, AgentActivity>();
   const endSub = (id: string, status: AgentActivity['status']) => {
@@ -954,7 +954,7 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
   } finally {
     // Whatever was still running when the turn ended ended with it.
     for (const id of subs.keys()) endSub(id, abort.signal.aborted ? 'stopped' : 'completed');
-    if (!t.ephemeral) r.current = null;
+    r.current = null;
     if (!t.ephemeral) try {
       const wd = workDir(r);
       // A git checkout: only what git sees changed or new counts.
