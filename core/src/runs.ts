@@ -1039,8 +1039,8 @@ async function githubFor(r: Run): Promise<{ slug: string; token: string }> {
   }
   const origin = r.folder ? await localOrigin(r.folder) : null;
   if (!origin) throw new Error('This folder has no GitHub origin');
-  // The repo's own credentials first (what pushes to it), else the app's sign-in.
-  const token = origin.token ?? githubToken();
+  // The app's own GitHub sign-in (Connections); the repo's own credentials only without one.
+  const token = githubToken() ?? origin.token;
   if (!token) throw new Error('Sign in to GitHub first (Connections)');
   return { slug: origin.slug, token };
 }
@@ -1102,7 +1102,16 @@ async function pushAndOpen(r: Run): Promise<void> {
     if (ahead === '0') throw new Error('Nothing to push — the branch has no changes over its base');
     log(r, 'system', `Pushing ${r.branch} to ${repoSlug}…`, false);
     save(r);
-    await g(['push', '-u', 'origin', `HEAD:refs/heads/${r.branch}`], wt, 900000);
+    if (r.source === 'folder') {
+      // Pushed as the app's GitHub sign-in, to the repo's own address: the
+      // token goes in a header for this one command (never into the repo's
+      // config), and whatever credentials its origin carries aren't used.
+      const auth = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
+      await gitLocal(['push', `https://github.com/${repoSlug}.git`, `HEAD:refs/heads/${r.branch}`], wt, 900000, [
+        ['credential.helper', ''],
+        ['http.https://github.com/.extraheader', auth],
+      ]);
+    } else await g(['push', '-u', 'origin', `HEAD:refs/heads/${r.branch}`], wt, 900000);
     if (!r.pr || r.pr.state !== 'open') {
       const t = r.ticket;
       r.pr = await openPullRequest(token, repoSlug, {

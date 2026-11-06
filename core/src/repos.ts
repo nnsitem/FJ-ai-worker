@@ -105,15 +105,15 @@ export async function removeWorktree(runId: string, repo: string): Promise<void>
  * credentials as they are — only the VPN tunnel set for github.com, and no
  * password prompt (there's nobody to answer it).
  */
-export function gitLocal(args: string[], cwd: string, timeoutMs = 300000): Promise<string> {
+export function gitLocal(args: string[], cwd: string, timeoutMs = 300000, extraConfig: [string, string][] = []): Promise<string> {
   const { host, port } = getSettings().proxy;
-  const env = {
-    ...baseToolEnv(),
-    GIT_TERMINAL_PROMPT: '0',
-    GIT_CONFIG_COUNT: '1',
-    GIT_CONFIG_KEY_0: 'http.https://github.com/.proxy',
-    GIT_CONFIG_VALUE_0: `socks5h://${host}:${port}`,
-  };
+  // Config through the environment, not -c: nothing in it (a token) shows in `ps`.
+  const pairs: [string, string][] = [['http.https://github.com/.proxy', `socks5h://${host}:${port}`], ...extraConfig];
+  const env: Record<string, string> = { ...baseToolEnv(), GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_COUNT: String(pairs.length) };
+  pairs.forEach(([k, v], i) => {
+    env[`GIT_CONFIG_KEY_${i}`] = k;
+    env[`GIT_CONFIG_VALUE_${i}`] = v;
+  });
   return new Promise((resolve, reject) => {
     execFile('git', args, { cwd, env, timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) reject(new Error(readableGitError(stderr || err.message)));
