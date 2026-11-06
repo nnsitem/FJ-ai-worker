@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { spawn, type IPty } from 'node-pty';
 import { loginPathNow } from '../../core/src/login-env.js';
+import { setProtectedPids } from '../../core/src/processes.js';
 import { getSettings } from '../../core/src/settings.js';
 
 /**
@@ -24,6 +25,10 @@ type Term = TerminalInfo & { pty: IPty; buffer: string };
 const KEEP = 256 * 1024;
 const terms = new Map<string, Term>();
 let seq = 0;
+
+// A task's Stop sweeps what the app left running in its folder — never the
+// person's own terminals (or what they started in them), even there.
+setProtectedPids(() => [...terms.values()].filter((t) => t.running).map((t) => t.pty.pid));
 
 let emit: (event: { kind: 'data'; id: string; data: string } | { kind: 'exit'; id: string; exitCode: number } | { kind: 'list' }) => void = () => {};
 export function onTerminalEvent(fn: typeof emit): void {

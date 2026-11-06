@@ -281,6 +281,12 @@ export async function copilotTurn(opts: {
     }
   });
   const onAbort = () => void session.abort().catch(() => {});
+  // Stopped while the session was still being set up: never sent.
+  if (opts.signal.aborted) {
+    off();
+    await session.disconnect().catch(() => {});
+    throw new Error('Stopped');
+  }
   opts.signal.addEventListener('abort', onAbort);
   try {
     // A long fix takes as long as it takes (Stop aborts it); the SDK needs a

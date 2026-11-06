@@ -1,5 +1,4 @@
 import { query, type CanUseTool, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,6 +9,7 @@ import { toolEnv } from './network.js';
 import { collectArtifacts } from './artifacts.js';
 import { agentDefinition, readLibrary } from './library.js';
 import { copilotTurn } from './copilot.js';
+import { runInGroup, sweep } from './processes.js';
 import { projectNote, taskProject } from './project-context.js';
 import { createWorktree, git, gitLocal, localOrigin, removeWorktree, syncRepo, worktreeDir } from './repos.js';
 import { githubState, githubToken } from './github.js';
@@ -569,13 +569,27 @@ export function isRunning(id: string): boolean {
 }
 
 export function stopRun(id: string): Run {
+  const r = getRun(id);
   live.get(id)?.abort();
-  return getRun(id);
+  // The turn ends with the abort; what it ran in the shell (a build, a test
+  // server) is swept once it has had a moment to go by itself.
+  setTimeout(() => {
+    void sweep(workDir(r))
+      .then((n) => {
+        if (n) {
+          log(r, 'system', `Stopped ${n} process${n === 1 ? '' : 'es'} the task had left running.`, false);
+          save(r);
+        }
+      })
+      .catch(() => {});
+  }, 1500);
+  return r;
 }
 
 export async function deleteRun(id: string): Promise<void> {
   const r = getRun(id);
   live.get(id)?.abort();
+  await sweep(workDir(r)).catch(() => 0);
   // A folder of the person's own stays; only the app's own checkout goes.
   if (r.source === 'repo') await removeWorktree(id, r.repo);
   else if (r.linked && r.folder) {
@@ -1208,16 +1222,14 @@ const KEEP_OUTPUT = 60000;
 
 /** The test command in the checkout, through a login shell; resolves with its exit and output (its end). */
 function runCommand(command: string, cwd: string, signal: AbortSignal): Promise<{ ok: boolean; output: string }> {
-  return new Promise((resolve) => {
-    const shell = process.platform === 'win32' ? 'cmd.exe' : process.env.SHELL || '/bin/zsh';
-    const args = process.platform === 'win32' ? ['/d', '/s', '/c', command] : ['-lc', command];
-    const env = { ...baseToolEnv(), ...toolEnv('git'), ...toolEnv('claude'), CI: '1', FORCE_COLOR: '0' };
-    execFile(shell, args, { cwd, env, signal, timeout: 30 * 60 * 1000, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
-      const text = [stdout, stderr].filter((t) => t && t.trim()).join('\n').trim();
-      const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : null;
-      const tail = err ? `\n(${code != null ? `exit ${code}` : err.message})` : '';
-      resolve({ ok: !err, output: (text.slice(-KEEP_OUTPUT) + tail).trim() });
-    });
+  const shell = process.platform === 'win32' ? 'cmd.exe' : process.env.SHELL || '/bin/zsh';
+  const args = process.platform === 'win32' ? ['/d', '/s', '/c', command] : ['-lc', command];
+  const env = { ...baseToolEnv(), ...toolEnv('git'), ...toolEnv('claude'), CI: '1', FORCE_COLOR: '0' };
+  return runInGroup(shell, args, { cwd, env, signal, timeoutMs: 30 * 60 * 1000, maxBytes: KEEP_OUTPUT }).then(({ code, stdout, stderr, why }) => {
+    const text = [stdout, stderr].filter((t) => t && t.trim()).join('\n').trim();
+    const ok = code === 0 && !why;
+    const tail = ok ? '' : `\n(${why ?? `exit ${code}`})`;
+    return { ok, output: (text.slice(-KEEP_OUTPUT) + tail).trim() };
   });
 }
 
