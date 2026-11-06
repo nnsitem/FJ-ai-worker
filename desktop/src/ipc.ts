@@ -25,6 +25,7 @@ import {
   submitClaudeCode,
 } from '../../core/src/claude-account.js';
 import { connectJira, disconnectJira, getTicket, jiraState, listProjects, searchTickets, type TicketFilter } from '../../core/src/jira.js';
+import { createRun, deleteRun, isRunning, listRuns, onRunChange, rerunAnalysis, reviewPlan, setPlanInTicket, stopRun, type NewRun, type Run } from '../../core/src/runs.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
 export { CHANNELS };
@@ -108,6 +109,18 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.githubSignOut, () => signOutGithub());
   handle(CHANNELS.githubRepos, () => listRepos());
   handle(CHANNELS.githubAllRepos, () => listRepos(1000));
+
+  // Runs (core/src/runs.ts): each change goes to the window whole, with
+  // whether Claude is working on it now.
+  const withLive = (r: Run) => ({ ...r, running: isRunning(r.id) });
+  onRunChange((r) => send(CHANNELS.runsEvent, withLive(r)));
+  handle(CHANNELS.runsList, () => listRuns().map(withLive));
+  handle(CHANNELS.runsCreate, (input: NewRun) => withLive(createRun(input)));
+  handle(CHANNELS.runsReview, (id: string, decision: Parameters<typeof reviewPlan>[1]) => withLive(reviewPlan(id, decision)));
+  handle(CHANNELS.runsPlanInTicket, (id: string, done: boolean) => withLive(setPlanInTicket(id, done)));
+  handle(CHANNELS.runsStop, (id: string) => withLive(stopRun(id)));
+  handle(CHANNELS.runsRerun, (id: string) => withLive(rerunAnalysis(id)));
+  handle(CHANNELS.runsDelete, (id: string) => deleteRun(id));
 
   handle(CHANNELS.jiraState, () => jiraState());
   handle(CHANNELS.jiraConnect, (input: { site: string; email: string; token: string }) => connectJira(input));

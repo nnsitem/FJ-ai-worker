@@ -31,6 +31,11 @@ function claudeBin(): string {
   return executable ?? 'claude';
 }
 
+/** The bundled binary, when found (null: the SDK's own lookup). */
+export function claudeExecutable(): string | null {
+  return executable;
+}
+
 export function claudeConfigDir(): string {
   const dir = dataPath('claude');
   fs.mkdirSync(dir, { recursive: true });

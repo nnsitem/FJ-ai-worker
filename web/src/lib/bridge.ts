@@ -70,6 +70,28 @@ export type TicketDetail = TicketSummary & {
   commentTotal: number;
   attachments: { id: string; filename: string; size: number; mimeType: string }[];
 };
+export type StepId = 'analyze' | 'plan' | 'review' | 'fix' | 'test' | 'pr' | 'humanReview';
+export type StepState = 'pending' | 'running' | 'waiting' | 'done' | 'skipped' | 'failed';
+export type ManualTicket = { key: string; title: string; description: string; url: string | null };
+export type RunEvent = { at: string; kind: 'text' | 'tool' | 'system' | 'error' | 'you'; text: string };
+export type Run = {
+  id: string;
+  ticket: ManualTicket;
+  repo: string;
+  baseBranch: string | null;
+  createdAt: string;
+  updatedAt: string;
+  steps: Record<StepId, StepState>;
+  autoApprove: boolean;
+  plan: string | null;
+  revisions: { at: string; plan: string; feedback: string }[];
+  planInTicket: boolean;
+  sessionId: string | null;
+  error: string | null;
+  events: RunEvent[];
+  running: boolean;
+};
+export type ReviewDecision = { kind: 'approve' } | { kind: 'skip' } | { kind: 'changes'; feedback: string };
 export type AppInfo = { version: string; platform: string; claudeConfigDir: string; vpnBrowser: boolean };
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -102,6 +124,14 @@ type Bridge = {
   jiraSearch(filter: TicketFilter): P<{ tickets: TicketSummary[]; nextPageToken: string | null; jql: string }>;
   jiraTicket(key: string): P<TicketDetail>;
   githubAllRepos(): P<RepoSummary[]>;
+  runsList(): P<Run[]>;
+  runsCreate(input: { ticket: ManualTicket; repo: string; autoApprove: boolean }): P<Run>;
+  runsReview(id: string, decision: ReviewDecision): P<Run>;
+  runsPlanInTicket(id: string, done: boolean): P<Run>;
+  runsStop(id: string): P<Run>;
+  runsRerun(id: string): P<Run>;
+  runsDelete(id: string): P<void>;
+  onRun(cb: (run: Run) => void): () => void;
   openExternal(url: string): P<void>;
   openInVpnBrowser(url: string): P<void>;
 };

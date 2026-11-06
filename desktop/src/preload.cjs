@@ -34,6 +34,18 @@ contextBridge.exposeInMainWorld('aiWorker', {
   jiraSearch: (filter) => ipcRenderer.invoke(C.jiraSearch, filter),
   jiraTicket: (key) => ipcRenderer.invoke(C.jiraTicket, key),
   githubAllRepos: () => ipcRenderer.invoke(C.githubAllRepos),
+  runsList: () => ipcRenderer.invoke(C.runsList),
+  runsCreate: (input) => ipcRenderer.invoke(C.runsCreate, input),
+  runsReview: (id, decision) => ipcRenderer.invoke(C.runsReview, id, decision),
+  runsPlanInTicket: (id, done) => ipcRenderer.invoke(C.runsPlanInTicket, id, done),
+  runsStop: (id) => ipcRenderer.invoke(C.runsStop, id),
+  runsRerun: (id) => ipcRenderer.invoke(C.runsRerun, id),
+  runsDelete: (id) => ipcRenderer.invoke(C.runsDelete, id),
+  onRun: (cb) => {
+    const l = (_e, run) => cb(run);
+    ipcRenderer.on(C.runsEvent, l);
+    return () => ipcRenderer.removeListener(C.runsEvent, l);
+  },
   openExternal: (url) => ipcRenderer.invoke(C.openExternal, url),
   openInVpnBrowser: (url) => ipcRenderer.invoke(C.openInVpnBrowser, url),
 });

@@ -191,3 +191,34 @@ code, .aw-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; fo
 .aw-comment { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px solid var(--rule); }
 .aw-links { display: flex; flex-direction: column; gap: 8px; }
 .aw-link-row { display: grid; grid-template-columns: 180px auto 1fr auto; gap: 8px; align-items: center; }
+
+/* ---- Runs ---- */
+.aw-run { display: flex; flex-direction: column; gap: 14px; padding: 40px 28px 60px; }
+.aw-run > h2 { margin: 0; font-size: 1.25rem; font-weight: 800; }
+.aw-grid-key { display: grid; grid-template-columns: 150px 1fr; gap: 12px; }
+.aw-textarea-tall { min-height: 220px; font-family: inherit; font-size: inherit; }
+.aw-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.aw-step { display: flex; align-items: center; gap: 10px; padding: 6px 2px; color: var(--muted); }
+.aw-step-n {
+  display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: 50%; border: 1px solid var(--rule-strong); font-size: 0.75rem; font-weight: 800;
+}
+.aw-step-label { flex: 1; }
+.aw-step-label small { color: var(--muted); }
+.aw-step[data-state='done'] .aw-step-n { background: var(--green); border-color: transparent; color: #fff; }
+.aw-step[data-state='running'] .aw-step-n,
+.aw-step[data-state='waiting'] .aw-step-n { border-color: var(--accent); color: var(--accent); }
+.aw-step[data-state='failed'] .aw-step-n { border-color: var(--red); color: var(--red); }
+.aw-step[data-state='running'], .aw-step[data-state='waiting'], .aw-step[data-state='failed'] { color: var(--foreground); font-weight: 700; }
+.aw-plan .aw-prose { max-height: 520px; overflow: auto; }
+.aw-review { border-color: var(--accent); }
+.aw-note { margin: 0; padding: 10px 14px; border-radius: 8px; background: var(--accent-tint); }
+.aw-log {
+  margin-top: 8px; max-height: 360px; overflow: auto;
+  padding: 10px 12px; border-radius: 8px; background: var(--card);
+  font-size: 0.82rem; display: flex; flex-direction: column; gap: 4px;
+}
+.aw-log-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+.aw-log-line[data-kind='tool'] { color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 0.78rem; }
+.aw-log-line[data-kind='system'] { color: var(--accent); }
+.aw-log-line[data-kind='error'] { color: var(--red); }
