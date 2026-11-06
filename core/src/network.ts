@@ -67,8 +67,11 @@ export async function vpnStatus(): Promise<VpnStatus> {
   const tunnel = await tunnelListening();
   if (!tunnel) return { tunnel, github: false, error: 'The VPN tunnel is not open', checkedAt };
   try {
-    const res = await httpFetch('https://api.github.com/zen', { signal: AbortSignal.timeout(10000) });
-    return { tunnel, github: res.ok, error: res.ok ? undefined : `GitHub answered ${res.status}`, checkedAt };
+    // github.com itself, not the API: the API allows 60 unsigned calls an hour
+    // per address, and the VPN's one address is shared by the whole company.
+    const res = await httpFetch('https://github.com/', { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(10000) });
+    const ok = res.status < 400;
+    return { tunnel, github: ok, error: ok ? undefined : `GitHub answered ${res.status}`, checkedAt };
   } catch (e) {
     return { tunnel, github: false, error: e instanceof Error ? e.message : String(e), checkedAt };
   }
