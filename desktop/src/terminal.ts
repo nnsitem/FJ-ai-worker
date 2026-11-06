@@ -48,8 +48,14 @@ export function openTerminal(kind: TerminalKind, cols = 100, rows = 30): Termina
     // A running VPN terminal is reused: one script at a time.
     const running = [...terms.values()].find((t) => t.kind === 'vpn' && t.running);
     if (running) return info(running);
+    // The script's ssh -f and its ProxyCommand (cloudflared) carry on after
+    // the script ends — but cloudflared was started in this terminal's
+    // session, and when the script exits the terminal hangs up on it
+    // (SIGHUP) and the tunnel falls with it. Ignored here, the ignore is
+    // inherited by everything the script starts (Go keeps an inherited
+    // ignore too), so the tunnel outlives the script, the tab and the app.
     file = '/bin/bash';
-    args = [script];
+    args = ['-c', `trap '' HUP; exec /bin/bash "$0"`, script];
     title = 'VPN';
   } else {
     file = win ? process.env.COMSPEC || 'powershell.exe' : process.env.SHELL || '/bin/zsh';

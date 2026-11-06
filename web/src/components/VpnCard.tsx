@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { VpnIcon } from './icons';
-import { call, type VpnStatus } from '@/lib/bridge';
+import { bridge, call, type VpnStatus } from '@/lib/bridge';
 import { requestDock } from '@/lib/terminal-dock';
 
 /** The VPN tunnel GitHub goes through: up, and GitHub answering through it. */
@@ -25,10 +25,16 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
   }, [onChange]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- a check on opening, and every 30s
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a check on opening, every 30s, and when a terminal (the VPN script) ends
     void check();
     const t = setInterval(() => void check(), 30000);
-    return () => clearInterval(t);
+    const off = bridge().onTerminal((ev) => {
+      if (ev.kind === 'exit') void check();
+    });
+    return () => {
+      clearInterval(t);
+      off();
+    };
   }, [check]);
 
   // The script in the app's terminal panel, where its sign-in and errors
