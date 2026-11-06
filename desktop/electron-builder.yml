@@ -31,8 +31,10 @@ mac:
   # The brand tile (build/icon.svg is its source; icon.icns and icon.png are rendered from it).
   icon: build/icon.icns
   target:
+    # Apple Silicon only: the Claude and Copilot SDKs ship their runtime in a
+    # package per platform, and only the arm64 ones are installed here.
     - target: dmg
-      arch: [arm64, x64]
+      arch: [arm64]
   # Ad-hoc signed: a valid signature without a Developer ID (see AI Office).
   identity: "-"
   hardenedRuntime: false

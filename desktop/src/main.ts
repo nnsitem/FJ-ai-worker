@@ -11,7 +11,7 @@ import { loadLoginPath } from '../../core/src/login-env.js';
 import { setSessionFetch } from '../../core/src/network.js';
 import { applyProxy, registerIpc } from './ipc.js';
 import { closeAllTerminals } from './terminal.js';
-import { stopCopilot } from '../../core/src/copilot.js';
+import { setCopilotRuntime, stopCopilot } from '../../core/src/copilot.js';
 
 // Tokens sealed with the system keychain. Only touched when one is actually
 // sealed or read (an ad-hoc signed app gets a keychain prompt on every update).
@@ -46,6 +46,19 @@ function bundledClaude(): string | null {
     const resolved = createRequire(import.meta.url).resolve(`${pkg}/package.json`);
     const candidate = path.join(path.dirname(resolved), binary).replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
     return fs.existsSync(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The same for the Copilot SDK's runtime (core/src/copilot.ts). */
+function unpackedCopilotRuntime(): string | null {
+  const plat = `${process.platform}-${process.arch}`;
+  try {
+    const resolved = createRequire(import.meta.url).resolve(`@github/copilot-sdk-${plat}/package.json`);
+    const inAsar = path.join(path.dirname(resolved), 'prebuilds', plat, process.platform === 'win32' ? 'copilot-runtime.exe' : 'copilot-runtime');
+    const candidate = inAsar.replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
+    return candidate !== inAsar && fs.existsSync(candidate) ? candidate : null;
   } catch {
     return null;
   }
@@ -155,6 +168,7 @@ app.whenReady().then(async () => {
   carrySettingsOver(dataDir);
   setDataRoot(dataDir);
   setClaudeExecutable(bundledClaude());
+  setCopilotRuntime(unpackedCopilotRuntime());
   // Calls from the main process take the session's routing (the VPN tunnel
   // for GitHub, network.ts).
   setSessionFetch((url, init) => session.defaultSession.fetch(url, init));
@@ -173,6 +187,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   cancelClaudeLogin();
-  void stopCopilot();
+  void stopCopilot({ force: true });
   closeAllTerminals();
 });

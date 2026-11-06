@@ -34,10 +34,11 @@ export function terminate(pids: number[], group = false): void {
 
 /**
  * The app's own descendants working inside `dir` (their current folder
- * there), apart from its terminals — the processes a task left running.
+ * there), apart from its terminals and anything working in `except` — the
+ * processes a task left running.
  * macOS and Linux; nothing elsewhere.
  */
-export async function processesIn(dir: string): Promise<number[]> {
+export async function processesIn(dir: string, except: string[] = []): Promise<number[]> {
   if (process.platform === 'win32') return [];
   const children = new Map<number, number[]>();
   for (const line of (await run('ps', ['-axo', 'pid=,ppid='])).split('\n')) {
@@ -56,19 +57,19 @@ export async function processesIn(dir: string): Promise<number[]> {
   };
   walk(process.pid);
   if (!mine.length) return [];
-  const root = path.resolve(dir) + path.sep;
+  const within = (p: string, d: string) => (p + path.sep).startsWith(path.resolve(d) + path.sep);
   const found: number[] = [];
   let pid = 0;
   for (const line of (await run('lsof', ['-a', '-d', 'cwd', '-Fpn', '-p', mine.join(',')])).split('\n')) {
     if (line.startsWith('p')) pid = Number(line.slice(1));
-    else if (line.startsWith('n') && (line.slice(1) + path.sep).startsWith(root)) found.push(pid);
+    else if (line.startsWith('n') && within(line.slice(1), dir) && !except.some((d) => within(line.slice(1), d))) found.push(pid);
   }
   return found;
 }
 
-/** Ends everything the app started that is still working in `dir`. */
-export async function sweep(dir: string): Promise<number> {
-  const pids = await processesIn(dir);
+/** Ends everything the app started that is still working in `dir` (but not in `except`, other live work). */
+export async function sweep(dir: string, except: string[] = []): Promise<number> {
+  const pids = await processesIn(dir, except);
   terminate(pids);
   return pids.length;
 }

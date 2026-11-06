@@ -25,21 +25,37 @@ export const copilotHome = (): string => {
   return d;
 };
 
+/**
+ * The runtime from the SDK's platform package, where it can be run — the
+ * desktop app says (packaged, it's unpacked next to app.asar, which the SDK
+ * doesn't know); null: the SDK finds its own.
+ */
+let runtimePath: string | null = null;
+export function setCopilotRuntime(p: string | null): void {
+  runtimePath = p;
+}
+
 let client: CopilotClient | null = null;
 let clientTunnel = false;
 let starting: Promise<CopilotClient> | null = null;
+/** Turns in flight: the runtime isn't restarted under them (that would end every one). */
+let turns = 0;
 
-const viaTunnel = () => getSettings().proxy.hosts.some((h) => /githubcopilot\.com$|github\.com$/.test(h));
+// Copilot's own hosts only (the card's "Through the VPN"): github.com is in
+// the VPN hosts for git anyway, and must not drag Copilot along.
+const viaTunnel = () => getSettings().proxy.hosts.some((h) => /githubcopilot\.com$/.test(h));
 
 /** The one runtime, started on first use; restarted when the sign-in or its routing changes. */
 export async function copilotClient(): Promise<CopilotClient> {
-  if (client && clientTunnel !== viaTunnel() && !starting) await stopCopilot();
+  // New routing is taken up once no turn is running.
+  if (client && clientTunnel !== viaTunnel() && !starting && turns === 0) await stopCopilot();
   if (client) return client;
   starting ??= (async () => {
     const token = getSecret('copilot.token');
     const tunnel = viaTunnel();
     const bridge = tunnel ? await socksBridge() : null;
     const ca = getSettings().caFile;
+    const runtime = runtimePath;
     const c = new CopilotClient({
       baseDirectory: copilotHome(),
       ...(token ? { gitHubToken: token, useLoggedInUser: false } : { useLoggedInUser: true }),
@@ -47,6 +63,7 @@ export async function copilotClient(): Promise<CopilotClient> {
       env: {
         ...baseToolEnv(),
         COPILOT_HOME: copilotHome(),
+        ...(runtime ? { COPILOT_CLI_PATH: runtime } : {}),
         ...(bridge ? { HTTPS_PROXY: bridge, HTTP_PROXY: bridge, https_proxy: bridge, http_proxy: bridge } : {}),
         ...(ca && fs.existsSync(ca) ? { NODE_EXTRA_CA_CERTS: ca } : {}),
       },
@@ -59,7 +76,11 @@ export async function copilotClient(): Promise<CopilotClient> {
   return starting;
 }
 
-export async function stopCopilot(): Promise<void> {
+/** The runtime ended — refused while a task's turn runs on it, unless the app is quitting. */
+export async function stopCopilot(opts: { force?: boolean } = {}): Promise<void> {
+  if (turns > 0 && !opts.force) throw new Error('A task is working on Copilot — wait for it to finish (or stop it) first');
+  // One still starting would otherwise land after this, with the old sign-in.
+  await starting?.catch(() => null);
   const c = client;
   client = null;
   await c?.stop().catch(() => []);
@@ -137,7 +158,8 @@ export async function startCopilotLogin(onEvent: (ev: CopilotLoginEvent) => void
       }
       login = null;
       await session.disconnect().catch(() => {});
-      await stopCopilot();
+      // Started again with the new account — later, if a task is mid-turn on it.
+      await stopCopilot().catch(() => {});
       onEvent({ kind: 'done', account: await copilotAccount() });
     } catch (e) {
       if (login !== flow) return;
@@ -201,7 +223,16 @@ export type CopilotEvents = {
 };
 
 /** One prompt to Copilot in a folder; resolves with its final reply. */
-export async function copilotTurn(opts: {
+export async function copilotTurn(opts: Parameters<typeof oneTurn>[0]): Promise<string> {
+  turns++;
+  try {
+    return await oneTurn(opts);
+  } finally {
+    turns--;
+  }
+}
+
+async function oneTurn(opts: {
   cwd: string;
   prompt: string;
   resume: string | null;
@@ -219,8 +250,11 @@ export async function copilotTurn(opts: {
 
   const permission: PermissionHandler = (req) => {
     if (req.kind === 'write') {
-      const p = req.resolvedPath ?? req.fileName;
-      if (opts.rules.readOnly || !opts.rules.allowWrite(p)) {
+      // A patch can touch several files (and move them): every one is checked.
+      const paths = [req.resolvedPath ?? req.fileName, ...(req.fileEdits ?? []).flatMap((e) => [e.before?.path, e.after?.path])].filter((x): x is string => !!x);
+      const outside = paths.find((x) => !opts.rules.allowWrite(x));
+      if (opts.rules.readOnly || outside) {
+        const p = outside ?? paths[0];
         opts.events.onRefused(`write ${p}`);
         return { kind: 'reject', feedback: opts.rules.readOnly ? 'This step only reads — no changes.' : 'Only files inside the task’s folder may be changed.' };
       }

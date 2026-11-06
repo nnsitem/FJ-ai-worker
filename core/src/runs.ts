@@ -354,7 +354,7 @@ export function createRun(input: NewRun): Run {
 export function setTaskPlace(id: string, place: { repo?: string; folder?: string; base?: string }): Run {
   const r = getRun(id);
   if (live.has(id)) throw new Error('Wait for Claude to finish');
-  if (r.sessionId || r.branch) throw new Error('Claude has already worked here — start a new task to work somewhere else');
+  if (r.sessionId || r.copilotSessionId || r.branch) throw new Error('The AI has already worked here — start a new task to work somewhere else');
   const repo = (place.repo ?? '').trim();
   const folder = (place.folder ?? '').trim();
   if (repo) {
@@ -384,6 +384,9 @@ export function setTicket(id: string, patch: Partial<ManualTicket>): Run {
 }
 
 /** The folder Claude works in. */
+/** The conversation the task's current AI is in (Claude's and Copilot's are their own), or none yet. */
+const conversation = (r: Run): string | null => (r.engine === 'copilot' ? r.copilotSessionId : r.sessionId);
+
 export function workDir(r: Run): string {
   return r.source === 'folder' && r.folder && !r.linked ? r.folder : worktreeDir(r.id);
 }
@@ -485,8 +488,11 @@ export function setTaskOptions(id: string, opts: { agent?: string | null; model?
   if ('model' in opts) r.model = opts.model || null;
   if (opts.engine && opts.engine !== r.engine) {
     r.engine = opts.engine;
-    // Each AI's models are its own.
+    // Each AI's models are its own; and its conversation starts afresh (one
+    // from before a switch back would miss what the other did since).
     r.model = null;
+    if (opts.engine === 'copilot') r.copilotSessionId = null;
+    else r.sessionId = null;
     log(r, 'system', `From here on ${opts.engine === 'copilot' ? 'GitHub Copilot' : 'Claude'} does the work — it starts its own conversation, with the task's brief.`, false);
   }
   save(r);
@@ -511,7 +517,7 @@ async function chat(r: Run, text: string): Promise<void> {
     return;
   }
   // A blank task's first message is its brief (and its first line its title).
-  if (!r.sessionId && !r.ticket.description && !r.workflowStarted) {
+  if (!r.sessionId && !r.copilotSessionId && !r.ticket.description && !r.workflowStarted) {
     r.ticket.description = text;
     if (!r.ticket.title) r.ticket.title = text.split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, 80);
   }
@@ -520,8 +526,8 @@ async function chat(r: Run, text: string): Promise<void> {
     if (r.engine !== 'copilot') await assertClaudeAccount();
     await prepare(r);
     await claudeTurn(r, abort, {
-      prompt: r.sessionId ? text : `${taskContext(r)}\n\n---\n${text}`,
-      resume: r.sessionId,
+      prompt: conversation(r) ? text : `${taskContext(r)}\n\n---\n${text}`,
+      resume: conversation(r),
       step: 'chat',
       role: 'helping with this task in this folder. Change files only inside it; never commit, push or switch branches',
       tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite', 'Skill', 'WebFetch', 'WebSearch', 'Agent'],
@@ -574,7 +580,11 @@ export function stopRun(id: string): Run {
   // The turn ends with the abort; what it ran in the shell (a build, a test
   // server) is swept once it has had a moment to go by itself.
   setTimeout(() => {
-    void sweep(workDir(r))
+    // Started again meanwhile (Retry, a message): its new turn works there now.
+    if (live.has(id)) return;
+    // Another task working in the same folder (or one inside it) keeps its processes.
+    const others = [...live.keys()].filter((k) => k !== id && runs.has(k)).map((k) => workDir(runs.get(k)!));
+    void sweep(workDir(r), others)
       .then((n) => {
         if (n) {
           log(r, 'system', `Stopped ${n} process${n === 1 ? '' : 'es'} the task had left running.`, false);
@@ -589,7 +599,10 @@ export function stopRun(id: string): Run {
 export async function deleteRun(id: string): Promise<void> {
   const r = getRun(id);
   live.get(id)?.abort();
-  await sweep(workDir(r)).catch(() => 0);
+  await sweep(
+    workDir(r),
+    [...live.keys()].filter((k) => k !== id && runs.has(k)).map((k) => workDir(runs.get(k)!)),
+  ).catch(() => 0);
   // A folder of the person's own stays; only the app's own checkout goes.
   if (r.source === 'repo') await removeWorktree(id, r.repo);
   else if (r.linked && r.folder) {
@@ -770,7 +783,7 @@ async function analyse(r: Run, feedback?: string): Promise<void> {
     await prepare(r);
     // Revising: the same conversation. Starting: the task's conversation so far,
     // if the person already talked to Claude in it.
-    const resume = r.sessionId;
+    const resume = conversation(r);
     const result = await claudeTurn(r, abort, {
       prompt: feedback && resume ? revisePrompt(feedback) : firstPrompt(r),
       resume,
@@ -1026,8 +1039,9 @@ async function copilotRun(
   return copilotTurn({
     cwd: workDir(r),
     // Its first message carries the task's brief: Claude's conversation isn't Copilot's.
-    prompt: (t.resume && r.copilotSessionId) || t.prompt.startsWith(taskContext(r).slice(0, 60)) ? t.prompt : `${taskContext(r)}\n\n---\n${t.prompt}`,
-    resume: t.ephemeral ? null : t.resume ? r.copilotSessionId : null,
+    // (t.resume is this task's Copilot conversation — see conversation().)
+    prompt: t.resume || t.prompt.startsWith(taskContext(r).slice(0, 60)) ? t.prompt : `${taskContext(r)}\n\n---\n${t.prompt}`,
+    resume: t.ephemeral ? null : t.resume,
     model: copilotModel(t.model ?? ctx.model),
     system: ctx.rules,
     agents,
@@ -1188,7 +1202,7 @@ async function fix(r: Run, failed?: TestResult, byHand = false, review?: Feedbac
     else if (byHand) log(r, 'system', `Round ${r.round + 1}: another go at the fix.`, false);
     r.fixSummary = await claudeTurn(r, abort, {
       prompt: selfFix ? SELF_FIX_PROMPT(selfFix) : review ? REVIEW_PROMPT(r, review) : failed ? RETRY_PROMPT(r, failed) : FIX_PROMPT(r),
-      resume: r.sessionId,
+      resume: conversation(r),
       step: 'fix',
       role: `fixing ${r.ticket.key || 'the task'} in this folder. Change files only inside it; never commit, push or switch branches`,
       tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash', 'TodoWrite', 'Skill', 'Agent'],
@@ -1282,7 +1296,7 @@ async function runTests(r: Run): Promise<void> {
     } else {
       const reply = await claudeTurn(r, abort, {
         prompt: TEST_PROMPT(r),
-        resume: r.sessionId,
+        resume: conversation(r),
         step: 'test',
         role: `testing the fix for ${r.ticket.key || 'the task'}. Run tests and read; do not change files, commit or push`,
         tools: ['Read', 'Grep', 'Glob', 'Bash', 'Skill', 'Agent'],

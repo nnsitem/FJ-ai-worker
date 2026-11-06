@@ -68,7 +68,7 @@ import { closeTerminal, closeVpnTerminals, listTerminals, onTerminalEvent, openT
 import { artifactContent, artifactFile, deleteArtifact, listArtifacts } from '../../core/src/artifacts.js';
 import { deleteProjectContext, listProjectContexts, PROJECT_CONTEXT_TEMPLATE, saveProjectContext, taskProject } from '../../core/src/project-context.js';
 import { getSettings as readSettings } from '../../core/src/settings.js';
-import { cancelCopilotLogin, copilotAccount, copilotModels, copilotSignOut, setCopilotToken, startCopilotLogin, stopCopilot } from '../../core/src/copilot.js';
+import { cancelCopilotLogin, copilotAccount, copilotModels, copilotSignOut, setCopilotToken, startCopilotLogin } from '../../core/src/copilot.js';
 import { githubToken } from '../../core/src/github.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
