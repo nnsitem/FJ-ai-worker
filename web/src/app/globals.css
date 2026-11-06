@@ -356,22 +356,52 @@ code, .aw-mono { font-family: var(--font-mono); font-size: 0.86em; }
 .aw-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 100%; padding: 2rem; color: var(--soft); text-align: center; font-size: 0.85rem; }
 .aw-empty svg { color: var(--accent-ink); opacity: 0.85; }
 
-/* ---------- terminal ---------- */
-.aw-term-tabs { display: flex; gap: 4px; padding: 8px 10px 0; border-bottom: 1px solid var(--rule); overflow-x: auto; }
-.aw-term-tab {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 6px 8px 7px 12px; border: 1px solid transparent; border-bottom: none;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  color: var(--muted); font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+/* ---------- terminal panel (VS Code's, under the page) ---------- */
+.aw-main-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: var(--gap); }
+.aw-main-col > .aw-content { flex: 1; }
+.aw-topbar-btn { -webkit-app-region: no-drag; height: 26px; font-size: 0.74rem; padding: 0 0.6rem; }
+.aw-topbar-icon {
+  -webkit-app-region: no-drag;
+  display: inline-grid; place-items: center; width: 28px; height: 26px;
+  border: 1px solid var(--rule); border-radius: 7px; background: var(--card); color: var(--muted); cursor: pointer;
 }
-.aw-term-tab:hover { color: var(--foreground); }
-.aw-term-tab[aria-selected='true'] { background: var(--background); border-color: var(--rule); color: var(--foreground); margin-bottom: -1px; }
-.aw-term-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--soft); }
-.aw-term-dot[data-running] { background: var(--green); }
-.aw-term-x { border: none; background: none; color: var(--soft); font-size: 0.7rem; padding: 2px 4px; border-radius: 4px; cursor: pointer; }
-.aw-term-x:hover { background: rgb(var(--ink) / 0.08); color: var(--foreground); }
-.aw-term-area { flex: 1; min-height: 0; position: relative; background: var(--background); }
-.aw-term { position: absolute; inset: 0; padding: 10px 6px 6px 12px; }
+.aw-topbar-icon:hover { color: var(--foreground); border-color: var(--rule-strong); }
+
+.aw-dock {
+  position: relative; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--radius);
+  overflow: hidden;
+}
+.aw-dock[data-max] { flex: 1 0 auto; height: auto; }
+.aw-main-col:has(.aw-dock[data-max]) > .aw-content { display: none; }
+.aw-dock-grip { position: absolute; left: 0; right: 0; top: 0; height: 5px; cursor: ns-resize; z-index: 2; }
+.aw-dock-grip:hover, .aw-dock-grip:active { background: var(--accent-line); }
+.aw-dock-head { flex-shrink: 0; display: flex; align-items: center; gap: 2px; height: 35px; padding: 0 6px 0 14px; }
+.aw-dock-title {
+  align-self: stretch; display: inline-flex; align-items: center;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--foreground); border-bottom: 1px solid var(--accent);
+}
+.aw-dock-error { margin-left: 12px; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aw-dock-btn {
+  display: inline-flex; align-items: center; gap: 5px; height: 24px; min-width: 24px; padding: 0 5px; justify-content: center;
+  border: none; border-radius: 5px; background: none; color: var(--muted); font-size: 0.74rem; font-weight: 600; cursor: pointer;
+}
+.aw-dock-btn:hover:not(:disabled) { background: rgb(var(--ink) / 0.08); color: var(--foreground); }
+.aw-dock-btn:disabled { opacity: 0.4; cursor: default; }
+.aw-dock-vpn { color: var(--accent-ink); margin-right: 4px; }
+.aw-dock-body { flex: 1; min-height: 0; display: flex; }
+.aw-dock-terms { flex: 1; min-width: 0; position: relative; }
+.aw-term { position: absolute; inset: 0; padding: 2px 6px 6px 14px; }
 .aw-term[hidden] { display: none; }
 .aw-term .xterm { height: 100%; }
 .aw-term .xterm-viewport { background: transparent !important; }
+.aw-dock-list { list-style: none; margin: 0; padding: 4px 0; width: 150px; flex-shrink: 0; border-left: 1px solid var(--rule); overflow-y: auto; }
+.aw-dock-list button {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 3px 10px;
+  border: none; background: none; color: var(--muted); font-size: 0.78rem; text-align: left; cursor: pointer;
+}
+.aw-dock-list button:hover { background: rgb(var(--ink) / 0.05); color: var(--foreground); }
+.aw-dock-list button[aria-current] { background: var(--accent-tint); color: var(--foreground); }
+.aw-dock-ended { margin-left: auto; color: var(--soft); font-size: 0.7rem; }

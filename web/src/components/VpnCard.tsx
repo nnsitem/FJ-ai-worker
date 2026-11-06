@@ -1,16 +1,15 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { VpnIcon } from './icons';
 import { call, type VpnStatus } from '@/lib/bridge';
+import { requestDock } from '@/lib/terminal-dock';
 
 /** The VPN tunnel GitHub goes through: up, and GitHub answering through it. */
 export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
   const [status, setStatus] = useState<VpnStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -32,16 +31,11 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
     return () => clearInterval(t);
   }, [check]);
 
-  // The script in the app's own terminal (Terminal page), where its sign-in
-  // and errors show; the tunnel takes a few seconds to come up.
-  const connect = async () => {
-    setError(null);
-    try {
-      await call('termOpen', 'vpn');
-      router.push('/terminal');
-    } catch (e) {
-      setError((e as Error).message);
-    }
+  // The script in the app's terminal panel, where its sign-in and errors
+  // show; the tunnel takes a few seconds to come up.
+  const connect = () => {
+    requestDock({ action: 'open', start: 'vpn' });
+    setTimeout(() => void check(), 8000);
   };
 
   const openScript = async () => {

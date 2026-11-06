@@ -6,16 +6,16 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { bridge, call } from '@/lib/bridge';
 
-/** The app's colours for the terminal: its card ground, the brand for the cursor and selection. */
+/** The app's colours for the terminal: the panel's ground, the brand for the cursor and selection. */
 function theme() {
   const css = getComputedStyle(document.documentElement);
   const v = (name: string) => css.getPropertyValue(name).trim();
   const dark = matchMedia('(prefers-color-scheme: dark)').matches;
   return {
-    background: v('--background') || '#0c0b10',
+    background: v('--paper-2') || '#141218',
     foreground: v('--foreground') || '#ecebf0',
     cursor: '#e1306c',
-    cursorAccent: v('--background') || '#0c0b10',
+    cursorAccent: v('--paper-2') || '#141218',
     selectionBackground: dark ? 'rgba(225, 48, 108, 0.35)' : 'rgba(194, 24, 91, 0.25)',
     magenta: '#e1306c',
     brightMagenta: '#ff6b98',

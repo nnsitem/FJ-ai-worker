@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
-import { call } from '@/lib/bridge';
-import { ConnectionsIcon, RunsIcon, SettingsIcon, TerminalIcon, TicketsIcon } from './icons';
+import { bridge, call } from '@/lib/bridge';
+import { ConnectionsIcon, PanelIcon, RunsIcon, SettingsIcon, TicketsIcon, VpnIcon } from './icons';
+import { TerminalDock } from './TerminalDock';
+import { requestDock } from '@/lib/terminal-dock';
 
 type Item = { href: string; label: string; icon: ComponentType<{ size?: number }> };
 
@@ -16,13 +18,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
       { href: '/tickets', label: 'Tickets', icon: TicketsIcon },
     ],
   },
-  {
-    label: 'Setup',
-    items: [
-      { href: '/', label: 'Connections', icon: ConnectionsIcon },
-      { href: '/terminal', label: 'Terminal', icon: TerminalIcon },
-    ],
-  },
+  { label: 'Setup', items: [{ href: '/', label: 'Connections', icon: ConnectionsIcon }] },
 ];
 const BOTTOM: Item = { href: '/settings', label: 'Settings', icon: SettingsIcon };
 const ALL = [...GROUPS.flatMap((g) => g.items), BOTTOM];
@@ -47,9 +43,14 @@ function useReadiness() {
     };
     void check();
     const t = setInterval(() => void check(), 30000);
+    // The VPN script finishing (terminal panel) is the moment to look again.
+    const off = bridge().onTerminal((ev) => {
+      if (ev.kind === 'exit') void check();
+    });
     return () => {
       live = false;
       clearInterval(t);
+      off();
     };
   }, []);
   return { vpn, github, claude };
@@ -89,6 +90,20 @@ export function Shell({ children }: { children: ReactNode }) {
             {label}
           </Link>
         ))}
+        {ready.vpn !== 'ok' && ready.vpn !== undefined && (
+          <button type="button" className="aw-btn aw-topbar-btn" data-primary onClick={() => requestDock({ action: 'open', start: 'vpn' })}>
+            <VpnIcon size={14} /> Connect VPN
+          </button>
+        )}
+        <button
+          type="button"
+          className="aw-topbar-icon"
+          onClick={() => requestDock({ action: 'toggle' })}
+          title="Terminal (Ctrl+`)"
+          aria-label="Show or hide the terminal"
+        >
+          <PanelIcon size={16} />
+        </button>
       </header>
       <div className="aw-body">
         <aside className="aw-sidebar">
@@ -109,7 +124,10 @@ export function Shell({ children }: { children: ReactNode }) {
             {version && <div className="aw-version">v{version}</div>}
           </div>
         </aside>
-        <main className="aw-content">{children}</main>
+        <div className="aw-main-col">
+          <main className="aw-content">{children}</main>
+          <TerminalDock />
+        </div>
       </div>
     </div>
   );

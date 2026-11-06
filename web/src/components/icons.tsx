@@ -14,6 +14,11 @@ import {
   TicketIcon as SolarTicket,
   AddCircleIcon as SolarAddCircle,
   CodeIcon as SolarCode,
+  TrashBinTrashIcon as SolarTrash,
+  AltArrowUpIcon as SolarUp,
+  AltArrowDownIcon as SolarDown,
+  CloseIcon as SolarClose,
+  SquareBottomDownIcon as SolarPanel,
 } from '@solar-icons/react/bold-duotone';
 
 type IconProps = { size?: number };
@@ -36,3 +41,9 @@ export const ClaudeIcon = solar(SolarChat);
 export const JiraIcon = solar(SolarTicket);
 export const AddIcon = solar(SolarAddCircle);
 export const TerminalIcon = solar(SolarCode);
+export const TrashIcon = solar(SolarTrash);
+export const ChevronUpIcon = solar(SolarUp);
+export const ChevronDownIcon = solar(SolarDown);
+export const CloseIcon = solar(SolarClose);
+/** The panel toggle in the top bar. */
+export const PanelIcon = solar(SolarPanel);
