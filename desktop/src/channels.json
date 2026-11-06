@@ -17,6 +17,13 @@
   "claudeCancelLogin": "claude:cancel-login",
   "claudeLogout": "claude:logout",
   "claudeLoginEvent": "claude:login-event",
+  "jiraState": "jira:state",
+  "jiraConnect": "jira:connect",
+  "jiraDisconnect": "jira:disconnect",
+  "jiraProjects": "jira:projects",
+  "jiraSearch": "jira:search",
+  "jiraTicket": "jira:ticket",
+  "githubAllRepos": "github:all-repos",
   "openExternal": "app:open-external",
   "openInVpnBrowser": "app:open-in-vpn-browser",
   "appInfo": "app:info"

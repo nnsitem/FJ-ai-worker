@@ -10,13 +10,18 @@ export type Settings = {
   caFile: string;
   github: { clientId: string };
   claude: { expectedEmail: string };
+  jira: { site: string; email: string };
+  projects: ProjectLink[];
 };
+export type ProjectLink = { jiraKey: string; repo: string };
 export type SettingsPatch = {
   proxy?: Partial<Settings['proxy']>;
   vpnScript?: string;
   caFile?: string;
   github?: Partial<Settings['github']>;
   claude?: Partial<Settings['claude']>;
+  jira?: Partial<Settings['jira']>;
+  projects?: ProjectLink[];
 };
 export type VpnStatus = { tunnel: boolean; github: boolean; error?: string; checkedAt: string };
 export type GithubUser = { login: string; name: string | null; avatarUrl: string };
@@ -37,6 +42,34 @@ export type ClaudeLoginEvent =
   | { kind: 'done'; account: ClaudeAccount }
   | { kind: 'error'; error: string }
   | { kind: 'closed' };
+export type JiraUser = { accountId: string; displayName: string; email: string | null; avatarUrl: string | null };
+export type JiraState = { connected: false; site: string; email: string } | { connected: true; site: string; user: JiraUser };
+export type JiraProject = { key: string; name: string; avatarUrl: string | null };
+export type StatusCategory = 'new' | 'indeterminate' | 'done' | 'undefined';
+export type TicketSummary = {
+  key: string;
+  summary: string;
+  status: string;
+  statusCategory: StatusCategory;
+  type: string;
+  priority: string | null;
+  assignee: string | null;
+  updated: string;
+  projectKey: string;
+  repo: string | null;
+};
+export type TicketFilter = { projects?: string[]; scope?: 'mine' | 'open' | 'jql'; jql?: string; text?: string; pageToken?: string };
+export type TicketDetail = TicketSummary & {
+  url: string;
+  description: string;
+  reporter: string | null;
+  created: string | null;
+  labels: string[];
+  parent: { key: string; summary: string | null } | null;
+  comments: { id: string; author: string; created: string; body: string }[];
+  commentTotal: number;
+  attachments: { id: string; filename: string; size: number; mimeType: string }[];
+};
 export type AppInfo = { version: string; platform: string; claudeConfigDir: string; vpnBrowser: boolean };
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -62,6 +95,13 @@ type Bridge = {
   claudeCancelLogin(): P<void>;
   claudeLogout(): P<ClaudeAccount>;
   onClaudeLogin(cb: (ev: ClaudeLoginEvent) => void): () => void;
+  jiraState(): P<JiraState>;
+  jiraConnect(input: { site: string; email: string; token: string }): P<JiraState>;
+  jiraDisconnect(): P<void>;
+  jiraProjects(): P<JiraProject[]>;
+  jiraSearch(filter: TicketFilter): P<{ tickets: TicketSummary[]; nextPageToken: string | null; jql: string }>;
+  jiraTicket(key: string): P<TicketDetail>;
+  githubAllRepos(): P<RepoSummary[]>;
   openExternal(url: string): P<void>;
   openInVpnBrowser(url: string): P<void>;
 };

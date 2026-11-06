@@ -24,6 +24,7 @@ import {
   startClaudeLogin,
   submitClaudeCode,
 } from '../../core/src/claude-account.js';
+import { connectJira, disconnectJira, getTicket, jiraState, listProjects, searchTickets, type TicketFilter } from '../../core/src/jira.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
 export { CHANNELS };
@@ -106,6 +107,14 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.githubFromGh, async () => useToken(await tokenFromGh()));
   handle(CHANNELS.githubSignOut, () => signOutGithub());
   handle(CHANNELS.githubRepos, () => listRepos());
+  handle(CHANNELS.githubAllRepos, () => listRepos(1000));
+
+  handle(CHANNELS.jiraState, () => jiraState());
+  handle(CHANNELS.jiraConnect, (input: { site: string; email: string; token: string }) => connectJira(input));
+  handle(CHANNELS.jiraDisconnect, () => disconnectJira());
+  handle(CHANNELS.jiraProjects, () => listProjects());
+  handle(CHANNELS.jiraSearch, (filter: TicketFilter) => searchTickets(filter));
+  handle(CHANNELS.jiraTicket, (key: string) => getTicket(key));
 
   handle(CHANNELS.claudeAccount, () => claudeAccount());
   // Starts `claude auth login`. In the app's own window (inWindow), the code

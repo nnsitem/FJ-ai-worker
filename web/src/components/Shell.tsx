@@ -5,11 +5,12 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 const NAV = [
+  { href: '/tickets', label: 'Tickets' },
   { href: '/', label: 'Connections' },
   { href: '/settings', label: 'Settings' },
 ];
 
-/** Sidebar and page frame. Tickets and runs join the nav in M2–M5. */
+/** Sidebar and page frame. Runs join the nav in M3–M5. */
 export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname().replace(/\.html$/, '').replace(/\/$/, '') || '/';
   return (

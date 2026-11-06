@@ -151,15 +151,20 @@ export function cancelDeviceFlow(): void {
 
 export type RepoSummary = { fullName: string; private: boolean; pushedAt: string | null; url: string };
 
-/** The repos the signed-in person can reach, most recently pushed first. */
+/** The repos the signed-in person can reach, most recently pushed first (up to `limit`). */
 export async function listRepos(limit = 50): Promise<RepoSummary[]> {
   const token = githubToken();
   if (!token) throw new Error('Not signed in to GitHub');
-  const res = await api(`/user/repos?per_page=${Math.min(limit, 100)}&sort=pushed&affiliation=owner,collaborator,organization_member`, token);
-  if (!res.ok) {
-    const sso = res.headers.get('x-github-sso');
-    throw new Error(sso ? `The token needs SSO authorisation for the organisation: ${sso}` : `GitHub answered ${res.status}`);
+  const out: RepoSummary[] = [];
+  for (let page = 1; out.length < limit; page++) {
+    const res = await api(`/user/repos?per_page=100&page=${page}&sort=pushed&affiliation=owner,collaborator,organization_member`, token);
+    if (!res.ok) {
+      const sso = res.headers.get('x-github-sso');
+      throw new Error(sso ? `The token needs SSO authorisation for the organisation: ${sso}` : `GitHub answered ${res.status}`);
+    }
+    const rows = (await res.json()) as { full_name: string; private: boolean; pushed_at: string | null; html_url: string }[];
+    out.push(...rows.map((r) => ({ fullName: r.full_name, private: r.private, pushedAt: r.pushed_at, url: r.html_url })));
+    if (rows.length < 100) break;
   }
-  const rows = (await res.json()) as { full_name: string; private: boolean; pushed_at: string | null; html_url: string }[];
-  return rows.map((r) => ({ fullName: r.full_name, private: r.private, pushedAt: r.pushed_at, url: r.html_url }));
+  return out.slice(0, limit);
 }

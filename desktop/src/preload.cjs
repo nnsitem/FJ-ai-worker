@@ -27,6 +27,13 @@ contextBridge.exposeInMainWorld('aiWorker', {
     ipcRenderer.on(C.claudeLoginEvent, l);
     return () => ipcRenderer.removeListener(C.claudeLoginEvent, l);
   },
+  jiraState: () => ipcRenderer.invoke(C.jiraState),
+  jiraConnect: (input) => ipcRenderer.invoke(C.jiraConnect, input),
+  jiraDisconnect: () => ipcRenderer.invoke(C.jiraDisconnect),
+  jiraProjects: () => ipcRenderer.invoke(C.jiraProjects),
+  jiraSearch: (filter) => ipcRenderer.invoke(C.jiraSearch, filter),
+  jiraTicket: (key) => ipcRenderer.invoke(C.jiraTicket, key),
+  githubAllRepos: () => ipcRenderer.invoke(C.githubAllRepos),
   openExternal: (url) => ipcRenderer.invoke(C.openExternal, url),
   openInVpnBrowser: (url) => ipcRenderer.invoke(C.openInVpnBrowser, url),
 });

@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { VpnCard } from '@/components/VpnCard';
 import { GithubCard } from '@/components/GithubCard';
 import { ClaudeCard } from '@/components/ClaudeCard';
+import { JiraCard } from '@/components/JiraCard';
 import type { VpnStatus } from '@/lib/bridge';
 
 export default function ConnectionsPage() {
@@ -15,6 +16,7 @@ export default function ConnectionsPage() {
       <p className="aw-lede">What AI Worker needs before it can work a ticket.</p>
       <VpnCard onChange={onVpn} />
       <GithubCard vpnUp={vpnUp} />
+      <JiraCard vpnUp={vpnUp} />
       <ClaudeCard />
     </div>
   );

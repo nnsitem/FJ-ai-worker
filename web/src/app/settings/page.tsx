@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { call, type AppInfo, type Settings } from '@/lib/bridge';
+import { ProjectLinks } from '@/components/ProjectLinks';
 
 export default function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
@@ -31,6 +32,7 @@ export default function SettingsPage() {
         caFile: s.caFile,
         github: s.github,
         claude: s.claude,
+        projects: s.projects,
       });
       setS(next);
       setHosts(next.proxy.hosts.join('\n'));
@@ -44,6 +46,12 @@ export default function SettingsPage() {
   return (
     <div className="aw-page">
       <h1>Settings</h1>
+
+      <section className="aw-card">
+        <div className="aw-card-head"><h2>Projects</h2></div>
+        <p className="aw-muted">Which GitHub repo each Jira project&apos;s tickets are fixed in.</p>
+        <ProjectLinks links={s.projects} onChange={(projects) => setS({ ...s, projects })} />
+      </section>
 
       <section className="aw-card">
         <div className="aw-card-head"><h2>VPN</h2></div>
