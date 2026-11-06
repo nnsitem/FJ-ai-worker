@@ -99,6 +99,8 @@ export type Run = {
   folder: string | null;
   agent: string | null;
   model: string | null;
+  engine: 'claude' | 'copilot';
+  copilotSessionId: string | null;
   workflowStarted: boolean;
   baseBranch: string | null;
   createdAt: string;
@@ -169,6 +171,7 @@ export type Artifact = {
   updatedAt: string;
 };
 export type ProjectContext = { project: string; text: string; updatedAt: string | null };
+export type CopilotAccount = { loggedIn: boolean; login: string | null; how: string | null; message: string | null; tokenSet: boolean };
 export type AppInfo = { version: string; platform: string; claudeConfigDir: string; vpnBrowser: boolean };
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -218,7 +221,11 @@ type Bridge = {
   runsOpenFolder(id: string, how: 'folder' | 'vscode'): P<void>;
   runsSend(id: string, text: string): P<Run>;
   runsStartWorkflow(id: string): P<Run>;
-  runsSetOptions(id: string, opts: { agent?: string | null; model?: string | null }): P<Run>;
+  runsSetOptions(id: string, opts: { agent?: string | null; model?: string | null; engine?: 'claude' | 'copilot' }): P<Run>;
+  copilotAccount(): P<CopilotAccount>;
+  copilotSetToken(token: string | null): P<CopilotAccount>;
+  copilotUseGithub(): P<CopilotAccount>;
+  copilotModels(): P<{ id: string; name: string }[]>;
   libraryList(): P<Library>;
   libraryImport(from: 'aiOffice' | 'pick'): P<{ agents: number; skills: number } | null>;
   libraryRemove(kind: 'agent' | 'skill', name: string): P<void>;

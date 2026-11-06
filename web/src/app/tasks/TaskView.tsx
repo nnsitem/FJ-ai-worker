@@ -2,8 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { AgentLogo } from '@/components/AgentLogo';
-import { AgentModelPickers } from '@/components/AgentModelPickers';
+import { AgentModelPickers, EnginePicker } from '@/components/AgentModelPickers';
 import { RunAgentButton, TaskAgents } from '@/components/AgentActivity';
 import { LinkOpener } from '@/components/LinkOpener';
 import { BranchIcon, CloseIcon, FileIcon, FolderIcon, JiraIcon, PanelIcon, PipelineIcon, PlayIcon, TrashIcon } from '@/components/icons';
@@ -153,11 +152,9 @@ export function TaskView({
           <Transcript run={run} />
           <Composer run={run} />
           <div className="ao-statusbar">
-            <span className="ao-agent-mark" title="Claude — the company account" aria-label="Claude">
-              <AgentLogo provider="claude" />
-            </span>
+            <EnginePicker engine={run.engine} disabled={run.running} onChange={(engine) => void act(() => call('runsSetOptions', run.id, { engine }))} />
             <span className="ao-dot-sep">·</span>
-            <AgentModelPickers agent={run.agent} model={run.model} disabled={run.running} onChange={(o) => void act(() => call('runsSetOptions', run.id, o))} />
+            <AgentModelPickers engine={run.engine} agent={run.agent} model={run.model} disabled={run.running} onChange={(o) => void act(() => call('runsSetOptions', run.id, o))} />
             <span className="ao-dot-sep">·</span>
             <PlacePicker run={run} locked={started || run.running} onError={setError} />
             {run.branch && (

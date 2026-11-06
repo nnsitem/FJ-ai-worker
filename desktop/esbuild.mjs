@@ -2,9 +2,9 @@ import { build } from 'esbuild';
 import { cp } from 'node:fs/promises';
 
 // The agent SDK runs a platform-specific `claude` binary from next to itself,
-// and node-pty is a native addon — neither survives being inlined; both stay
-// in node_modules.
-const EXTERNAL = ['electron', '@anthropic-ai/claude-agent-sdk', 'node-pty'];
+// node-pty is a native addon, and the Copilot SDK starts its runtime from its
+// platform package — none survives being inlined; they stay in node_modules.
+const EXTERNAL = ['electron', '@anthropic-ai/claude-agent-sdk', 'node-pty', '@github/copilot-sdk'];
 
 await build({
   entryPoints: ['src/main.ts'],

@@ -68,6 +68,8 @@ import { closeTerminal, listTerminals, onTerminalEvent, openTerminal, resizeTerm
 import { artifactContent, artifactFile, deleteArtifact, listArtifacts } from '../../core/src/artifacts.js';
 import { deleteProjectContext, listProjectContexts, PROJECT_CONTEXT_TEMPLATE, saveProjectContext, taskProject } from '../../core/src/project-context.js';
 import { getSettings as readSettings } from '../../core/src/settings.js';
+import { copilotAccount, copilotModels, setCopilotToken, stopCopilot } from '../../core/src/copilot.js';
+import { githubToken } from '../../core/src/github.js';
 import { openClaudeLoginWindow } from './claude-login-window.js';
 
 export { CHANNELS };
@@ -175,7 +177,7 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   handle(CHANNELS.runsFileDiff, (id: string, file: string) => runFileDiff(id, file));
   handle(CHANNELS.runsSend, (id: string, text: string) => withLive(sendMessage(id, text)));
   handle(CHANNELS.runsStartWorkflow, (id: string) => withLive(startWorkflow(id)));
-  handle(CHANNELS.runsSetOptions, (id: string, opts: { agent?: string | null; model?: string | null }) => withLive(setTaskOptions(id, opts)));
+  handle(CHANNELS.runsSetOptions, (id: string, opts: { agent?: string | null; model?: string | null; engine?: 'claude' | 'copilot' }) => withLive(setTaskOptions(id, opts)));
 
   // The agents and skills library (core/src/library.ts): imported from AI
   // Office's, or from a folder the person picks.
@@ -231,6 +233,15 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   });
   handle(CHANNELS.projectContextSave, (project: string, text: string) => saveProjectContext(project, text));
   handle(CHANNELS.projectContextDelete, (project: string) => deleteProjectContext(project));
+  // GitHub Copilot, the second engine (core/src/copilot.ts).
+  handle(CHANNELS.copilotAccount, () => copilotAccount());
+  handle(CHANNELS.copilotSetToken, (token: string | null) => setCopilotToken(token));
+  handle(CHANNELS.copilotUseGithub, () => {
+    const t = githubToken();
+    if (!t) throw new Error('Sign in to GitHub first');
+    return setCopilotToken(t);
+  });
+  handle(CHANNELS.copilotModels, () => copilotModels());
   handle(CHANNELS.pickFolder, async (title?: string) => {
     const w = win();
     const opts = { title: title || 'Pick a folder', properties: ['openDirectory' as const] };

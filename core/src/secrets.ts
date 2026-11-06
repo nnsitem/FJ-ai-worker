@@ -17,7 +17,7 @@ export function setSecretBox(b: SecretBox): void {
   box = b;
 }
 
-export type SecretName = 'github.token' | 'jira.token';
+export type SecretName = 'github.token' | 'jira.token' | 'copilot.token';
 
 const FILE = 'secrets.json';
 

@@ -10,7 +10,8 @@
     "noEmit": true,
     "types": ["node"],
     "paths": {
-      "@anthropic-ai/claude-agent-sdk": ["./node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts"]
+      "@anthropic-ai/claude-agent-sdk": ["./node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts"],
+      "@github/copilot-sdk": ["./node_modules/@github/copilot-sdk/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*.ts", "../core/src/**/*.ts"]

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { bridge, call, type TerminalInfo } from '@/lib/bridge';
 import { DOCK_EVENT, type DockRequest } from '@/lib/terminal-dock';
 import { TerminalView } from './TerminalView';
-import { ChevronDown, ChevronUp, CloseIcon, PlusIcon, TerminalIcon, TrashIcon, VpnIcon } from './icons';
+import { CloseIcon, PlusIcon, TerminalIcon, TrashIcon, VpnIcon } from './icons';
 
 const HEIGHT_PREF = 'aw.terminalHeight';
 const OPEN_PREF = 'aw.terminalOpen';
@@ -33,7 +33,6 @@ const writePref = (k: string, v: string) => {
 export function TerminalDock() {
   const [open, setOpen] = useState(false);
   const [height, setHeight] = useState(280);
-  const [max, setMax] = useState(false);
   const [terms, setTerms] = useState<TerminalInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +113,6 @@ export function TerminalDock() {
     const startY = e.clientY;
     const startH = dock.current?.offsetHeight ?? height;
     const limit = () => Math.max(MIN, (dock.current?.parentElement?.offsetHeight ?? window.innerHeight) - 120);
-    setMax(false);
     const move = (ev: PointerEvent) => setHeight(Math.min(limit(), Math.max(MIN, startH + startY - ev.clientY)));
     const up = (ev: PointerEvent) => {
       window.removeEventListener('pointermove', move);
@@ -125,18 +123,16 @@ export function TerminalDock() {
     window.addEventListener('pointerup', up);
   };
 
-  const kill = async () => {
-    if (!activeId) return;
-    await call('termClose', activeId);
+  const kill = async (id: string) => {
+    await call('termClose', id);
     const list = await refresh();
     if (list.length === 0) void show(false);
   };
 
   if (!open) return null;
-  const active = terms.find((t) => t.id === activeId) ?? null;
 
   return (
-    <section ref={dock} className="ao-panel ao-dock" data-max={max || undefined} style={max ? undefined : { height }} aria-label="Terminal">
+    <section ref={dock} className="ao-panel ao-dock" style={{ height }} aria-label="Terminal">
       <div className="ao-dock-grip" onPointerDown={drag} role="separator" aria-orientation="horizontal" aria-label="Resize the terminal" />
       <header className="ao-dock-head">
         <span className="ao-changes-tab" data-active="true">
@@ -152,12 +148,6 @@ export function TerminalDock() {
         <button type="button" className="ao-icon-btn" onClick={() => void start('shell')} title="New terminal" aria-label="New terminal">
           <PlusIcon size={15} />
         </button>
-        <button type="button" className="ao-icon-btn" onClick={kill} disabled={!active} title="Kill the terminal" aria-label="Kill the terminal">
-          <TrashIcon size={15} />
-        </button>
-        <button type="button" className="ao-icon-btn" onClick={() => setMax((m) => !m)} title={max ? 'Restore panel size' : 'Maximise panel size'} aria-label={max ? 'Restore panel size' : 'Maximise panel size'}>
-          {max ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
-        </button>
         <button type="button" className="ao-icon-btn" onClick={() => void show(false)} title="Hide the panel (Ctrl+`)" aria-label="Hide the panel">
           <CloseIcon size={15} />
         </button>
@@ -169,11 +159,15 @@ export function TerminalDock() {
         {terms.length > 1 && (
           <ul className="ao-dock-list" aria-label="Terminals">
             {terms.map((t) => (
-              <li key={t.id}>
+              <li key={t.id} className="ao-dock-term-row">
                 <button type="button" className="ao-dock-term" data-active={t.id === activeId} onClick={() => setActiveId(t.id)}>
                   {t.kind === 'vpn' ? <VpnIcon size={14} /> : <TerminalIcon size={14} />}
                   <span>{t.kind === 'vpn' ? 'VPN' : 'zsh'}</span>
                   {!t.running && <span className="ao-dock-ended">ended</span>}
+                </button>
+                {/* Its own bin — only with more than one (✕ above hides the panel). */}
+                <button type="button" className="ao-icon-btn ao-dock-kill" onClick={() => void kill(t.id)} title="Kill this terminal" aria-label={`Kill ${t.kind === 'vpn' ? 'the VPN' : 'this'} terminal`}>
+                  <TrashIcon size={13} />
                 </button>
               </li>
             ))}

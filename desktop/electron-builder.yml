@@ -20,6 +20,9 @@ asarUnpack:
   - "**/node_modules/@anthropic-ai/claude-agent-sdk*/**"
   # The in-app terminal's native addon and its spawn-helper.
   - "**/node_modules/node-pty/**"
+  # The Copilot runtime (its platform package) and its FFI addon.
+  - "**/node_modules/@github/copilot-sdk*/**"
+  - "**/node_modules/koffi/**"
 
 artifactName: "FJ-AI-Worker-${version}-${arch}.${ext}"
 

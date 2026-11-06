@@ -1042,3 +1042,8 @@ textarea.ao-mono-input {
 .ao-pipe-menu.ao-agents-menu,
 .ao-pipe-menu.ao-ready-menu,
 .ao-pipe-menu.ao-wf-settings { background: var(--glass-solid, var(--well-solid, #16161c)); z-index: 60; box-shadow: 0 18px 44px -12px rgb(0 0 0 / 0.6); }
+/* A terminal's row in the panel's list, with its own bin on hover. */
+.ao-dock-term-row { display: flex; align-items: center; gap: 2px; }
+.ao-dock-term-row .ao-dock-term { flex: 1; min-width: 0; }
+.ao-dock-kill { width: 24px; height: 24px; opacity: 0; transition: opacity 0.12s ease; }
+.ao-dock-term-row:hover .ao-dock-kill, .ao-dock-kill:focus-visible { opacity: 1; }

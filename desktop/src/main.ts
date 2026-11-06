@@ -11,6 +11,7 @@ import { loadLoginPath } from '../../core/src/login-env.js';
 import { setSessionFetch } from '../../core/src/network.js';
 import { applyProxy, registerIpc } from './ipc.js';
 import { closeAllTerminals } from './terminal.js';
+import { stopCopilot } from '../../core/src/copilot.js';
 
 // Tokens sealed with the system keychain. Only touched when one is actually
 // sealed or read (an ad-hoc signed app gets a keychain prompt on every update).
@@ -172,5 +173,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   cancelClaudeLogin();
+  void stopCopilot();
   closeAllTerminals();
 });

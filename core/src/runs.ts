@@ -8,7 +8,8 @@ import { assertClaudeAccount, claudeEnv, claudeExecutable } from './claude-accou
 import { baseToolEnv } from './login-env.js';
 import { toolEnv } from './network.js';
 import { collectArtifacts } from './artifacts.js';
-import { agentDefinition } from './library.js';
+import { agentDefinition, readLibrary } from './library.js';
+import { copilotTurn } from './copilot.js';
 import { projectNote, taskProject } from './project-context.js';
 import { createWorktree, git, gitLocal, localOrigin, removeWorktree, syncRepo, worktreeDir } from './repos.js';
 import { githubState, githubToken } from './github.js';
@@ -64,6 +65,10 @@ export type Run = {
   /** The task's library agent and model (null: plain Claude Code, the default model). */
   agent: string | null;
   model: string | null;
+  /** Which AI does the work: Claude (Claude Code) or GitHub Copilot. */
+  engine: 'claude' | 'copilot';
+  /** Copilot's own conversation, kept apart from Claude's (sessionId). */
+  copilotSessionId: string | null;
   /** "Run workflow" pressed: the steps are under way. */
   workflowStarted: boolean;
   baseBranch: string | null;
@@ -170,6 +175,8 @@ function upgrade(r: Run): Run {
   return {
     ...r,
     source: r.source ?? 'repo',
+    engine: r.engine ?? 'claude',
+    copilotSessionId: r.copilotSessionId ?? null,
     folder: r.folder ?? null,
     agent: r.agent ?? null,
     model: r.model ?? null,
@@ -276,6 +283,7 @@ export type NewRun = {
   /** The branch to start from (else the repo's default). */
   base?: string;
   checkCommand?: string;
+  engine?: 'claude' | 'copilot';
 };
 
 const slugId = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'task';
@@ -303,6 +311,8 @@ export function createRun(input: NewRun): Run {
     folder: !repo && folder ? path.resolve(folder) : null,
     agent: input.agent || null,
     model: input.model || null,
+    engine: input.engine ?? 'claude',
+    copilotSessionId: null,
     workflowStarted: false,
     baseBranch: null,
     createdAt: now,
@@ -468,10 +478,17 @@ function startWorkflowNow(r: Run): Promise<void> {
 }
 
 /** The task's own agent and model, for its conversation (and steps with none of their own). */
-export function setTaskOptions(id: string, opts: { agent?: string | null; model?: string | null }): Run {
+export function setTaskOptions(id: string, opts: { agent?: string | null; model?: string | null; engine?: 'claude' | 'copilot' }): Run {
   const r = getRun(id);
+  if (live.has(id)) throw new Error('Wait for it to finish');
   if ('agent' in opts) r.agent = opts.agent || null;
   if ('model' in opts) r.model = opts.model || null;
+  if (opts.engine && opts.engine !== r.engine) {
+    r.engine = opts.engine;
+    // Each AI's models are its own.
+    r.model = null;
+    log(r, 'system', `From here on ${opts.engine === 'copilot' ? 'GitHub Copilot' : 'Claude'} does the work — it starts its own conversation, with the task's brief.`, false);
+  }
   save(r);
   return r;
 }
@@ -500,7 +517,7 @@ async function chat(r: Run, text: string): Promise<void> {
   }
   log(r, 'you', text);
   try {
-    await assertClaudeAccount();
+    if (r.engine !== 'copilot') await assertClaudeAccount();
     await prepare(r);
     await claudeTurn(r, abort, {
       prompt: r.sessionId ? text : `${taskContext(r)}\n\n---\n${text}`,
@@ -735,7 +752,7 @@ async function analyse(r: Run, feedback?: string): Promise<void> {
   r.steps.review = 'pending';
   save(r);
   try {
-    await assertClaudeAccount();
+    if (r.engine !== 'copilot') await assertClaudeAccount();
     await prepare(r);
     // Revising: the same conversation. Starting: the task's conversation so far,
     // if the person already talked to Claude in it.
@@ -819,7 +836,12 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
   };
   const stepName = t.step === 'chat' ? 'conversation' : t.step;
   if (!t.ephemeral) {
-    r.current = { agent: def && agentName ? agentName : 'Claude Code', model: model ?? null, step: stepName, startedAt: new Date().toISOString() };
+    r.current = {
+      agent: def && agentName ? agentName : r.engine === 'copilot' ? 'GitHub Copilot' : 'Claude Code',
+      model: model ?? null,
+      step: stepName,
+      startedAt: new Date().toISOString(),
+    };
     save(r);
   }
   /** The subagents this turn started, by their Agent call's id. */
@@ -831,98 +853,102 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
       a.endedAt = new Date().toISOString();
     }
   };
-  const stream = query({
-    prompt: t.prompt,
-    options: {
-      cwd: workDir(r),
-      env: { ...claudeEnv(), ...note?.env },
-      ...(claudeExecutable() ? { pathToClaudeCodeExecutable: claudeExecutable()! } : {}),
-      // A library agent runs the conversation with its own prompt (and the
-      // step's rules after it); otherwise Claude Code's own, with the rules.
-      ...(def && agentName
-        ? { agents: { [agentName]: { ...def, prompt: `${def.prompt}\n\n${rules}` } }, agent: agentName }
-        : { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: rules } }),
-      ...(model ? { model } : {}),
-      tools: t.tools,
-      canUseTool,
-      // The app's own Claude folder (claude-account.ts): the imported skills
-      // and agents — nothing of the person's own ~/.claude.
-      settingSources: ['user'],
-      maxTurns: t.maxTurns,
-      abortController: abort,
-      ...(t.resume ? { resume: t.resume } : {}),
-    },
-  });
   let result: string | null = null;
   // For the Artifacts page: what it wrote, and since when.
   const since = Date.now() - 1000;
   const written: string[] = [];
   try {
-    for await (const m of stream as AsyncIterable<SDKMessage>) {
-      if (m.type === 'assistant' && m.parent_tool_use_id) {
-        // A subagent's own work: its tool calls go to its row (and the log, marked).
-        const a = subs.get(m.parent_tool_use_id);
-        for (const b of m.message.content) {
-          if (b.type !== 'tool_use') continue;
-          const line = describeTool(b.name, (b.input ?? {}) as Record<string, unknown>);
-          if (a) {
-            a.lastTool = line;
-            a.toolUses++;
+    if (r.engine === 'copilot') {
+      result = await copilotRun(r, abort, t, { rules, agentName: def && agentName ? agentName : null, model, stepName, subs, endSub, written });
+    } else {
+      const stream = query({
+        prompt: t.prompt,
+        options: {
+          cwd: workDir(r),
+          env: { ...claudeEnv(), ...note?.env },
+          ...(claudeExecutable() ? { pathToClaudeCodeExecutable: claudeExecutable()! } : {}),
+          // A library agent runs the conversation with its own prompt (and the
+          // step's rules after it); otherwise Claude Code's own, with the rules.
+          ...(def && agentName
+            ? { agents: { [agentName]: { ...def, prompt: `${def.prompt}\n\n${rules}` } }, agent: agentName }
+            : { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: rules } }),
+          ...(model ? { model } : {}),
+          tools: t.tools,
+          canUseTool,
+          // The app's own Claude folder (claude-account.ts): the imported skills
+          // and agents — nothing of the person's own ~/.claude.
+          settingSources: ['user'],
+          maxTurns: t.maxTurns,
+          abortController: abort,
+          ...(t.resume ? { resume: t.resume } : {}),
+        },
+      });
+      for await (const m of stream as AsyncIterable<SDKMessage>) {
+        if (m.type === 'assistant' && m.parent_tool_use_id) {
+          // A subagent's own work: its tool calls go to its row (and the log, marked).
+          const a = subs.get(m.parent_tool_use_id);
+          for (const b of m.message.content) {
+            if (b.type !== 'tool_use') continue;
+            const line = describeTool(b.name, (b.input ?? {}) as Record<string, unknown>);
+            if (a) {
+              a.lastTool = line;
+              a.toolUses++;
+            }
+            if (!t.ephemeral) log(r, 'tool', `↳ ${a?.name ?? 'subagent'}: ${line}`, false);
           }
-          if (!t.ephemeral) log(r, 'tool', `↳ ${a?.name ?? 'subagent'}: ${line}`, false);
-        }
-        save(r);
-      } else if (m.type === 'user' && !m.parent_tool_use_id && Array.isArray(m.message.content)) {
-        // A subagent's result back in the main conversation: it's done.
-        for (const b of m.message.content as { type: string; tool_use_id?: string; is_error?: boolean }[]) {
-          if (b.type === 'tool_result' && b.tool_use_id && subs.has(b.tool_use_id)) endSub(b.tool_use_id, b.is_error ? 'failed' : 'completed');
-        }
-        save(r);
-      } else if (m.type === 'system' && (m.subtype === 'task_progress' || m.subtype === 'task_notification')) {
-        const id = m.tool_use_id;
-        if (id && subs.has(id)) {
-          if (m.subtype === 'task_notification') endSub(id, m.status === 'completed' ? 'completed' : m.status === 'failed' ? 'failed' : 'stopped');
-          else if (m.last_tool_name) subs.get(id)!.lastTool = subs.get(id)!.lastTool ?? m.last_tool_name;
           save(r);
-        }
-      } else if (m.type === 'assistant') {
-        if (m.session_id && !t.ephemeral) r.sessionId = m.session_id;
-        for (const b of m.message.content) {
-          if (b.type === 'tool_use' && b.name === 'Agent') {
-            const input = (b.input ?? {}) as { subagent_type?: string; description?: string };
-            const a: AgentActivity = {
-              id: b.id,
-              name: input.subagent_type || 'general-purpose',
-              description: input.description ?? '',
-              step: stepName,
-              status: 'running',
-              startedAt: new Date().toISOString(),
-              endedAt: null,
-              lastTool: null,
-              toolUses: 0,
-            };
-            subs.set(b.id, a);
-            if (!t.ephemeral) {
-              r.agents.push(a);
-              if (r.agents.length > 60) r.agents.splice(0, r.agents.length - 60);
+        } else if (m.type === 'user' && !m.parent_tool_use_id && Array.isArray(m.message.content)) {
+          // A subagent's result back in the main conversation: it's done.
+          for (const b of m.message.content as { type: string; tool_use_id?: string; is_error?: boolean }[]) {
+            if (b.type === 'tool_result' && b.tool_use_id && subs.has(b.tool_use_id)) endSub(b.tool_use_id, b.is_error ? 'failed' : 'completed');
+          }
+          save(r);
+        } else if (m.type === 'system' && (m.subtype === 'task_progress' || m.subtype === 'task_notification')) {
+          const id = m.tool_use_id;
+          if (id && subs.has(id)) {
+            if (m.subtype === 'task_notification') endSub(id, m.status === 'completed' ? 'completed' : m.status === 'failed' ? 'failed' : 'stopped');
+            else if (m.last_tool_name) subs.get(id)!.lastTool = subs.get(id)!.lastTool ?? m.last_tool_name;
+            save(r);
+          }
+        } else if (m.type === 'assistant') {
+          if (m.session_id && !t.ephemeral) r.sessionId = m.session_id;
+          for (const b of m.message.content) {
+            if (b.type === 'tool_use' && b.name === 'Agent') {
+              const input = (b.input ?? {}) as { subagent_type?: string; description?: string };
+              const a: AgentActivity = {
+                id: b.id,
+                name: input.subagent_type || 'general-purpose',
+                description: input.description ?? '',
+                step: stepName,
+                status: 'running',
+                startedAt: new Date().toISOString(),
+                endedAt: null,
+                lastTool: null,
+                toolUses: 0,
+              };
+              subs.set(b.id, a);
+              if (!t.ephemeral) {
+                r.agents.push(a);
+                if (r.agents.length > 60) r.agents.splice(0, r.agents.length - 60);
+              }
             }
           }
-        }
-        for (const b of m.message.content) {
-          if (b.type === 'text' && b.text.trim()) {
-            if (!t.ephemeral) log(r, 'text', b.text, false);
-            t.onText?.(b.text);
-          } else if (b.type === 'tool_use') {
-            const input = (b.input ?? {}) as Record<string, unknown>;
-            log(r, 'tool', describeTool(b.name, input), false);
-            if ((b.name === 'Write' || b.name === 'Edit') && typeof input.file_path === 'string') written.push(input.file_path);
+          for (const b of m.message.content) {
+            if (b.type === 'text' && b.text.trim()) {
+              if (!t.ephemeral) log(r, 'text', b.text, false);
+              t.onText?.(b.text);
+            } else if (b.type === 'tool_use') {
+              const input = (b.input ?? {}) as Record<string, unknown>;
+              log(r, 'tool', describeTool(b.name, input), false);
+              if ((b.name === 'Write' || b.name === 'Edit') && typeof input.file_path === 'string') written.push(input.file_path);
+            }
           }
+          save(r);
+        } else if (m.type === 'result') {
+          if (m.subtype === 'success' && !m.is_error) result = m.result;
+          else if (m.subtype === 'error_max_turns') throw new Error('Claude ran out of turns before finishing');
+          else throw new Error(m.subtype === 'success' ? m.result : `Claude stopped (${m.subtype})`);
         }
-        save(r);
-      } else if (m.type === 'result') {
-        if (m.subtype === 'success' && !m.is_error) result = m.result;
-        else if (m.subtype === 'error_max_turns') throw new Error('Claude ran out of turns before finishing');
-        else throw new Error(m.subtype === 'success' ? m.result : `Claude stopped (${m.subtype})`);
       }
     }
   } finally {
@@ -940,8 +966,98 @@ async function claudeTurn(r: Run, abort: AbortController, t: Turn): Promise<stri
       // keeping documents never fails the turn
     }
   }
-  if (result == null) throw new Error('Claude gave no answer');
+  if (result == null) throw new Error(`${r.engine === 'copilot' ? 'Copilot' : 'Claude'} gave no answer`);
   return result;
+}
+
+/** Claude's model names mean nothing to Copilot: those fall back to its default. */
+const copilotModel = (m: string | null | undefined) => (m && !['opus', 'sonnet', 'haiku', 'fable'].includes(m) ? m : null);
+
+/** One line for a Copilot tool call in the log, in the same words as Claude's. */
+function describeCopilotTool(name: string, a: Record<string, unknown>): string {
+  const s = (k: string) => (typeof a[k] === 'string' ? (a[k] as string) : '');
+  const file = s('path') || s('file_path') || s('filePath');
+  if (/^(view|read|read_file|cat)$/.test(name)) return `Read ${file}`;
+  if (/^(edit|str_replace|str_replace_editor|apply_patch|write|create|write_file)$/.test(name)) return `Edit ${file}`;
+  if (/^(bash|shell|powershell|run_command)$/.test(name)) return `$ ${(s('command') || s('cmd')).split('\n')[0].slice(0, 200)}`;
+  if (/^(grep|search|rg)$/.test(name)) return `Search “${s('pattern') || s('query')}”`;
+  if (/^(glob|find|ls|list)$/.test(name)) return `Find ${s('pattern') || file}`;
+  return name;
+}
+
+/** A turn on GitHub Copilot: the same rules, log, subagent rows and files written as a Claude turn. */
+async function copilotRun(
+  r: Run,
+  abort: AbortController,
+  t: Turn,
+  ctx: {
+    rules: string;
+    agentName: string | null;
+    model: string | null;
+    stepName: string;
+    subs: Map<string, AgentActivity>;
+    endSub: (id: string, status: AgentActivity['status']) => void;
+    written: string[];
+  },
+): Promise<string> {
+  const canEdit = t.tools.includes('Edit') || t.tools.includes('Write');
+  const canRun = t.tools.includes('Bash');
+  const agents = readLibrary()
+    .agents.map((a) => {
+      const def = agentDefinition(a.name);
+      return def ? { name: a.name, description: def.description, prompt: ctx.agentName === a.name ? `${def.prompt}\n\n${ctx.rules}` : def.prompt } : null;
+    })
+    .filter((a): a is { name: string; description: string; prompt: string } => !!a);
+  return copilotTurn({
+    cwd: workDir(r),
+    // Its first message carries the task's brief: Claude's conversation isn't Copilot's.
+    prompt: (t.resume && r.copilotSessionId) || t.prompt.startsWith(taskContext(r).slice(0, 60)) ? t.prompt : `${taskContext(r)}\n\n---\n${t.prompt}`,
+    resume: t.ephemeral ? null : t.resume ? r.copilotSessionId : null,
+    model: copilotModel(t.model ?? ctx.model),
+    system: ctx.rules,
+    agents,
+    agent: ctx.agentName,
+    rules: {
+      readOnly: !canEdit && !canRun,
+      allowWrite: (p) => canEdit && insideWorktree(r, p),
+      shellRefusal: (cmd) =>
+        !canRun ? 'No commands in this step.' : FORBIDDEN_BASH.test(cmd) ? 'Leave git commits, branches, pushes and GitHub to FJ AI Worker — just change the files.' : null,
+    },
+    signal: abort.signal,
+    events: {
+      onSession: (id) => {
+        if (!t.ephemeral) r.copilotSessionId = id;
+      },
+      onText: (text) => {
+        if (!t.ephemeral) log(r, 'text', text, false);
+        t.onText?.(text);
+        save(r);
+      },
+      onTool: (name, args, parent) => {
+        const line = describeCopilotTool(name, args);
+        const file = (args.path ?? args.file_path) as string | undefined;
+        if (/^(edit|str_replace|str_replace_editor|write|create|write_file)$/.test(name) && typeof file === 'string') ctx.written.push(file);
+        const a = parent ? ctx.subs.get(parent) : undefined;
+        if (a) {
+          a.lastTool = line;
+          a.toolUses++;
+        }
+        if (!t.ephemeral) log(r, 'tool', parent ? `↳ ${a?.name ?? 'subagent'}: ${line}` : line, false);
+        save(r);
+      },
+      onSubagentStart: (id, name, description) => {
+        const a: AgentActivity = { id, name, description, step: ctx.stepName, status: 'running', startedAt: new Date().toISOString(), endedAt: null, lastTool: null, toolUses: 0 };
+        ctx.subs.set(id, a);
+        if (!t.ephemeral) r.agents.push(a);
+        save(r);
+      },
+      onSubagentEnd: (id, status) => {
+        ctx.endSub(id, status);
+        save(r);
+      },
+      onRefused: (what) => log(r, 'system', `Refused: ${what}`, false),
+    },
+  });
 }
 
 // ---- Step 4: the fix ----------------------------------------------------------
@@ -1024,7 +1140,7 @@ async function fix(r: Run, failed?: TestResult, byHand = false, review?: Feedbac
   r.steps.test = 'pending';
   save(r);
   try {
-    await assertClaudeAccount();
+    if (r.engine !== 'copilot') await assertClaudeAccount();
     await prepare(r);
     const wt = workDir(r);
     if (!r.branch && (r.source === 'repo' || r.linked || (await isGitRepo(wt)))) {

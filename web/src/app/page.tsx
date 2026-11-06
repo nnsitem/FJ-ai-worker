@@ -4,29 +4,33 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ClaudeCard } from '@/components/ClaudeCard';
 import { GithubCard } from '@/components/GithubCard';
 import { JiraCard } from '@/components/JiraCard';
+import { CopilotCard } from '@/components/CopilotCard';
 import { VpnCard } from '@/components/VpnCard';
-import { ClaudeIcon, ConnectionsIcon, GithubIcon, JiraIcon, VpnIcon } from '@/components/icons';
+import { ClaudeIcon, ConnectionsIcon, CopilotIcon, GithubIcon, JiraIcon, VpnIcon } from '@/components/icons';
 import { call, type VpnStatus } from '@/lib/bridge';
 
-type View = 'all' | 'vpn' | 'github' | 'claude' | 'jira';
+type View = 'all' | 'vpn' | 'github' | 'claude' | 'copilot' | 'jira';
 type Tone = 'ok' | 'warn' | 'bad' | undefined;
 
 /** Where each connection stands, for the nav's dots — read on opening and every 30s. */
 function useTones(vpnUp: boolean) {
-  const [tones, setTones] = useState<Record<Exclude<View, 'all' | 'vpn'>, Tone>>({ github: undefined, claude: undefined, jira: undefined });
+  const [tones, setTones] = useState<Record<Exclude<View, 'all' | 'vpn'>, Tone>>({ github: undefined, claude: undefined, copilot: undefined, jira: undefined });
   useEffect(() => {
     let live = true;
     const check = async () => {
-      const [g, c, j] = await Promise.all([
+      const [g, c, j, cp] = await Promise.all([
         vpnUp ? call('githubState').catch(() => null) : Promise.resolve(null),
         call('claudeAccount').catch(() => null),
         call('jiraState').catch(() => null),
+        call('copilotAccount').catch(() => null),
       ]);
       if (!live) return;
       setTones({
         github: !vpnUp ? undefined : g?.signedIn ? 'ok' : 'warn',
         claude: !c ? 'bad' : c.ok ? 'ok' : c.loggedIn ? 'bad' : 'warn',
         jira: !j ? undefined : j.connected ? 'ok' : 'warn',
+        // Copilot is optional: grey until signed in.
+        copilot: cp?.loggedIn ? 'ok' : undefined,
       });
     };
     void check();
@@ -57,6 +61,7 @@ export default function ConnectionsPage() {
     { id: 'vpn', label: 'VPN', icon: <VpnIcon size={16} />, tone: vpnTone },
     { id: 'github', label: 'GitHub', icon: <GithubIcon size={16} />, tone: tones.github },
     { id: 'claude', label: 'Claude', icon: <ClaudeIcon size={16} />, tone: tones.claude },
+    { id: 'copilot', label: 'Copilot', icon: <CopilotIcon size={16} />, tone: tones.copilot },
     { id: 'jira', label: 'Jira', icon: <JiraIcon size={16} />, tone: tones.jira },
   ];
   const shown = (id: View) => view === 'all' || view === id;
@@ -80,7 +85,7 @@ export default function ConnectionsPage() {
         <div className="ao-settings-content-inner">
           <div className="ao-settings-header">
             <h2>{items.find((i) => i.id === view)!.label}</h2>
-            <p>What FJ AI Worker needs before it can work a ticket — GitHub through the VPN, Claude and Jira direct.</p>
+            <p>What FJ AI Worker needs before it can work a ticket — GitHub through the VPN, Claude (or Copilot) and Jira.</p>
           </div>
           {/* The VPN card stays mounted: GitHub and Jira read whether the tunnel is up from it. */}
           <div className="ao-status-card-slot" hidden={!shown('vpn')}>
@@ -88,6 +93,7 @@ export default function ConnectionsPage() {
           </div>
           {shown('github') && <GithubCard vpnUp={vpnUp} />}
           {shown('claude') && <ClaudeCard />}
+          {shown('copilot') && <CopilotCard />}
           {shown('jira') && <JiraCard vpnUp={vpnUp} />}
         </div>
       </div>
