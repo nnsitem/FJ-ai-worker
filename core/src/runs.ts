@@ -982,6 +982,7 @@ function describeCopilotTool(name: string, a: Record<string, unknown>): string {
   if (/^(bash|shell|powershell|run_command)$/.test(name)) return `$ ${(s('command') || s('cmd')).split('\n')[0].slice(0, 200)}`;
   if (/^(grep|search|rg)$/.test(name)) return `Search “${s('pattern') || s('query')}”`;
   if (/^(glob|find|ls|list)$/.test(name)) return `Find ${s('pattern') || file}`;
+  if (name === 'task') return `Agent ${s('agent_type') || s('agentType') || s('name') || 'subagent'}: ${s('description') || s('prompt').slice(0, 120)}`.replace(/: $/, '');
   return name;
 }
 

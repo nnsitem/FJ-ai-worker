@@ -283,8 +283,9 @@ export async function copilotTurn(opts: {
   const onAbort = () => void session.abort().catch(() => {});
   opts.signal.addEventListener('abort', onAbort);
   try {
-    // No timeout of its own: a long fix takes as long as it takes; Stop aborts it.
-    const reply = await session.sendAndWait({ prompt: opts.prompt }, 0 as unknown as number);
+    // A long fix takes as long as it takes (Stop aborts it); the SDK needs a
+    // limit, and 0 means none at all — so a day.
+    const reply = await session.sendAndWait({ prompt: opts.prompt }, 24 * 60 * 60 * 1000);
     if (opts.signal.aborted) throw new Error('Stopped');
     return reply?.data.content ?? '';
   } finally {

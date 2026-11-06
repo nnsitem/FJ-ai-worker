@@ -1,8 +1,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { AgentLogo } from '@/components/AgentLogo';
-import { CloseIcon, EditIcon, PanelIcon, PipelineIcon, ToolIcon } from '@/components/icons';
+import { ClaudeIcon, CloseIcon, CopilotIcon, EditIcon, PanelIcon, PipelineIcon, ToolIcon } from '@/components/icons';
 import { bridge, call, type Run } from '@/lib/bridge';
 import { NEW_TASK_AGENT_KEY, OPEN_TASK_KEY } from '@/lib/models';
 import { OPEN_TASK_EVENT, takeParked } from '@/lib/open';
@@ -314,8 +313,8 @@ function TaskCard({
     >
       <div className="ao-card-meta">
         <span className="ao-card-src">
-          <span className="ao-agent-mark" title="Claude" aria-label="Claude">
-            <AgentLogo provider="claude" />
+          <span className="ao-agent-mark" title={run.engine === 'copilot' ? 'GitHub Copilot' : 'Claude'} aria-label={run.engine === 'copilot' ? 'GitHub Copilot' : 'Claude'}>
+            {run.engine === 'copilot' ? <CopilotIcon size={14} /> : <ClaudeIcon size={14} />}
           </span>
           <span className="ao-dot-sep">·</span>
           <span className="ao-card-repo">{placeName(run)}</span>
