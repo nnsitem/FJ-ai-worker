@@ -1,0 +1,44 @@
+appId: com.aiworker.desktop
+productName: AI Worker
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - package.json
+
+extraResources:
+  # The exported Next.js UI, served over app:// by main.ts.
+  - from: ../web/out
+    to: renderer
+
+# The agent SDK spawns its `claude` binary from disk — not from inside asar.
+asar: true
+asarUnpack:
+  - "**/node_modules/@anthropic-ai/claude-agent-sdk*/**"
+
+artifactName: "AI-Worker-${version}-${arch}.${ext}"
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  # Ad-hoc signed: a valid signature without a Developer ID (see AI Office).
+  identity: "-"
+  hardenedRuntime: false
+
+toolsets:
+  nsis: "1.2.1"
+  winCodeSign: "1.1.0"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  artifactName: "AI-Worker-Setup-${version}.${ext}"
+  oneClick: false
+  allowToChangeInstallationDirectory: true

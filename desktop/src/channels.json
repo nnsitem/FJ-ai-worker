@@ -1,0 +1,22 @@
+{
+  "settingsGet": "settings:get",
+  "settingsSave": "settings:save",
+  "vpnStatus": "vpn:status",
+  "vpnOpenScript": "vpn:open-script",
+  "githubState": "github:state",
+  "githubDeviceStart": "github:device-start",
+  "githubDeviceFinish": "github:device-finish",
+  "githubDeviceCancel": "github:device-cancel",
+  "githubUseToken": "github:use-token",
+  "githubFromGh": "github:from-gh",
+  "githubSignOut": "github:sign-out",
+  "githubRepos": "github:repos",
+  "claudeAccount": "claude:account",
+  "claudeLogin": "claude:login",
+  "claudeSubmitCode": "claude:submit-code",
+  "claudeCancelLogin": "claude:cancel-login",
+  "claudeLogout": "claude:logout",
+  "claudeLoginEvent": "claude:login-event",
+  "openExternal": "app:open-external",
+  "appInfo": "app:info"
+}
