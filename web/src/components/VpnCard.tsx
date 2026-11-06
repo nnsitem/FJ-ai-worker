@@ -54,6 +54,21 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
     }
   };
 
+  const [disconnecting, setDisconnecting] = useState(false);
+  const disconnect = async () => {
+    setError(null);
+    setDisconnecting(true);
+    try {
+      const s = await call('vpnDisconnect');
+      setStatus(s);
+      onChange?.(s);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   const tone = !status ? undefined : status.github ? 'ok' : status.tunnel ? 'warn' : 'bad';
   const label = !status ? 'Checking…' : status.github ? 'Connected' : status.tunnel ? 'Tunnel open, GitHub not reachable' : 'Not connected';
 
@@ -81,6 +96,11 @@ export function VpnCard({ onChange }: { onChange?: (s: VpnStatus) => void }) {
         <button type="button" className="ao-btn-secondary" onClick={() => void check()} disabled={checking}>
           {checking ? 'Checking…' : 'Check again'}
         </button>
+        {status?.tunnel && (
+          <button type="button" className="ao-btn-danger" onClick={() => void disconnect()} disabled={disconnecting} title="Closes the tunnel — GitHub, pushes and Copilot through the VPN stop until you connect again">
+            {disconnecting ? 'Disconnecting…' : 'Disconnect VPN'}
+          </button>
+        )}
       </div>
     </section>
   );

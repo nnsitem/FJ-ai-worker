@@ -3,6 +3,7 @@
   "settingsSave": "settings:save",
   "vpnStatus": "vpn:status",
   "vpnOpenScript": "vpn:open-script",
+  "vpnDisconnect": "vpn:disconnect",
   "githubState": "github:state",
   "githubDeviceStart": "github:device-start",
   "githubDeviceFinish": "github:device-finish",

@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import net from 'node:net';
 import fs from 'node:fs';
 import { getSettings, type Settings } from './settings.js';
@@ -75,6 +76,37 @@ export async function vpnStatus(): Promise<VpnStatus> {
   } catch (e) {
     return { tunnel, github: false, error: e instanceof Error ? e.message : String(e), checkedAt };
   }
+}
+
+/**
+ * The tunnel closed: the VPN script's ssh (`ssh -D <port> -f`, running on by
+ * itself) is the process listening on the SOCKS port — stopped, and only if
+ * it is ssh, so nothing else that happens to hold the port is touched. The
+ * script's global git proxy is left as it set it.
+ */
+export async function vpnDisconnect(): Promise<VpnStatus> {
+  const { host, port } = getSettings().proxy;
+  if (!/^(127\.0\.0\.1|localhost|::1)$/.test(host)) throw new Error(`The tunnel is on ${host}, not this Mac — close it there`);
+  const out = await new Promise<string>((resolve) =>
+    execFile('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpc'], (_err, stdout) => resolve(stdout ?? '')),
+  );
+  const procs: { pid: number; cmd: string }[] = [];
+  for (const line of out.split('\n')) {
+    if (line.startsWith('p')) procs.push({ pid: Number(line.slice(1)), cmd: '' });
+    else if (line.startsWith('c') && procs.length) procs[procs.length - 1].cmd = line.slice(1);
+  }
+  if (!procs.length) return vpnStatus();
+  const ssh = procs.filter((p) => p.cmd === 'ssh');
+  if (!ssh.length) throw new Error(`Port ${port} is held by ${procs.map((p) => p.cmd).join(', ')}, not the VPN's ssh — left alone`);
+  for (const p of ssh) {
+    try {
+      process.kill(p.pid, 'SIGTERM');
+    } catch {
+      /* already gone */
+    }
+  }
+  for (let i = 0; i < 20 && (await tunnelListening(undefined, 300)); i++) await new Promise((r) => setTimeout(r, 250));
+  return vpnStatus();
 }
 
 /**

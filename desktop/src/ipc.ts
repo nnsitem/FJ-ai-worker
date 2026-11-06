@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import CHANNELS from './channels.json' with { type: 'json' };
 import { getSettings, saveSettings, type SettingsPatch } from '../../core/src/settings.js';
-import { pacScript, vpnStatus } from '../../core/src/network.js';
+import { pacScript, vpnDisconnect, vpnStatus } from '../../core/src/network.js';
 import {
   cancelDeviceFlow,
   finishDeviceFlow,
@@ -137,6 +137,7 @@ export function registerIpc(win: () => BrowserWindow | null): void {
   });
 
   handle(CHANNELS.vpnStatus, () => vpnStatus());
+  handle(CHANNELS.vpnDisconnect, () => vpnDisconnect());
   handle(CHANNELS.vpnOpenScript, async () => {
     const script = getSettings().vpnScript;
     if (!script || !fs.existsSync(script)) throw new Error('Set the VPN script in Settings first');

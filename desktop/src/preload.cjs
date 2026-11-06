@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('aiWorker', {
   saveSettings: (patch) => ipcRenderer.invoke(C.settingsSave, patch),
   vpnStatus: () => ipcRenderer.invoke(C.vpnStatus),
   openVpnScript: () => ipcRenderer.invoke(C.vpnOpenScript),
+  vpnDisconnect: () => ipcRenderer.invoke(C.vpnDisconnect),
   githubState: () => ipcRenderer.invoke(C.githubState),
   githubDeviceStart: () => ipcRenderer.invoke(C.githubDeviceStart),
   githubDeviceFinish: () => ipcRenderer.invoke(C.githubDeviceFinish),

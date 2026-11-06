@@ -183,6 +183,7 @@ type Bridge = {
   getSettings(): P<Settings>;
   saveSettings(patch: SettingsPatch): P<Settings>;
   vpnStatus(): P<VpnStatus>;
+  vpnDisconnect(): P<VpnStatus>;
   openVpnScript(): P<void>;
   githubState(): P<GithubState>;
   githubDeviceStart(): P<DeviceCode>;
